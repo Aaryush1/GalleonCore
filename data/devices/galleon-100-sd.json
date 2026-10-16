@@ -1,0 +1,29 @@
+{
+    "name": "Corsair Galleon 100 SD",
+    "usb": {
+        "vendorId": "1b1c",
+        "keyboardProductId": "2b0c",
+        "streamDeckProductId": "2b18"
+    },
+    "statusScreen": {
+        "widthPx": null,
+        "heightPx": null,
+        "source": "To confirm on the hardware: sources disagree (1280x720 or 720x180)."
+    },
+    "keys": {
+        "columns": null,
+        "rows": null,
+        "imageWidthPx": null,
+        "imageHeightPx": null,
+        "keyWidthMm": null,
+        "keyHeightMm": null,
+        "gapXMm": null,
+        "gapYMm": null,
+        "source": "To measure with a ruler on the hardware. 12 keys in total; layout to confirm."
+    },
+    "throughput": {
+        "statusScreenMaxFps": null,
+        "allKeysMaxFps": null,
+        "source": "To measure by sending a burst of images and timing it."
+    }
+}

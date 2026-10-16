@@ -112,11 +112,75 @@ Conflit possible avec Elgato Stream Deck et Corsair Web Hub, à fermer. Valeur a
 - Reste du dépôt : **GPL-3.0-or-later**.
 - Dépendances compatibles : galleon-deck et node-elgato-stream-deck (MIT), hidapi, Qt (LGPLv3), frameworks KDE (LGPL).
 
-## 8. Prochaines étapes, à la réception du clavier
+## 8. Fonds d'écran
 
-- [ ] `lsusb -v` et `usbhid-dump` sur les deux interfaces, résultats dans `docs/protocol/`
-- [ ] Installer galleon-deck pour valider la partie Stream Deck
-- [ ] Lire `docs/PROTOCOL.md` de galleon-deck et confirmer la résolution de l'écran
-- [ ] Implémenter le keep-alive et l'envoi d'images dans `libgalleon`
-- [ ] Tester Web Hub sous Chromium et capturer avec `usbmon` + Wireshark
-- [ ] Décoder les trames de couleur
+Le rendu de l'écran d'état (et éventuellement des touches) se compose en trois couches :
+
+```
+3. Tuiles / widgets QML     horloge, capteurs, lecture en cours…
+2. Voile de lisibilité      dégradé ou assombrissement sous les tuiles
+1. Fond                     image fixe ou courte vidéo, éventuellement étalée sur les 12 touches
+```
+
+- Le fond est décodé et mis à l'échelle **une seule fois**, puis mis en cache ; seules les tuiles qui changent sont redessinées.
+- Les fonds générés doivent respecter le ratio de la cible et une **zone de sécurité** pour les tuiles.
+- Une palette extraite du fond peut colorer les tuiles.
+- Éviter les dégradés fins : le clavier reçoit du JPEG, qui les dégrade en blocs.
+- Styles envisagés (générés par IA une fois les specs connues) : manga classique, manga cyberpunk, cyberpunk occidental, personnage de jeu vidéo original, portrait de personnage fictif, ambiance cinéma ou série.
+- Fonds du projet : [`public/wallpaper/`](../public/wallpaper/), un dossier par style avec un `PROVENANCE.md` (outil, date, prompt de chaque image), sous CC-BY-SA-4.0. Format de travail : 16:9 au plus grand, sujet dans la bande horizontale centrale (doit survivre à un recadrage 4:1), tiers gauche plus calme pour les tuiles.
+- Règles légales et de licence : voir [`ASSETS.md`](../ASSETS.md). En bref : les styles sont libres, pas les personnages, marques, personnes réelles ni extraits.
+
+## 9. Géométrie du périphérique
+
+Les dimensions ne sont pas écrites en dur : elles vivent dans [`data/devices/galleon-100-sd.json`](../data/devices/galleon-100-sd.json), lu par `galleond` et par l'appli de réglages. Les valeurs sont vides (`null`) tant qu'elles ne sont pas mesurées.
+
+Le calcul des zones de découpe de la grille de touches est une fonction pure de `libgalleon` (`galleon/Layout.h`, testée dans `tests/test_layout.cpp`) : à partir de la taille des touches et des espaces entre elles, en millimètres, elle découpe le cadre choisi sur l'image en 12 rectangles. Les parties qui tombent dans les espaces sont perdues, ce qui rend l'image continue à l'œil, comme vue à travers une grille.
+
+## 10. Application de réglages
+
+Nom de travail : **Galleon-Discover**. Attention, *Discover* est aussi la logithèque de KDE : le nom est à confirmer avant la première publication. Alternatives : Galleon Studio, Galleon Settings, ou un module des Paramètres système (KCM).
+
+- Vit dans un dossier `settings/` du même dépôt, pas dans une branche séparée.
+- **Ne lie pas `libgalleon` directement** : elle parle à `galleond` par D-Bus, car un seul processus peut tenir le clavier (keep-alive).
+
+### Import et recadrage d'images
+1. Import par glisser-déposer ou sélecteur de fichiers KDE (PNG, JPEG, WebP), décodage avec une limite mémoire (`QImageReader::setAllocationLimit`), puisque le fichier est une donnée externe.
+2. Recadrage par cible (écran d'état, grille des 12 touches, tuile Plasmoid) : cadre verrouillé au ratio de la cible, modes remplir/ajuster/rogner, grille des touches avec leurs espaces, zone de sécurité, indicateur de lisibilité.
+3. Bouton « Essayer sur le clavier » : aperçu immédiat via `galleond`, sans enregistrer.
+4. Enregistrement **non destructif** dans `~/.local/share/galleoncore/backgrounds/<nom>/` : image originale, `manifest.json` (rectangles de recadrage, origine, licence) et images pré-calculées par cible. Si la géométrie change, on régénère depuis les originaux.
+
+### Fonds animés
+- Sélection d'une plage dans une vidéo plus longue : fenêtre de **5 s par défaut**, déplaçable, aux bords extensibles (limites fixées par la mesure du débit).
+- Même recadrage que pour les images, boucle fondue en option, pas de son.
+- Extraction **une fois pour toutes** à l'enregistrement : recadrage, mise à l'échelle et encodage JPEG de chaque frame à la résolution exacte. `galleond` n'envoie ensuite que des JPEG prêts.
+- **FFmpeg appelé en processus séparé** : isole les décodeurs vidéo (surface d'attaque) et évite toute question de licence de liaison.
+- Ordre de grandeur : 5 s à 12 images/s = 60 JPEG, quelques Mo par clip.
+- Lecture en pause quand la session est verrouillée ou en veille.
+- La vidéo est réaliste sur l'écran d'état ; sur les 12 touches (12 JPEG par frame), elle dépendra du débit mesuré.
+
+## 11. Liste de la réception du clavier
+
+**Avant de brancher**
+- [ ] Préparer Wireshark avec `usbmon` (`sudo modprobe usbmon`), garder un second clavier branché
+
+**Identification**
+- [ ] Brancher sans rien lancer, observer le mode pavé numérique natif
+- [ ] `lsusb -v` et `usbhid-dump` sur `1b1c:2b0c` et `1b1c:2b18`, résultats dans `docs/protocol/`
+
+**Mesures physiques, à la règle** (pour `data/devices/galleon-100-sd.json`)
+- [ ] Taille d'une touche LCD et espace entre deux touches, horizontal et vertical
+- [ ] Disposition des 12 touches (colonnes × rangées)
+- [ ] Taille visible de l'écran d'état
+
+**Stream Deck**
+- [ ] Installer galleon-deck pour valider que le module répond sous Linux
+- [ ] Lire son `docs/PROTOCOL.md`, confirmer la résolution de l'écran et des touches
+- [ ] Mesurer le débit : images par seconde sur l'écran d'état, puis sur les 12 touches
+
+**RVB, prudemment**
+- [ ] Ouvrir Corsair Web Hub dans Chromium, changer quelques couleurs, capturer le trafic
+- [ ] Lecture seule de notre côté : aucune écriture tant que le format n'est pas compris
+
+**Ensuite, dans GalleonCore**
+- [ ] Remplir `data/devices/galleon-100-sd.json` avec les mesures
+- [ ] Implémenter le keep-alive et l'envoi d'une première image dans `libgalleon`, avec des tests construits sur les captures

@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 add_library(galleon SHARED
+    include/galleon/Layout.h
     include/galleon/Protocol.h
     include/galleon/Transport.h
     include/galleon/HidTransport.h
     include/galleon/StreamDeck.h
+    src/Layout.cpp
     src/Protocol.cpp
     src/HidTransport.cpp
     src/StreamDeck.cpp

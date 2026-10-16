@@ -12,5 +12,6 @@ function(galleon_add_test name)
     )
 endfunction()
 
+galleon_add_test(test_layout)
 galleon_add_test(test_protocol)
 galleon_add_test(test_streamdeck FakeTransport.h)
