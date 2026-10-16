@@ -1,0 +1,121 @@
+# GalleonCore
+
+🇬🇧 [Read in English](README.md) · *La version anglaise fait référence en cas de différence.*
+
+**La plateforme ouverte pour le Corsair Galleon 100 SD sous Linux.**
+
+Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique est remplacé par un module Elgato Stream Deck : 12 touches LCD, un écran et deux molettes. Corsair et Elgato ne supportent la partie Stream Deck que sous Windows et macOS. GalleonCore vise à rendre chaque partie du clavier utilisable sous Linux, et à l'intégrer au bureau.
+
+> ⚠️ **Projet à ses débuts.** Le dépôt contient la structure du projet, le squelette de compilation et l'outillage de tests. Rien ne communique encore avec le matériel.
+
+> GalleonCore n'est affilié ni à Corsair ni à Elgato.
+
+## Objectifs
+
+- **Module Stream Deck** : afficher sur les 12 touches et l'écran, lire les touches et les molettes.
+- **Widgets partagés** : les mêmes widgets QML (horloge, moniteur système, lecture en cours…) rendus sur l'écran du clavier *et* affichés en widgets KDE Plasma sur le bureau.
+- **Éclairage RVB** : RVB par touche, barre d'ambiance et anneaux des molettes, via [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB).
+- **Plugin OpenRGB** : configurer le deck depuis OpenRGB et synchroniser ses thèmes avec l'éclairage.
+- **Portage Windows**, plus tard, pour tout ce qui n'est pas spécifique à KDE.
+
+## État
+
+| Partie | État |
+|---|---|
+| Protocole Stream Deck (touches, écran, molettes) | Connu grâce au travail communautaire, à implémenter dans `libgalleon` |
+| Rendu QML hors écran vers le deck | Prévu |
+| Démon + interface D-Bus | Squelette |
+| Widgets KDE Plasma | Squelette |
+| Éclairage RVB | **En cours d'investigation.** Le protocole (Corsair « V2 »/Bragi) n'est encore supporté nulle part. Le support doit être intégré en amont dans OpenRGB. |
+| Plugin OpenRGB | Prévu |
+| Windows | Prévu, en dernier |
+
+## Architecture
+
+```
+lib/               libgalleon, bibliothèque C++20/Qt 6 (LGPL-3.0-or-later)
+  Protocol         fonctions pures : octets ↔ événements et rapports, sans E/S
+  Transport        E/S HID brutes (hidapi), remplaçables par un faux en test
+  StreamDeck       keep-alive, lecture des entrées, signaux Qt
+daemon/            galleond : pilote le deck, expose une API D-Bus
+widgets/           Widgets QML partagés, sans dépendance à Plasma
+plasmoid/          Widgets KDE Plasma réutilisant widgets/
+tests/             Tests unitaires Qt Test
+fuzz/              Cibles libFuzzer pour les parseurs du protocole
+openrgb-plugin/    (prévu) Plugin OpenRGB
+```
+
+Garder le protocole sans entrées/sorties permet de tester unitairement et de fuzzer chaque format de trame sans le clavier.
+
+Le contrôleur RVB lui-même ne vit pas ici : il sera développé dans un fork d'OpenRGB et proposé en merge request au `CorsairPeripheralV2Controller`, pour que tous les utilisateurs d'OpenRGB en profitent.
+
+## Compilation
+
+Prérequis : CMake ≥ 3.21, un compilateur C++20 (GCC ≥ 11 ou Clang ≥ 14), Qt 6 (Core, Gui, Qml, Quick, DBus), hidapi (backend hidraw).
+
+Sous Debian/Ubuntu :
+
+```sh
+sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config
+cmake -B build
+cmake --build build
+ctest --test-dir build
+```
+
+Options CMake :
+
+| Option | Défaut | Effet |
+|---|---|---|
+| `BUILD_TESTING` | `ON` | Compile les tests unitaires |
+| `GALLEON_WERROR` | `OFF` | Traite les avertissements comme des erreurs |
+| `GALLEON_SANITIZE` | `OFF` | AddressSanitizer + UndefinedBehaviorSanitizer |
+| `GALLEON_FUZZ` | `OFF` | Cibles libFuzzer (Clang uniquement) |
+
+Pour donner à ton utilisateur l'accès au clavier sans root :
+
+```sh
+sudo cp tools/udev/70-galleon.rules /etc/udev/rules.d/
+sudo udevadm control --reload && sudo udevadm trigger
+```
+
+## Qualité du code
+
+À chaque push et pull request, GitHub Actions lance :
+
+- une compilation avec avertissements stricts traités en erreurs, avec GCC et avec Clang ;
+- les tests unitaires, y compris sous AddressSanitizer et UndefinedBehaviorSanitizer ;
+- 60 secondes de fuzzing sur le parseur des rapports d'entrée ;
+- clang-tidy, qmllint, et `reuse lint` pour les licences.
+
+Pour reproduire la passe avec sanitizers en local :
+
+```sh
+CXX=clang++ cmake -B build-asan -DGALLEON_SANITIZE=ON -DGALLEON_FUZZ=ON
+cmake --build build-asan
+ctest --test-dir build-asan
+./build-asan/fuzz/fuzz_input_report -max_total_time=60
+```
+
+## Notes matérielles
+
+| Partie | ID USB |
+|---|---|
+| Clavier (RVB, touches) | `1b1c:2b0c` |
+| Module Stream Deck | `1b1c:2b18` |
+
+Les notes de protocole et les captures vont dans [`docs/protocol/`](docs/protocol/). Les notes de conception détaillées sont dans [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+## Remerciements
+
+GalleonCore s'appuie sur la rétro-ingénierie réalisée par :
+
+- [node-elgato-stream-deck](https://github.com/Julusian/node-elgato-stream-deck) (MIT), qui a ajouté le support du Galleon en v7.5.0 ;
+- [galleon-deck](https://github.com/NLMP-DDHS/galleon-deck) (MIT), un service Stream Deck en Python pour le Galleon sous Linux ;
+- [opendeck-galleon](https://github.com/shanelord01/opendeck-galleon), un plugin OpenDeck pour le Galleon.
+
+## Licence
+
+- `lib/` (libgalleon) : **LGPL-3.0-or-later**, pour que d'autres projets puissent réutiliser la bibliothèque de protocole.
+- Tout le reste : **GPL-3.0-or-later**.
+
+Les textes complets sont dans [`LICENSES/`](LICENSES/). Les fichiers portent des en-têtes SPDX, selon la convention [REUSE](https://reuse.software).

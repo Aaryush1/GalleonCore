@@ -1,0 +1,6 @@
+version = 1
+
+[[annotations]]
+path = ["README.md", "README.fr.md", "CLAUDE.md", "docs/**", ".gitignore", "plasmoid/**/metadata.json"]
+SPDX-FileCopyrightText = "2026 Paul Woisard"
+SPDX-License-Identifier = "GPL-3.0-or-later"
