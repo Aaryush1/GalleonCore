@@ -158,7 +158,17 @@ Nom de travail : **Galleon-Discover**. Attention, *Discover* est aussi la logith
 - Lecture en pause quand la session est verrouillée ou en veille.
 - La vidéo est réaliste sur l'écran d'état ; sur les 12 touches (12 JPEG par frame), elle dépendra du débit mesuré.
 
-## 11. Liste de la réception du clavier
+## 11. Robustesse
+
+### Données externes
+Toute donnée externe est non fiable jusqu'à sa validation complète : rapports HID du clavier, images et vidéos importées, fichiers de configuration. On valide dans l'ordre la longueur, les valeurs (identifiant de rapport, index de touche, crans de molette), puis la séquence. Une entrée invalide est rejetée et journalisée, jamais une cause de plantage. Les tests de cas limites (rapports tronqués, mauvais identifiant, index hors bornes) seront écrits à partir des premières captures réelles, pas avant.
+
+### Fuites mémoire
+- Les tests tournent sous ASan, UBSan et **LeakSanitizer**, activé explicitement ; le fuzzing détecte aussi les fuites.
+- Angle mort : LSan ne voit que la mémoire devenue inaccessible à la sortie. Le vrai risque pour `galleond`, qui tourne des jours, est une **fuite logique** : un cache de frames ou des QObject qui s'accumulent en restant atteignables.
+- À prévoir quand le démon affichera réellement des images : un **test d'endurance** qui le fait tourner plusieurs heures (changements de fond, vidéos en boucle, débranchements/rebranchements) en surveillant sa mémoire avec heaptrack ou valgrind/massif. Critère : la mémoire se stabilise au lieu de croître.
+
+## 12. Liste de la réception du clavier
 
 **Avant de brancher**
 - [ ] Préparer Wireshark avec `usbmon` (`sudo modprobe usbmon`), garder un second clavier branché
