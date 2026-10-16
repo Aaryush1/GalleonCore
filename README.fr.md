@@ -1,6 +1,10 @@
+<p align="center"><img src="site/logo.svg" alt="" width="96" height="96"></p>
+
 # GalleonCore
 
 🇬🇧 [Read in English](README.md) · *La version anglaise fait référence en cas de différence.*
+
+🌐 [Site web](https://paullux.github.io/GalleonCore/)
 
 **La plateforme ouverte pour le Corsair Galleon 100 SD sous Linux.**
 

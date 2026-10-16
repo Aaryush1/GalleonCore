@@ -1,0 +1,521 @@
+<!doctype html>
+<!-- SPDX-FileCopyrightText: 2026 Paul Woisard -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GalleonCore</title>
+<meta name="description" content="Open-source Linux support for the Corsair Galleon 100 SD keyboard: Stream Deck keys, screen and dials, RGB lighting, and widgets for KDE Plasma.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --page: #E3E5E7;
+  --ink: #1F242B;
+  --muted: #545E69;
+  --line: #C5CAD0;
+  --code-bg: #D5D9DD;
+  --body: #2A2F36;
+  --key: #46505E;
+  --key-top: #525D6C;
+  --legend: #E6E9EC;
+  --amber: #F2A93B;
+  --amber-ink: #2B1D06;
+  --lcd: #15110B;
+  --display: "Chakra Petch", system-ui, sans-serif;
+  --text: "Atkinson Hyperlegible", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #1A1D21;
+    --ink: #E3E5E7;
+    --muted: #A0A9B3;
+    --line: #353B43;
+    --code-bg: #252A30;
+    --body: #30363E;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #1A1D21;
+  --ink: #E3E5E7;
+  --muted: #A0A9B3;
+  --line: #353B43;
+  --code-bg: #252A30;
+  --body: #30363E;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 400 1.0625rem/1.6 var(--text);
+}
+a { color: inherit; text-underline-offset: 0.18em; }
+a:focus-visible, button:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Language switching: every translatable string exists in both languages. */
+:root[data-lang="en"] [lang="fr"]:not(html),
+:root[data-lang="fr"] [lang="en"]:not(html) { display: none; }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; }
+@media (min-width: 720px) { .wrap { padding-inline: 32px; } }
+
+/* Header */
+.site-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 20px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 1.125rem/1 var(--display);
+  text-decoration: none;
+}
+.brand img { width: 32px; height: 32px; }
+.head-links { display: flex; align-items: center; gap: 20px; font-size: 0.9375rem; }
+.lang-toggle {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.lang-toggle:hover { border-color: var(--muted); }
+
+/* Hero */
+.hero {
+  display: grid;
+  gap: 48px;
+  align-items: center;
+  padding-block: 32px 72px;
+}
+@media (min-width: 900px) {
+  .hero { grid-template-columns: 1fr minmax(380px, 460px); gap: 72px; padding-block: 56px 104px; }
+}
+.hero h1 {
+  font: 700 clamp(2.75rem, 7vw, 4.75rem)/0.95 var(--display);
+  letter-spacing: -0.02em;
+  margin: 0 0 24px;
+}
+.lead { font-size: 1.25rem; line-height: 1.5; max-width: 34em; margin: 0 0 20px; }
+.note { color: var(--muted); max-width: 38em; margin: 0 0 32px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn {
+  display: inline-block;
+  font: 600 1rem/1 var(--display);
+  padding: 14px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+  border: 2px solid var(--ink);
+}
+.btn-primary { background: var(--ink); color: var(--page); }
+.btn-primary:hover { background: transparent; color: var(--ink); }
+.btn-secondary:hover { background: var(--ink); color: var(--page); }
+
+/* The deck: the hero object and the site navigation */
+.deck {
+  background: var(--body);
+  border-radius: 22px;
+  padding: 20px 20px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 48px -24px rgba(20, 24, 30, 0.55);
+}
+.deck-top { display: grid; grid-template-columns: 1fr auto; gap: 16px; margin-bottom: 16px; }
+.screen {
+  background: var(--lcd);
+  border-radius: 8px;
+  padding: 14px 16px;
+  min-height: 96px;
+  color: var(--amber);
+  box-shadow: inset 0 0 0 1px rgba(242, 169, 59, 0.18), inset 0 0 24px rgba(242, 169, 59, 0.08);
+}
+.screen-title { font: 600 1.125rem/1.2 var(--display); margin: 0 0 6px; }
+.screen-text { font: 500 0.9375rem/1.35 var(--display); margin: 0; opacity: 0.85; }
+.dials { display: grid; gap: 12px; align-content: center; }
+.dial {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5B6574, #2B3038 70%);
+  box-shadow: 0 0 0 3px #22262C, 0 0 0 4px rgba(242, 169, 59, 0.35);
+  position: relative;
+}
+.dial::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 3px;
+  height: 10px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--legend);
+}
+.keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.key {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px;
+  border-radius: 10px;
+  background: linear-gradient(var(--key-top), var(--key));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 #1E2227;
+  color: var(--legend);
+  font: 600 clamp(0.75rem, 2.6vw, 0.875rem)/1.15 var(--display);
+  text-decoration: none;
+  transition: transform 80ms ease, box-shadow 80ms ease, color 80ms ease;
+}
+.key:hover, .key:focus-visible { color: var(--amber); }
+.key:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 0 #1E2227; }
+.key-lit { background: var(--amber); color: var(--amber-ink); }
+.key-lit:hover, .key-lit:focus-visible { color: var(--amber-ink); background: #F7BC5E; }
+.key:focus-visible { outline-offset: 2px; }
+.mood-bar {
+  height: 6px;
+  margin-top: 16px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #E5484D, #F2A93B, #E9D53F, #46A758, #2EB8C4, #3E63DD, #8E4EC6);
+  opacity: 0.85;
+}
+
+/* The single orchestrated moment: the keys light up once, like a boot. */
+@media (prefers-reduced-motion: no-preference) {
+  .key { animation: boot 420ms ease-out both; animation-delay: calc(var(--i) * 55ms + 150ms); }
+  @keyframes boot { from { color: transparent; filter: brightness(0.6); } to { filter: none; } }
+}
+
+/* Content sections */
+section { padding-block: 0 64px; }
+/* The rule sits inside the content box, aligned with the text. */
+section::before { content: ""; display: block; border-top: 1px solid var(--line); margin-bottom: 56px; }
+h2 {
+  font: 600 clamp(1.75rem, 3.4vw, 2.25rem)/1.1 var(--display);
+  margin: 0 0 16px;
+  letter-spacing: -0.01em;
+}
+h3 { font: 600 1.25rem/1.25 var(--display); margin: 0 0 8px; }
+.prose { max-width: 40em; }
+.prose p { margin: 0 0 16px; }
+
+.goals { display: grid; gap: 32px; margin-top: 32px; }
+@media (min-width: 900px) { .goals { grid-template-columns: repeat(3, 1fr); gap: 40px; } }
+.goals p { margin: 0; color: var(--muted); }
+.goals > div { scroll-margin-top: 24px; }
+
+.status { margin: 32px 0 0; padding: 0; list-style: none; max-width: 52em; }
+.status li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: baseline;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.state { display: inline-flex; align-items: center; gap: 8px; font: 600 0.9375rem/1 var(--display); white-space: nowrap; }
+.state::before { content: ""; width: 10px; height: 10px; border-radius: 50%; }
+.state-active::before { background: var(--amber); box-shadow: 0 0 0 3px rgba(242, 169, 59, 0.25); }
+.state-skeleton::before { background: var(--muted); }
+.state-planned::before { border: 2px solid var(--muted); }
+.state-research::before { background: repeating-linear-gradient(45deg, var(--muted) 0 2px, transparent 2px 4px); border: 1px solid var(--muted); }
+.status-legend { color: var(--muted); font-size: 0.9375rem; margin: 16px 0 0; max-width: 44em; }
+
+.map { margin: 32px 0 0; max-width: 52em; }
+.map div { display: grid; gap: 4px 32px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+@media (min-width: 720px) { .map div { grid-template-columns: 11em 1fr; } }
+.map dt { font: 600 1.0625rem/1.4 var(--display); }
+.map dd { margin: 0; }
+.map .sub { color: var(--muted); display: block; margin-top: 4px; }
+
+pre {
+  background: var(--code-bg);
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  max-width: 52em;
+  margin: 16px 0 24px;
+}
+code { font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace; }
+p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; font-size: 0.92em; }
+
+.checks { padding-left: 1.25em; max-width: 44em; }
+.checks li { margin-bottom: 8px; }
+
+.two-col { display: grid; gap: 48px; }
+@media (min-width: 900px) { .two-col { grid-template-columns: 1fr 1fr; } }
+.two-col ul { padding-left: 1.25em; margin: 0; }
+.two-col li { margin-bottom: 8px; }
+
+.site-foot { padding-block: 0 48px; color: var(--muted); font-size: 0.9375rem; }
+.site-foot::before { content: ""; display: block; border-top: 1px solid var(--line); margin-bottom: 32px; }
+.site-foot p { margin: 0 0 8px; max-width: 52em; }
+</style>
+</head>
+<body>
+
+<header class="wrap site-head">
+  <a class="brand" href="#top" id="top"><img src="logo.svg" alt="" width="32" height="32">GalleonCore</a>
+  <div class="head-links">
+    <a href="https://github.com/Paullux/GalleonCore">GitHub</a>
+    <button class="lang-toggle" type="button" id="lang-toggle"><span lang="en">Français</span><span lang="fr">English</span></button>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1>GalleonCore</h1>
+      <p class="lead">
+        <span lang="en">Open-source Linux support for the Corsair Galleon 100 SD: its Stream Deck keys, screen and dials, its RGB lighting, and widgets that show on both the keyboard and your KDE desktop.</span>
+        <span lang="fr">Le support Linux libre du Corsair Galleon 100 SD : les touches, l'écran et les molettes de son Stream Deck, son éclairage RVB, et des widgets affichés à la fois sur le clavier et sur ton bureau KDE.</span>
+      </p>
+      <p class="note">
+        <span lang="en">Early stage. The project structure, build and test tooling are in place; nothing talks to the hardware yet.</span>
+        <span lang="fr">Projet à ses débuts. La structure, la compilation et l'outillage de tests sont en place ; rien ne communique encore avec le matériel.</span>
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore"><span lang="en">View the source</span><span lang="fr">Voir le code</span></a>
+        <a class="btn btn-secondary" href="#status"><span lang="en">See what works</span><span lang="fr">Voir l'avancement</span></a>
+      </div>
+    </div>
+
+    <nav class="deck" aria-label="Site sections">
+      <div class="deck-top">
+        <div class="screen" aria-hidden="true">
+          <p class="screen-title" id="screen-title"></p>
+          <p class="screen-text" id="screen-text"></p>
+        </div>
+        <div class="dials" aria-hidden="true"><span class="dial"></span><span class="dial"></span></div>
+      </div>
+      <div class="keys">
+        <a class="key" style="--i:0" href="#status" data-en="Where each part of the project stands." data-fr="Où en est chaque partie du projet."><span lang="en">Status</span><span lang="fr">État</span></a>
+        <a class="key" style="--i:1" href="#architecture" data-en="Library, daemon, widgets: how it fits together." data-fr="Bibliothèque, démon, widgets : comment tout s'articule."><span lang="en">Archi&shy;tecture</span><span lang="fr">Archi&shy;tecture</span></a>
+        <a class="key" style="--i:2" href="#build" data-en="Build GalleonCore and give your user access to the keyboard." data-fr="Compiler GalleonCore et donner accès au clavier."><span lang="en">Build</span><span lang="fr">Com&shy;piler</span></a>
+        <a class="key" style="--i:3" href="#quality" data-en="Tests, sanitizers, fuzzing and lints on every change." data-fr="Tests, sanitizers, fuzzing et lints à chaque modification."><span lang="en">Tests</span><span lang="fr">Tests</span></a>
+        <a class="key" style="--i:4" href="#deck" data-en="Draw on the 12 keys and the screen, read the dials." data-fr="Afficher sur les 12 touches et l'écran, lire les molettes."><span lang="en">Stream Deck</span><span lang="fr">Stream Deck</span></a>
+        <a class="key" style="--i:5" href="#widgets" data-en="The same QML widgets on the keyboard and in Plasma." data-fr="Les mêmes widgets QML sur le clavier et dans Plasma."><span lang="en">Widgets</span><span lang="fr">Widgets</span></a>
+        <a class="key" style="--i:6" href="#rgb" data-en="Per-key RGB, mood bar and dials, through OpenRGB." data-fr="RVB par touche, barre d'ambiance et molettes, via OpenRGB."><span lang="en">RGB</span><span lang="fr">RVB</span></a>
+        <a class="key" style="--i:7" href="https://github.com/Paullux/GalleonCore/tree/main/docs/protocol" data-en="Protocol notes and USB captures, each fact with its source." data-fr="Notes de protocole et captures USB, chaque fait sourcé."><span lang="en">Protocol</span><span lang="fr">Proto&shy;cole</span></a>
+        <a class="key" style="--i:8" href="https://github.com/Paullux/GalleonCore/blob/main/docs/ROADMAP.md" data-en="Detailed design notes and next steps (in French)." data-fr="Notes de conception détaillées et prochaines étapes."><span lang="en">Roadmap</span><span lang="fr">Feuille de route</span></a>
+        <a class="key" style="--i:9" href="#credits" data-en="The reverse engineering GalleonCore builds on." data-fr="La rétro-ingénierie sur laquelle s'appuie GalleonCore."><span lang="en">Credits</span><span lang="fr">Merci</span></a>
+        <a class="key" style="--i:10" href="https://github.com/Paullux/GalleonCore/issues" data-en="Report a bug or share a capture of your keyboard." data-fr="Signaler un bug ou partager une capture de ton clavier."><span lang="en">Issues</span><span lang="fr">Tickets</span></a>
+        <a class="key key-lit" style="--i:11" href="https://github.com/Paullux/GalleonCore" data-en="Source code on GitHub, GPL-3.0 and LGPL-3.0." data-fr="Le code source sur GitHub, GPL-3.0 et LGPL-3.0."><span lang="en">GitHub</span><span lang="fr">GitHub</span></a>
+      </div>
+      <div class="mood-bar" aria-hidden="true"></div>
+    </nav>
+  </div>
+
+  <section class="wrap" id="goals">
+    <h2><span lang="en">What it will do</span><span lang="fr">Ce que le projet fera</span></h2>
+    <div class="goals">
+      <div id="deck">
+        <h3>Stream Deck</h3>
+        <p>
+          <span lang="en">Drive the 12 LCD keys, the screen and the two dials from Linux, without Elgato's software, which only runs on Windows and macOS.</span>
+          <span lang="fr">Piloter les 12 touches LCD, l'écran et les deux molettes depuis Linux, sans le logiciel d'Elgato, réservé à Windows et macOS.</span>
+        </p>
+      </div>
+      <div id="widgets">
+        <h3><span lang="en">Shared widgets</span><span lang="fr">Widgets partagés</span></h3>
+        <p>
+          <span lang="en">Write a widget once in QML: a clock, a system monitor, what's playing. It renders on the keyboard screen and sits on your KDE Plasma desktop.</span>
+          <span lang="fr">Écrire un widget une seule fois en QML : horloge, moniteur système, lecture en cours. Il s'affiche sur l'écran du clavier et sur ton bureau KDE Plasma.</span>
+        </p>
+      </div>
+      <div id="rgb">
+        <h3><span lang="en">RGB lighting</span><span lang="fr">Éclairage RVB</span></h3>
+        <p>
+          <span lang="en">Per-key colours, the mood bar and the dial rings, through OpenRGB, so every OpenRGB user gets the support too.</span>
+          <span lang="fr">Couleurs par touche, barre d'ambiance et anneaux des molettes, via OpenRGB, pour que tous ses utilisateurs en profitent.</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="status">
+    <h2><span lang="en">Status</span><span lang="fr">Avancement</span></h2>
+    <ul class="status">
+      <li><span><span lang="en">Stream Deck protocol: keys, screen, dials</span><span lang="fr">Protocole Stream Deck : touches, écran, molettes</span></span><span class="state state-active"><span lang="en">In progress</span><span lang="fr">En cours</span></span></li>
+      <li><span><span lang="en">Rendering QML widgets to the keyboard screen</span><span lang="fr">Rendu des widgets QML sur l'écran du clavier</span></span><span class="state state-planned"><span lang="en">Planned</span><span lang="fr">Prévu</span></span></li>
+      <li><span><span lang="en">galleond daemon and D-Bus interface</span><span lang="fr">Démon galleond et interface D-Bus</span></span><span class="state state-skeleton"><span lang="en">Skeleton</span><span lang="fr">Squelette</span></span></li>
+      <li><span><span lang="en">KDE Plasma widgets</span><span lang="fr">Widgets KDE Plasma</span></span><span class="state state-skeleton"><span lang="en">Skeleton</span><span lang="fr">Squelette</span></span></li>
+      <li><span><span lang="en">RGB lighting in OpenRGB</span><span lang="fr">Éclairage RVB dans OpenRGB</span></span><span class="state state-research"><span lang="en">Investigating</span><span lang="fr">En investigation</span></span></li>
+      <li><span><span lang="en">OpenRGB plugin</span><span lang="fr">Plugin OpenRGB</span></span><span class="state state-planned"><span lang="en">Planned</span><span lang="fr">Prévu</span></span></li>
+      <li><span>Windows</span><span class="state state-planned"><span lang="en">Planned, last</span><span lang="fr">Prévu, en dernier</span></span></li>
+    </ul>
+    <p class="status-legend">
+      <span lang="en">The RGB protocol is not supported by any project yet: a wrong colour write can freeze the keyboard until it is unplugged, so this part moves carefully, from real captures.</span>
+      <span lang="fr">Le protocole RVB n'est encore supporté par aucun projet : une mauvaise écriture de couleur peut figer le clavier jusqu'au débranchement. Cette partie avance donc prudemment, à partir de captures réelles.</span>
+    </p>
+  </section>
+
+  <section class="wrap" id="architecture">
+    <h2><span lang="en">How it fits together</span><span lang="fr">Comment tout s'articule</span></h2>
+    <dl class="map">
+      <div>
+        <dt>libgalleon</dt>
+        <dd>
+          <span lang="en">The C++20 / Qt 6 library that talks to the keyboard.</span>
+          <span lang="fr">La bibliothèque C++20 / Qt 6 qui dialogue avec le clavier.</span>
+          <span class="sub">
+            <span lang="en">Split in three layers: the protocol (pure functions, no I/O), the transport (HID access), and the deck logic. The protocol can be tested and fuzzed without the keyboard. LGPL-3.0, so other projects can reuse it.</span>
+            <span lang="fr">Découpée en trois couches : le protocole (fonctions pures, sans entrées/sorties), le transport (accès HID) et la logique du deck. Le protocole se teste et se fuzze sans le clavier. Sous LGPL-3.0, pour que d'autres projets puissent la réutiliser.</span>
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt>galleond</dt>
+        <dd>
+          <span lang="en">The daemon. It owns the keyboard, renders widgets for its screen and offers a D-Bus interface to the rest of the desktop.</span>
+          <span lang="fr">Le démon. Il possède le clavier, rend les widgets pour son écran et offre une interface D-Bus au reste du bureau.</span>
+        </dd>
+      </div>
+      <div>
+        <dt><span lang="en">Widgets</span><span lang="fr">Widgets</span></dt>
+        <dd>
+          <span lang="en">Plain QML, with no Plasma dependency, so the same file runs inside galleond and inside a Plasma widget.</span>
+          <span lang="fr">Du QML pur, sans dépendance à Plasma : le même fichier tourne dans galleond et dans un widget Plasma.</span>
+        </dd>
+      </div>
+      <div>
+        <dt><span lang="en">RGB controller</span><span lang="fr">Contrôleur RVB</span></dt>
+        <dd>
+          <span lang="en">Developed in OpenRGB itself and proposed upstream, rather than in this repository.</span>
+          <span lang="fr">Développé dans OpenRGB lui-même et proposé en amont, plutôt que dans ce dépôt.</span>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="wrap" id="build">
+    <h2><span lang="en">Build it</span><span lang="fr">Compiler</span></h2>
+    <div class="prose">
+      <p><span lang="en">On Debian, Ubuntu or Kubuntu:</span><span lang="fr">Sous Debian, Ubuntu ou Kubuntu :</span></p>
+    </div>
+<pre><code>sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config
+git clone https://github.com/Paullux/GalleonCore
+cd GalleonCore
+cmake -B build
+cmake --build build
+ctest --test-dir build</code></pre>
+    <div class="prose">
+      <p><span lang="en">To use the keyboard without root, install the udev rule:</span><span lang="fr">Pour utiliser le clavier sans root, installe la règle udev :</span></p>
+    </div>
+<pre><code>sudo cp tools/udev/70-galleon.rules /etc/udev/rules.d/
+sudo udevadm control --reload &amp;&amp; sudo udevadm trigger</code></pre>
+  </section>
+
+  <section class="wrap" id="quality">
+    <h2><span lang="en">Checked on every change</span><span lang="fr">Vérifié à chaque modification</span></h2>
+    <div class="prose">
+      <p>
+        <span lang="en">A driver reads bytes from hardware, which is where memory bugs hide. Every pull request has to pass these checks before it can land:</span>
+        <span lang="fr">Un pilote lit des octets venant du matériel, et c'est là que se cachent les bugs mémoire. Chaque pull request doit passer ces vérifications avant d'être fusionnée :</span>
+      </p>
+    </div>
+    <ul class="checks">
+      <li><span lang="en">a build with GCC and Clang, strict warnings treated as errors;</span><span lang="fr">une compilation avec GCC et Clang, avertissements stricts traités en erreurs ;</span></li>
+      <li><span lang="en">the unit tests, also under AddressSanitizer and UndefinedBehaviorSanitizer;</span><span lang="fr">les tests unitaires, aussi sous AddressSanitizer et UndefinedBehaviorSanitizer ;</span></li>
+      <li><span lang="en">a minute of fuzzing on the input report parser;</span><span lang="fr">une minute de fuzzing sur le parseur des rapports d'entrée ;</span></li>
+      <li><span lang="en">clang-tidy, qmllint, and a REUSE licensing check.</span><span lang="fr">clang-tidy, qmllint, et une vérification des licences REUSE.</span></li>
+    </ul>
+  </section>
+
+  <section class="wrap" id="credits">
+    <div class="two-col">
+      <div>
+        <h2><span lang="en">Credits</span><span lang="fr">Remerciements</span></h2>
+        <p class="prose"><span lang="en">GalleonCore builds on the reverse engineering done by:</span><span lang="fr">GalleonCore s'appuie sur la rétro-ingénierie réalisée par :</span></p>
+        <ul>
+          <li><a href="https://github.com/Julusian/node-elgato-stream-deck">node-elgato-stream-deck</a><span lang="en">, which added Galleon support in v7.5.0;</span><span lang="fr">, qui a ajouté le support du Galleon en v7.5.0 ;</span></li>
+          <li><a href="https://github.com/NLMP-DDHS/galleon-deck">galleon-deck</a><span lang="en">, a Python Stream Deck service for the Galleon;</span><span lang="fr">, un service Stream Deck en Python pour le Galleon ;</span></li>
+          <li><a href="https://github.com/shanelord01/opendeck-galleon">opendeck-galleon</a><span lang="en">, an OpenDeck plugin for the Galleon.</span><span lang="fr">, un plugin OpenDeck pour le Galleon.</span></li>
+        </ul>
+      </div>
+      <div id="license">
+        <h2><span lang="en">License</span><span lang="fr">Licence</span></h2>
+        <ul>
+          <li><span lang="en">The library, libgalleon: LGPL-3.0-or-later.</span><span lang="fr">La bibliothèque libgalleon : LGPL-3.0-or-later.</span></li>
+          <li><span lang="en">Everything else: GPL-3.0-or-later.</span><span lang="fr">Tout le reste : GPL-3.0-or-later.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap site-foot">
+  <p>
+    <span lang="en">GalleonCore is not affiliated with Corsair or Elgato. Corsair, Galleon and Stream Deck are trademarks of their respective owners.</span>
+    <span lang="fr">GalleonCore n'est affilié ni à Corsair ni à Elgato. Corsair, Galleon et Stream Deck sont des marques de leurs propriétaires respectifs.</span>
+  </p>
+  <p><span lang="en">Made by Paul Woisard and contributors.</span><span lang="fr">Réalisé par Paul Woisard et les contributeurs.</span> <a href="https://github.com/Paullux/GalleonCore"><span lang="en">Source</span><span lang="fr">Code source</span></a></p>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var idle = {
+    en: ["galleond", "Waiting for a Galleon 100 SD. Pick a key."],
+    fr: ["galleond", "En attente d'un Galleon 100 SD. Choisis une touche."]
+  };
+  var title = document.getElementById("screen-title");
+  var text = document.getElementById("screen-text");
+
+  function lang() { return root.getAttribute("data-lang"); }
+
+  function showIdle() {
+    title.textContent = idle[lang()][0];
+    text.textContent = idle[lang()][1];
+  }
+
+  function setLang(value) {
+    root.setAttribute("data-lang", value);
+    root.setAttribute("lang", value);
+    try { localStorage.setItem("galleoncore-lang", value); } catch (e) {}
+    showIdle();
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem("galleoncore-lang"); } catch (e) {}
+  var initial = saved || ((navigator.language || "en").toLowerCase().indexOf("fr") === 0 ? "fr" : "en");
+  setLang(initial);
+
+  document.getElementById("lang-toggle").addEventListener("click", function () {
+    setLang(lang() === "fr" ? "en" : "fr");
+  });
+
+  document.querySelectorAll(".key").forEach(function (key) {
+    function show() {
+      var label = key.querySelector('[lang="' + lang() + '"]');
+      title.textContent = label ? label.textContent.replace(/­/g, "") : "";
+      text.textContent = key.getAttribute("data-" + lang());
+    }
+    key.addEventListener("mouseenter", show);
+    key.addEventListener("focus", show);
+    key.addEventListener("mouseleave", showIdle);
+    key.addEventListener("blur", showIdle);
+  });
+})();
+</script>
+</body>
+</html>
