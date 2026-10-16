@@ -107,7 +107,7 @@ ctest --test-dir build-asan
 | Keyboard (RGB, keys) | `1b1c:2b0c` |
 | Stream Deck module | `1b1c:2b18` |
 
-Protocol notes and captures go in [`docs/protocol/`](docs/protocol/).
+Protocol notes and captures go in [`docs/protocol/`](docs/protocol/). Images and videos added to the repository follow [`ASSETS.md`](ASSETS.md).
 
 ## Credits
 

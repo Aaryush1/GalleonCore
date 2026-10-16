@@ -107,7 +107,7 @@ ctest --test-dir build-asan
 | Clavier (RVB, touches) | `1b1c:2b0c` |
 | Module Stream Deck | `1b1c:2b18` |
 
-Les notes de protocole et les captures vont dans [`docs/protocol/`](docs/protocol/). Les notes de conception détaillées sont dans [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Les notes de protocole et les captures vont dans [`docs/protocol/`](docs/protocol/). Les notes de conception détaillées sont dans [`docs/ROADMAP.md`](docs/ROADMAP.md). Les images et vidéos ajoutées au dépôt suivent [`ASSETS.md`](ASSETS.md) (en anglais).
 
 ## Remerciements
 

@@ -9,11 +9,13 @@ Full design notes (French): `docs/ROADMAP.md`. Read it before architectural chan
   - `Protocol.h/.cpp`: pure functions, bytes ↔ events/reports. No Qt, no hidapi, no I/O.
   - `Transport.h` (interface), `HidTransport` (hidapi). Raw I/O only.
   - `StreamDeck`: logic (keep-alive, polling, signals). Takes a `Transport`, so it is testable with `tests/FakeTransport.h`.
+  - `Layout.h/.cpp`: pure geometry, splits one image over the key grid.
 - `daemon/` galleond, GPL-3.0-or-later. Drives the deck, exposes D-Bus (`org.galleoncore.Deck`).
 - `widgets/` shared pure-QML widgets. **No PlasmaCore/Kirigami imports here**: they must render off-screen in galleond.
 - `plasmoid/` KDE Plasma 6 widgets reusing `widgets/`.
 - `tests/` Qt Test, `fuzz/` libFuzzer targets for the protocol layer.
 - `docs/protocol/` protocol notes and USB captures.
+- `data/devices/` device descriptions (screen size, key size and gaps in mm, measured throughput). `null` until measured: never fill a value without a measurement or a cited source.
 - RGB controller is NOT developed here: it goes to a fork of OpenRGB (`Controllers/CorsairPeripheralV2Controller/`).
 
 ## Rules
@@ -21,6 +23,7 @@ Full design notes (French): `docs/ROADMAP.md`. Read it before architectural chan
 - Never invent protocol bytes. Protocol facts come from node-elgato-stream-deck, galleon-deck (`docs/PROTOCOL.md`) or real captures in `docs/protocol/`; cite the source in a comment.
 - RGB writes can freeze the keyboard until unplugged. Never send anything that writes to flash (hardware save, persistent mode).
 - Memory safety: no raw `new`/`delete` (use `std::unique_ptr`, or Qt parent ownership for QObjects), no pointer arithmetic on HID buffers (use `std::span`/`std::array`), check every length before reading a report.
+- Images and videos in the repository follow `ASSETS.md`: no existing characters, trademarks, real people or footage; CC-BY-SA-4.0 by default; provenance recorded.
 - Every protocol change comes with a Qt Test case, ideally built from a real capture. Parsers must stay fuzzable (`fuzz/`).
 - Code must build with `-DGALLEON_WERROR=ON` and pass clang-tidy (`.clang-tidy`) and the tests under `-DGALLEON_SANITIZE=ON`.
 
