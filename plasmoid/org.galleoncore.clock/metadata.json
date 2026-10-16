@@ -1,0 +1,19 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Paul Woisard"
+            }
+        ],
+        "Category": "Date and Time",
+        "Description": "Clock shared with the Corsair Galleon 100 SD screen",
+        "Icon": "preferences-system-time",
+        "Id": "org.galleoncore.clock",
+        "License": "GPL-3.0-or-later",
+        "Name": "Galleon Clock",
+        "Version": "0.1.0",
+        "Website": "https://github.com/Paullux/GalleonCore"
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
