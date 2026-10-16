@@ -4,3 +4,8 @@ version = 1
 path = ["README.md", "README.fr.md", "CLAUDE.md", "docs/**", ".gitignore", "plasmoid/**/metadata.json", "data/**", "ASSETS.md"]
 SPDX-FileCopyrightText = "2026 Paul Woisard"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "public/wallpaper/**"
+SPDX-FileCopyrightText = "2026 Paul Woisard"
+SPDX-License-Identifier = "CC-BY-SA-4.0"

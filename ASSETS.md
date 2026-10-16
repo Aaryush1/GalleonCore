@@ -20,6 +20,10 @@ The default license for images and videos is **CC-BY-SA-4.0**. Declare it in `RE
 
 Styles are free to use: manga, cyberpunk, space western, cinematic lighting. Characters, logos and footage are not.
 
+## Where they go
+
+Wallpapers go in [`public/wallpaper/`](public/wallpaper/), one folder per style, with a `PROVENANCE.md` listing each file. That folder is CC-BY-SA-4.0 as a whole.
+
 ## AI-generated assets
 
 - Do not name an existing work, character or artist in the prompt.

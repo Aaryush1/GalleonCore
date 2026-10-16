@@ -127,6 +127,7 @@ Le rendu de l'écran d'état (et éventuellement des touches) se compose en troi
 - Une palette extraite du fond peut colorer les tuiles.
 - Éviter les dégradés fins : le clavier reçoit du JPEG, qui les dégrade en blocs.
 - Styles envisagés (générés par IA une fois les specs connues) : manga classique, manga cyberpunk, cyberpunk occidental, personnage de jeu vidéo original, portrait de personnage fictif, ambiance cinéma ou série.
+- Fonds du projet : [`public/wallpaper/`](../public/wallpaper/), un dossier par style avec un `PROVENANCE.md` (outil, date, prompt de chaque image), sous CC-BY-SA-4.0. Format de travail : 16:9 au plus grand, sujet dans la bande horizontale centrale (doit survivre à un recadrage 4:1), tiers gauche plus calme pour les tuiles.
 - Règles légales et de licence : voir [`ASSETS.md`](../ASSETS.md). En bref : les styles sont libres, pas les personnages, marques, personnes réelles ni extraits.
 
 ## 9. Géométrie du périphérique
