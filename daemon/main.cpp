@@ -9,7 +9,7 @@
 
 int main(int argc, char *argv[])
 {
-    QGuiApplication app(argc, argv);
+    const QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("galleond"));
     QGuiApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION_STRING));
 
@@ -28,5 +28,5 @@ int main(int argc, char *argv[])
     if (!QDBusConnection::sessionBus().registerService(QStringLiteral("org.galleoncore.Deck")))
         qWarning() << "galleond: cannot register D-Bus service";
 
-    return app.exec();
+    return QGuiApplication::exec();
 }

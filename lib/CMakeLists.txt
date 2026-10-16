@@ -2,7 +2,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 add_library(galleon SHARED
+    include/galleon/Protocol.h
+    include/galleon/Transport.h
+    include/galleon/HidTransport.h
     include/galleon/StreamDeck.h
+    src/Protocol.cpp
+    src/HidTransport.cpp
     src/StreamDeck.cpp
 )
 
@@ -13,7 +18,7 @@ target_include_directories(galleon PUBLIC
 
 target_link_libraries(galleon
     PUBLIC Qt6::Core Qt6::Gui
-    PRIVATE PkgConfig::HIDAPI
+    PRIVATE PkgConfig::HIDAPI galleon_warnings
 )
 
 set_target_properties(galleon PROPERTIES

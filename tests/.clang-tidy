@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Qt Test runs test functions as private slots, so they must stay members.
+# Fakes expose their state publicly so tests can inspect it.
+---
+InheritParentConfig: true
+Checks: >
+  -readability-convert-member-functions-to-static,
+  -cppcoreguidelines-non-private-member-variables-in-classes

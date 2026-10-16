@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC
+            cxx: g++
+            flags: ""
+          - name: Clang + ASan/UBSan
+            cxx: clang++
+            flags: "-DGALLEON_SANITIZE=ON -DGALLEON_FUZZ=ON"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ clang libclang-rt-18-dev \
+            qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config
+      - name: Configure
+        run: cmake -B build -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DGALLEON_WERROR=ON ${{ matrix.flags }}
+      - name: Build
+        run: cmake --build build -j
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Fuzz (60 s)
+        if: contains(matrix.flags, 'GALLEON_FUZZ')
+        run: ./build/fuzz/fuzz_input_report -max_total_time=60
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ clang-tidy \
+            qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config pipx \
+            qml6-module-qtquick qml6-module-qtqml qml6-module-qtqml-workerscript
+      - name: Configure
+        run: cmake -B build
+      - name: Build (generates moc files)
+        run: cmake --build build -j
+      - name: clang-tidy
+        run: run-clang-tidy -quiet -p build '(lib/src|daemon|tests)/[^/]+\.cpp$'
+      - name: qmllint
+        run: /usr/lib/qt6/bin/qmllint widgets/*.qml
+      - name: REUSE licensing
+        run: pipx run reuse lint

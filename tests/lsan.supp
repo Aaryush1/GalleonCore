@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# LeakSanitizer suppressions for allocations owned by system libraries.
+# Never suppress anything from GalleonCore itself.
+leak:libfontconfig
+leak:libdbus

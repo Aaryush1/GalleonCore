@@ -3,23 +3,29 @@
 
 #include "galleon/StreamDeck.h"
 
-#include <hidapi/hidapi.h>
+#include "galleon/HidTransport.h"
 
 #include <QDebug>
+
+#include <array>
 
 namespace galleon {
 
 namespace {
-constexpr int KeepAliveIntervalMs = 500;
 constexpr int InputPollIntervalMs = 10;
+constexpr std::size_t InputBufferSize = 512;
 } // namespace
 
-StreamDeck::StreamDeck(QObject *parent)
+StreamDeck::StreamDeck(std::unique_ptr<Transport> transport, QObject *parent)
     : QObject(parent)
+    , m_transport(std::move(transport))
 {
-    hid_init();
+    if (!m_transport) {
+        m_transport = std::make_unique<HidTransport>(protocol::CorsairVendorId,
+                                                     protocol::StreamDeckProductId);
+    }
 
-    m_keepAliveTimer.setInterval(KeepAliveIntervalMs);
+    m_keepAliveTimer.setInterval(protocol::KeepAliveIntervalMs);
     connect(&m_keepAliveTimer, &QTimer::timeout, this, &StreamDeck::sendKeepAlive);
 
     m_inputTimer.setInterval(InputPollIntervalMs);
@@ -29,22 +35,12 @@ StreamDeck::StreamDeck(QObject *parent)
 StreamDeck::~StreamDeck()
 {
     close();
-    hid_exit();
 }
 
 bool StreamDeck::open()
 {
-    if (m_device)
-        return true;
-
-    m_device = hid_open(CorsairVendorId, StreamDeckProductId, nullptr);
-    if (!m_device) {
-        qWarning() << "galleon: cannot open Stream Deck module"
-                   << QString::fromWCharArray(hid_error(nullptr));
+    if (!m_transport->open())
         return false;
-    }
-
-    hid_set_nonblocking(m_device, 1);
     sendKeepAlive();
     m_keepAliveTimer.start();
     m_inputTimer.start();
@@ -55,40 +51,30 @@ void StreamDeck::close()
 {
     m_keepAliveTimer.stop();
     m_inputTimer.stop();
-    if (m_device) {
-        hid_close(m_device);
-        m_device = nullptr;
-    }
+    m_transport->close();
 }
 
 bool StreamDeck::isOpen() const
 {
-    return m_device != nullptr;
+    return m_transport->isOpen();
 }
 
 QString StreamDeck::serialNumber() const
 {
-    if (!m_device)
-        return {};
-    wchar_t buffer[128] = {};
-    if (hid_get_serial_number_string(m_device, buffer, 128) != 0)
-        return {};
-    return QString::fromWCharArray(buffer);
+    return m_transport->serialNumber();
 }
 
 bool StreamDeck::setKeyImage(int key, const QImage &image)
 {
-    Q_UNUSED(image)
-    if (!m_device || key < 0 || key >= KeyCount)
+    if (!isOpen() || key < 0 || key >= protocol::KeyCount || image.isNull())
         return false;
-    // TODO: JPEG encode and send in chunks, per node-elgato-stream-deck.
+    // TODO: JPEG encode and split into reports, per node-elgato-stream-deck.
     return false;
 }
 
 bool StreamDeck::setScreenImage(const QImage &image)
 {
-    Q_UNUSED(image)
-    if (!m_device)
+    if (!isOpen() || image.isNull())
         return false;
     // TODO: confirm the screen resolution, then implement.
     return false;
@@ -96,26 +82,26 @@ bool StreamDeck::setScreenImage(const QImage &image)
 
 bool StreamDeck::setBrightness(int percent)
 {
-    Q_UNUSED(percent)
+    if (!isOpen() || percent < 0 || percent > 100)
+        return false;
     // TODO: brightness feature report, per node-elgato-stream-deck.
     return false;
 }
 
+void StreamDeck::setKeepAliveInterval(int ms)
+{
+    m_keepAliveTimer.setInterval(ms);
+}
+
 void StreamDeck::sendKeepAlive()
 {
-    if (!m_device)
-        return;
-    // TODO: send the keep-alive feature report described in galleon-deck's
-    // docs/PROTOCOL.md. Do not guess its bytes.
+    m_transport->sendFeatureReport(protocol::keepAliveReport());
 }
 
 void StreamDeck::pollInput()
 {
-    if (!m_device)
-        return;
-
-    unsigned char report[512];
-    const int read = hid_read(m_device, report, sizeof(report));
+    std::array<std::uint8_t, InputBufferSize> buffer{};
+    const int read = m_transport->read(buffer);
     if (read < 0) {
         qWarning() << "galleon: Stream Deck module disconnected";
         close();
@@ -125,7 +111,31 @@ void StreamDeck::pollInput()
     if (read == 0)
         return;
 
-    // TODO: decode key and dial reports, then emit the matching signals.
+    const auto report = std::span<const std::uint8_t>(buffer).first(static_cast<std::size_t>(read));
+    for (const auto &event : protocol::parseInputReport(report))
+        dispatch(event);
+}
+
+void StreamDeck::dispatch(const protocol::InputEvent &event)
+{
+    using Type = protocol::InputEvent::Type;
+    switch (event.type) {
+    case Type::KeyPressed:
+        Q_EMIT keyPressed(event.index);
+        break;
+    case Type::KeyReleased:
+        Q_EMIT keyReleased(event.index);
+        break;
+    case Type::DialRotated:
+        Q_EMIT dialRotated(event.index, event.value);
+        break;
+    case Type::DialPressed:
+        Q_EMIT dialPressed(event.index);
+        break;
+    case Type::DialReleased:
+        Q_EMIT dialReleased(event.index);
+        break;
+    }
 }
 
 } // namespace galleon

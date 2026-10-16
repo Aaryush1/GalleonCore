@@ -3,56 +3,57 @@
 
 #pragma once
 
+#include "galleon/Protocol.h"
+#include "galleon/Transport.h"
+
 #include <QImage>
 #include <QObject>
 #include <QTimer>
 
-struct hid_device_;
+#include <memory>
 
 namespace galleon {
 
-// USB IDs of the Galleon 100 SD (see docs/ROADMAP.md).
-constexpr unsigned short CorsairVendorId = 0x1b1c;
-constexpr unsigned short StreamDeckProductId = 0x2b18;
-
-constexpr int KeyCount = 12;
-constexpr int DialCount = 2;
-
 // Stream Deck module of the Galleon 100 SD.
 //
-// The module only stays in host mode while a keep-alive feature report is
-// sent every 500 ms; otherwise the firmware falls back to its numpad mode.
+// Owns a Transport and drives it: keep-alive, input polling, images.
+// Byte formats live in galleon::protocol; I/O lives in the Transport.
 class StreamDeck : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit StreamDeck(QObject *parent = nullptr);
+    // Without a transport, a HidTransport on the deck's USB IDs is used.
+    explicit StreamDeck(std::unique_ptr<Transport> transport = nullptr, QObject *parent = nullptr);
     ~StreamDeck() override;
 
     bool open();
     void close();
-    bool isOpen() const;
-
-    QString serialNumber() const;
+    [[nodiscard]] bool isOpen() const;
+    [[nodiscard]] QString serialNumber() const;
 
     // Return false while the protocol is not implemented.
     bool setKeyImage(int key, const QImage &image);
     bool setScreenImage(const QImage &image);
     bool setBrightness(int percent);
 
+    // Exposed for tests; the hardware needs protocol::KeepAliveIntervalMs.
+    void setKeepAliveInterval(int ms);
+
 Q_SIGNALS:
     void keyPressed(int key);
     void keyReleased(int key);
     void dialRotated(int dial, int steps);
     void dialPressed(int dial);
+    void dialReleased(int dial);
     void disconnected();
 
 private:
     void sendKeepAlive();
     void pollInput();
+    void dispatch(const protocol::InputEvent &event);
 
-    hid_device_ *m_device = nullptr;
+    std::unique_ptr<Transport> m_transport;
     QTimer m_keepAliveTimer;
     QTimer m_inputTimer;
 };
