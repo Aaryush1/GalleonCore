@@ -162,6 +162,10 @@ That is HID keyboard usage numbers (04 = A, 1e = 1, 29 = Esc, ...), with 0x46 le
 
 What this does not show: the live, non-persistent per-key lighting stream (software mode). The Web Hub does not use it for a fixed colour. A capture of iCUE running a software effect would be needed, and the freeze warning above still applies.
 
+## Web Hub capture and Linux hand-over
+
+[`webhub-lighting-analysis.md`](webhub-lighting-analysis.md) gathers what was observed with Corsair Web Hub (vendor-interface traffic, where the static colour is, what is a profile write to flash and must never be replayed), the safe LampArray route, the Stream Deck facts, the open questions and how to reproduce the capture on Linux. The sanitized frames are in [`webhub-capture-2026-10-18.txt`](webhub-capture-2026-10-18.txt).
+
 ## Captures
 
 Put raw captures under `captures/`, named `YYYY-MM-DD-<what>.pcapng`, with a short note on what was done during the capture.
