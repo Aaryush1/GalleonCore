@@ -8,7 +8,7 @@
     "statusScreen": {
         "widthPx": 720,
         "heightPx": 384,
-        "source": "Feature report 8 of the Stream Deck module (read 2026-10-18) ends with d0 02 80 01 = 720 x 384 little-endian; galleon-deck docs/PROTOCOL.md and OpenActionAPI/rust-elgato-streamdeck PR #63 give the same size. Confirmed on the hardware by the descriptor-level read, not yet by displaying an image."
+        "source": "Feature report 8 of the Stream Deck module (read 2026-10-18) ends with d0 02 80 01 = 720 x 384 little-endian; galleon-deck docs/PROTOCOL.md and OpenActionAPI/rust-elgato-streamdeck PR #63 give the same size. Confirmed on the hardware: a 720 x 384 JPEG sent by galleond fills the whole screen (2026-10-18)."
     },
     "keys": {
         "columns": 3,

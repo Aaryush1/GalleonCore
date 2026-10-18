@@ -218,7 +218,9 @@ Cross-checked against a second, independent implementation, OpenActionAPI/rust-e
 
 That implementation also lights the dial rings through the Stream Deck protocol: a 6-byte feature report `03 24 <led> <red> <green> <blue>`, 4 LEDs per dial (led = (1 - dial) * 4 + segment, so dial 0 uses LEDs 4 to 7 and dial 1 uses LEDs 0 to 3). Not tested here. The LampArray interface sees only one lamp per ring.
 
-Image headers (galleon-deck, and the Stream Deck Plus conventions the Rust code reuses for the Galleon): key `02 07 <key> <last> <len u16le> <part u16le>`, screen `02 0c <x> <y> <w> <h> <last> <part> <len> 00`. Byte order, `last` = 1 on the final report and `part` counting from 0 are to be verified by drawing an image on the unit.
+Image headers (galleon-deck, and the Stream Deck Plus conventions the Rust code reuses for the Galleon): key `02 07 <key> <last> <len u16le> <part u16le>`, screen `02 0c <x> <y> <w> <h> <last> <part> <len> 00`.
+
+**Confirmed on the hardware, 2026-10-18 (firmware module 3.06.005):** `galleond` drew a 720 x 384 JPEG on the top screen with this screen header (little-endian fields, `last` = 1 on the final report, `part` counting from 0, 1008 bytes of JPEG per report, report ID 2, 1024 bytes written through hidapi) and the module displayed it correctly (photo of the unit). The keep-alive `03 27` every 500 ms kept it in host mode. Key images (`02 07`) are built the same way but have not been drawn on the unit yet.
 
 ## Captures
 

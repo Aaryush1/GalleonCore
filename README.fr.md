@@ -26,7 +26,7 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 
 | Partie | État |
 |---|---|
-| Protocole Stream Deck (touches, écran, molettes) | Keep-alive, luminosité, images des touches et de l'écran implémentés d'après le descripteur du module et le travail communautaire ; **pas encore essayés sur le matériel**. Rapports d'entrée (touches, molettes) à faire |
+| Protocole Stream Deck (touches, écran, molettes) | Keep-alive, luminosité, images des touches et de l'écran implémentés d'après le descripteur du module et le travail communautaire ; image de l'écran **confirmée sur le matériel** ; images des touches pas encore essayées. Rapports d'entrée (touches, molettes) à faire |
 | Rendu QML hors écran vers le deck | Fond d'écran avec l'heure (`WallpaperClock.qml`), rendu logiciel |
 | Démon + interface D-Bus | Choix du fond (`galleond --preview`) et `org.galleoncore.Deck` (`SetWallpaper`, `ClearWallpaper`, `Wallpapers`) |
 | Widgets KDE Plasma | Squelette |

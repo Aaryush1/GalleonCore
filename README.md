@@ -26,7 +26,7 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 
 | Part | Status |
 |---|---|
-| Stream Deck protocol (keys, screen, dials) | Keep-alive, brightness, key and screen images implemented from the module's own descriptor and community work; **not yet tried on the hardware**. Input reports (keys, dials) still to do |
+| Stream Deck protocol (keys, screen, dials) | Keep-alive, brightness, key and screen images implemented from the module's own descriptor and community work; screen image **confirmed on the hardware**; key images not tried yet. Input reports (keys, dials) still to do |
 | Off-screen QML rendering to the deck | Wallpaper with the time (`WallpaperClock.qml`), software renderer |
 | Daemon + D-Bus interface | Wallpaper picker (`galleond --preview`) and `org.galleoncore.Deck` (`SetWallpaper`, `ClearWallpaper`, `Wallpapers`) |
 | KDE Plasma widgets | Skeleton |

@@ -204,3 +204,15 @@ Toute donnée externe est non fiable jusqu'à sa validation complète : rapports
 **Ensuite, dans GalleonCore**
 - [ ] Remplir `data/devices/galleon-100-sd.json` avec les mesures
 - [ ] Implémenter le keep-alive et l'envoi d'une première image dans `libgalleon`, avec des tests construits sur les captures
+
+## 9. Prochaines étapes (notes du 18 octobre 2026)
+
+Fait : fond d'écran avec l'heure sur l'écran du Galleon, validé sur le matériel (`galleond --wallpaper …`, `--preview`).
+
+À faire, dans cet ordre :
+1. **Touches et molettes** : analyser les rapports d'entrée (`01 00 0c 00` + 12 octets pour les touches, `01 03 03 00 …` pour les molettes, d'après galleon-deck) et émettre les signaux de `StreamDeck`. Puis envoyer des **images de touches** (rapports `02 07`, pas encore essayés sur le module).
+2. **Pages de boutons et menus** : chaque touche a une icône et une action ; une touche peut ouvrir une page (menu). Exemples voulus : Discord, lecteur de musique (sous Linux via MPRIS), Ableton (surtout côté Windows), raccourcis clavier via uinput. Les actions et les pages sont décrites dans un fichier de configuration validé comme toute donnée externe.
+3. **Écran de veille animé** : fond animé extrait en JPEG une fois pour toutes (voir §8, « Fonds animés »). Piste : une image générée animée avec le modèle `prunaai/p-video`. À vérifier avant : conditions d'utilisation et licence du modèle et du service, aucune œuvre, marque ou personne réelle (`ASSETS.md`), provenance consignée dans un `PROVENANCE.md`.
+4. Service systemd utilisateur pour lancer `galleond` à la connexion.
+
+Les icônes affichées par les touches en mode hôte viennent de la mémoire du module, pas de `galleond` : elles seront remplacées par celles des pages de boutons.
