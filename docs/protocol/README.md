@@ -130,6 +130,26 @@ So on this firmware the keys' RGB is not reachable through LampArray. Not tested
 
 
 
+## Vendor interface seen from the Corsair Web Hub (usbmon capture, 2026-10-18)
+
+Source: a usbmon capture (`dumpcap -i usbmon1`, 12294 packets, 71 s) on Linux while `corsair.com/web-hub` (Chrome, WebHID) connected to the keyboard and set a fixed colour three times (magenta, then red, with a colour change in between). The raw capture is NOT in the repository: it holds device identifiers (serial-like strings in the answers to command 0x08) and the bus carried the keyboard's keystrokes. Only the vendor interface was read (keyboard part, endpoints OUT 0x04 and IN 0x84, 324 request/answer pairs of exactly 128 bytes); the keystroke endpoint was never opened.
+
+**Observed frame format** (the interface uses unnumbered 128-byte reports, so these are the 128 bytes written, with no report number):
+
+- request: `00 01 00 <command> <arguments...>`
+- answer: `00 00 00 <command> <status or data...>`
+
+This differs from the `08 02 <property>` request given by galleon-deck and by OpenRGB's Corsair V2 controller: with that format the keyboard did not answer at all on this firmware (read-only probe `tools/linux/bragi-probe.c`, five properties, no reply in 500 ms).
+
+**Commands seen** (counts in the capture): 0x01 (26), 0x02 (65), 0x05 (66), 0x06 (12), 0x07 (3), 0x08 (43), 0x09 (42), 0x0d (55), 0x12 (12). They match the command numbers of OpenRGB's `corsair_v2_cmd` (SET 0x01, GET 0x02, STOP_TX 0x05, BLK_W1 0x06, BLK_WN 0x07, START_TX 0x0D); that is an observation of the same numbers, not proof of the same semantics.
+
+- `00 01 00 02 <property>`: read a property. Answers seen include property 0x02 = 0x03e8 (1000), 0x41 = 2, and 0x13 = bytes `02 03 58`, which reads as firmware **2.3.88**, the version the official tool offered (the Windows measurements were taken on v1.4.73): whether the keyboard was updated in between is not known.
+- `00 01 00 01 03 00 <1|2>`: set property 3 to 1 or 2 (what OpenRGB calls the render mode); the Web Hub toggles it many times, always answered `00 00 00 01 00`.
+- `0x0d`, `0x09`, `0x08`, `0x05`: open a resource, query its size, read it, close it (a file-like sequence; interpretation, not documented).
+- `0x06` / `0x07`: block writes. The three colour changes each produced one write whose payload contains the text "Profile": the Web Hub stored the colour in the keyboard's **saved profile**. That is a persistent write: **do not replay it** (project rule: nothing that writes to flash).
+
+What this does not show: the live, non-persistent per-key lighting stream (software mode). The Web Hub does not use it for a fixed colour. A capture of iCUE running a software effect would be needed, and the freeze warning above still applies.
+
 ## Captures
 
 Put raw captures under `captures/`, named `YYYY-MM-DD-<what>.pcapng`, with a short note on what was done during the capture.
