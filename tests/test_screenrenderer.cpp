@@ -87,6 +87,32 @@ private Q_SLOTS:
         QCOMPARE(again, first); // same input, same pixels
     }
 
+    void theLanguageAndClockFormatFollowTheLocale()
+    {
+        ScreenRenderer renderer(WidgetFile);
+        const QDateTime afternoon(QDate(2026, 10, 18), QTime(15, 7)); // "15:07" or "3:07 PM"
+        const QImage french = renderer.render({}, afternoon, QSize(Width, Height), QLocale(QLocale::French, QLocale::France));
+        const QImage american = renderer.render({}, afternoon, QSize(Width, Height), QLocale(QLocale::English, QLocale::UnitedStates));
+        const QImage frenchAgain = renderer.render({}, afternoon, QSize(Width, Height), QLocale(QLocale::French, QLocale::France));
+        QVERIFY(!french.isNull() && !american.isNull());
+        QVERIFY(french != american);
+        QCOMPARE(frenchAgain, french);
+    }
+
+    void secondsAreShownOnlyWhenAsked()
+    {
+        // Same locale and instant: only the seconds setting may change the frame.
+        ScreenRenderer renderer(WidgetFile);
+        const QDateTime moment(QDate(2026, 10, 18), QTime(9, 41, 27));
+        const QLocale locale(QLocale::French, QLocale::France);
+        const QImage plain = renderer.render({}, moment, QSize(Width, Height), locale);
+        const QImage again = renderer.render({}, moment, QSize(Width, Height), locale);
+        QCOMPARE(again, plain);
+        // 27 s or 28 s: with no seconds shown the frame does not change.
+        const QImage nextSecond = renderer.render({}, moment.addSecs(1), QSize(Width, Height), locale);
+        QCOMPARE(nextSecond, plain);
+    }
+
     void aBrokenWallpaperGivesNoFrame()
     {
         QTemporaryDir dir;

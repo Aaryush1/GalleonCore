@@ -22,6 +22,14 @@ Rectangle {
     property bool live: true
     property color textColor: "white"
     property bool showSeconds: false
+    // Language, 12/24 hour clock and date order of the text. The system's by
+    // default; QML's own Qt.formatDate()/formatTime() ignore it and always
+    // give English, so the formats are taken from this locale instead.
+    property var locale: Qt.locale()
+    // The locale's short time format ("HH:mm", "h:mm AP"...), with seconds if asked.
+    readonly property string timeFormat: showSeconds
+        ? locale.timeFormat(Locale.ShortFormat).replace("mm", "mm:ss")
+        : locale.timeFormat(Locale.ShortFormat)
     // True once the wallpaper is decoded (or when there is none): the renderer
     // waits for it before taking a frame.
     readonly property bool ready: root.wallpaper.toString() === "" || image.status === Image.Ready
@@ -64,14 +72,14 @@ Rectangle {
             color: root.textColor
             font.pixelSize: root.height * 0.30
             font.bold: true
-            text: Qt.formatTime(root.now, root.showSeconds ? "hh:mm:ss" : "hh:mm")
+            text: root.locale.toString(root.now, root.timeFormat)
         }
 
         Text {
             color: root.textColor
             opacity: 0.8
             font.pixelSize: root.height * 0.075
-            text: Qt.formatDate(root.now, "dddd d MMMM")
+            text: root.locale.toString(root.now, root.locale.dateFormat(Locale.LongFormat))
         }
     }
 

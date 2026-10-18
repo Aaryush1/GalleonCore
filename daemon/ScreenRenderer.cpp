@@ -69,7 +69,10 @@ bool ScreenRenderer::isValid() const
     return m_impl->valid;
 }
 
-QImage ScreenRenderer::render(const QString &wallpaperFile, const QDateTime &now, const QSize &size)
+QImage ScreenRenderer::render(const QString &wallpaperFile,
+                              const QDateTime &now,
+                              const QSize &size,
+                              const QLocale &locale)
 {
     if (!m_impl->valid || !size.isValid())
         return {};
@@ -79,6 +82,7 @@ QImage ScreenRenderer::render(const QString &wallpaperFile, const QDateTime &now
     root->setSize(size);
     root->setProperty("wallpaper", wallpaperFile.isEmpty() ? QUrl() : QUrl::fromLocalFile(wallpaperFile));
     root->setProperty("now", now);
+    root->setProperty("locale", QVariant::fromValue(locale));
 
     // The wallpaper is decoded synchronously; if it did not load (corrupt or
     // unreadable file), do not show a half-drawn screen.

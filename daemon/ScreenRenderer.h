@@ -5,6 +5,7 @@
 
 #include <QDateTime>
 #include <QImage>
+#include <QLocale>
 #include <QString>
 
 #include <memory>
@@ -29,8 +30,12 @@ public:
     [[nodiscard]] bool isValid() const;
 
     // A frame of `size` showing the wallpaper (a file path, or empty for plain
-    // black) with `now` over it. A null image on failure.
-    [[nodiscard]] QImage render(const QString &wallpaperFile, const QDateTime &now, const QSize &size);
+    // black) with `now` over it, written in the language and the time format of
+    // `locale` (the system's by default). A null image on failure.
+    [[nodiscard]] QImage render(const QString &wallpaperFile,
+                                const QDateTime &now,
+                                const QSize &size,
+                                const QLocale &locale = QLocale());
 
 private:
     struct Impl;
