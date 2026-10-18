@@ -20,6 +20,8 @@ Facts about the Galleon 100 SD USB protocol, each with its source.
 
 ## USB interfaces as declared by the hardware
 
+**Firmware at the time of all measurements below: keyboard v1.4.73** (as shown by the official update tool, which offered v2.3.88 on 2026-10-18). A major version change may alter interfaces, report IDs and lighting behaviour: measurements made after the update must be recorded separately, with the new version.
+
 Source: `tools/windows/hid-caps.ps1` on Windows 11, 2026-10-18, a Galleon 100 SD plugged in and idle (numpad mode). It opens each HID interface with zero access rights and reads the capabilities the device declares (`HidP_GetCaps`): nothing is sent to the device. Lengths include the report ID byte. Device serial numbers are deliberately not recorded.
 
 Keyboard part `1b1c:2b0c`:
