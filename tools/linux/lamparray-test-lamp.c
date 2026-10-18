@@ -4,7 +4,11 @@
 // WRITES to the hardware (lighting only, nothing is saved to flash).
 // Sets one lamp to red for 6 seconds, then gives the lighting back.
 //
-//   lamparray-test-lamp [deck|keyboard] [lamp-id]      (default: deck 0)
+//   lamparray-test-lamp [deck|keyboard] [lamp-id|sweep]      (default: deck 0)
+//
+// "sweep" lights the lamps one after the other (0.6 s each, the lamp ID is
+// printed first) so that each ID can be matched to a physical key. Ctrl-C
+// stops it and gives the lighting back.
 //
 // Report IDs and sizes come from each interface's own descriptor, read on
 // 2026-10-18 (docs/protocol/README.md). Same layout on both parts:
@@ -19,6 +23,7 @@
 #include <libusb-1.0/libusb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -26,6 +31,13 @@ enum { VendorId = 0x1b1c, MultiUpdateSize = 51, MaxLampId = 1023 };
 
 static libusb_device_handle *handle;
 static int Interface;
+static volatile sig_atomic_t stopRequested;
+
+static void onSignal(int signal)
+{
+    (void)signal;
+    stopRequested = 1;
+}
 
 static int setFeature(unsigned char *report, int size)
 {
@@ -47,7 +59,9 @@ int main(int argc, char **argv)
         puts("usage: lamparray-test-lamp [deck|keyboard] [lamp-id]");
         return 2;
     }
-    int lampId = argc > 2 ? atoi(argv[2]) : 0;
+    const int sweep = argc > 2 && strcmp(argv[2], "sweep") == 0;
+    const int lampCount = productId == 0x2b0c ? 108 : 2; // measured, docs/protocol/README.md
+    int lampId = (argc > 2 && !sweep) ? atoi(argv[2]) : 0;
     if (lampId < 0 || lampId > MaxLampId) {
         puts("bad lamp id");
         return 2;
@@ -79,11 +93,43 @@ int main(int argc, char **argv)
     update[19] = 255; // red of the first lamp (after 3 header bytes + 16 ID bytes)
     update[22] = 255; // intensity
 
-    int ok = setFeature(hostControl, sizeof hostControl) >= 0 && setFeature(update, sizeof update) >= 0;
-    if (ok) {
-        printf("lamp %d should be RED now (6 s)\n", lampId);
-        fflush(stdout);
-        sleep(6);
+    int ok = setFeature(hostControl, sizeof hostControl) >= 0;
+    if (ok && !sweep) {
+        ok = setFeature(update, sizeof update) >= 0;
+        if (ok) {
+            printf("lamp %d should be RED now (6 s)\n", lampId);
+            fflush(stdout);
+            sleep(6);
+        }
+    } else if (ok) {
+        struct sigaction action;
+        memset(&action, 0, sizeof action);
+        action.sa_handler = onSignal;
+        sigaction(SIGINT, &action, NULL);
+        sigaction(SIGTERM, &action, NULL);
+        for (int lamp = 0; ok && !stopRequested && lamp < lampCount; lamp++) {
+            // Two lamps per report: the previous one back to black, this one red.
+            memset(update, 0, sizeof update);
+            update[0] = multiUpdateId;
+            update[1] = lamp > 0 ? 2 : 1;
+            update[2] = 1;
+            const int first = lamp > 0 ? lamp - 1 : lamp;
+            update[3] = first & 0xFF;
+            update[4] = first >> 8;
+            int redAt = 19;
+            if (lamp > 0) {
+                update[5] = lamp & 0xFF;
+                update[6] = lamp >> 8;
+                redAt = 19 + 4; // the second lamp's colour slot
+                update[22] = 0; // previous lamp: black, intensity left at 0
+            }
+            update[redAt] = 255;
+            update[redAt + 3] = 255;
+            ok = setFeature(update, sizeof update) >= 0;
+            printf("lamp %d\n", lamp);
+            fflush(stdout);
+            usleep(600000);
+        }
     }
     setFeature(autonomous, sizeof autonomous); // always give the lighting back
 
