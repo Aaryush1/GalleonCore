@@ -19,13 +19,22 @@
 //   0x01 (4), 0x02 (1000, probably brightness), 0x05 (0x0501), 0x0a (5),
 //   0x13 (firmware, bytes 02 03 58 = 2.3.88), 0x41 (2), 0x6e (1).
 //
+// Optional: ./bragi-probe --software-mode
+//   Does what the Web Hub does around its reads (capture, property 3 set to 2
+//   before, back to 1 after; 1 = hardware RGB mode, 2 = software RGB mode in
+//   OpenRGB's corsair_v2_device_mode). Only the mode property is written, never
+//   a colour, and the hardware mode is restored on every exit path including
+//   Ctrl-C. The keyboard's lighting may change or go dark while in mode 2.
+//   Without this option nothing at all is written but the read requests.
+//
 // Build: gcc -Wall -o bragi-probe bragi-probe.c
-// Run:   ./bragi-probe          (close OpenRGB and OpenLinkHub first)
+// Run:   ./bragi-probe [--software-mode]   (close OpenRGB and OpenLinkHub first)
 
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/hidraw.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -139,16 +148,66 @@ static int query(int fd, uint8_t property)
     return 0;
 }
 
-int main(void)
+// Property 3: 1 = hardware RGB mode, 2 = software RGB mode. Sends
+// 00 01 00 01 03 00 <mode> (command 0x01 = set a property), as the Web Hub does.
+static int setMode(int fd, uint8_t mode)
+{
+    uint8_t request[PacketSize];
+    memset(request, 0, sizeof request);
+    request[1] = 0x01;
+    request[3] = 0x01;
+    request[4] = 0x03;
+    request[6] = mode;
+    drain(fd);
+    if (write(fd, request, sizeof request) != (ssize_t)sizeof request) {
+        printf("set mode %u: write failed (%s)\n", mode, strerror(errno));
+        return -1;
+    }
+    struct pollfd p = {fd, POLLIN, 0};
+    uint8_t reply[256];
+    if (poll(&p, 1, TimeoutMs) <= 0 || read(fd, reply, sizeof reply) < 5) {
+        printf("set mode %u: no answer\n", mode);
+        return -1;
+    }
+    printf("set mode %u: answer %02x %02x %02x %02x %02x\n", mode, reply[0], reply[1], reply[2], reply[3], reply[4]);
+    return reply[3] == 0x01 && reply[4] == 0 ? 0 : -1;
+}
+
+static volatile sig_atomic_t interrupted;
+static void onSignal(int signal)
+{
+    (void)signal;
+    interrupted = 1;
+}
+
+int main(int argc, char **argv)
 {
     const int fd = openVendorInterface();
     if (fd < 0) {
         puts("vendor interface of 1b1c:2b0c not found or not accessible");
         return 1;
     }
+    const int softwareMode = argc > 1 && strcmp(argv[1], "--software-mode") == 0;
+    if (argc > 1 && !softwareMode) {
+        puts("usage: bragi-probe [--software-mode]");
+        return 2;
+    }
+    signal(SIGINT, onSignal);
+    signal(SIGTERM, onSignal);
+
     int failures = 0;
-    for (size_t i = 0; i < sizeof Properties; i++)
+    int inSoftwareMode = 0;
+    if (softwareMode) {
+        inSoftwareMode = setMode(fd, 2) == 0;
+        usleep(50000);
+        if (!inSoftwareMode)
+            failures++;
+    }
+    for (size_t i = 0; i < sizeof Properties && !interrupted; i++)
         failures += query(fd, Properties[i]) != 0;
+    if (softwareMode) // always give the hardware mode back, even if the switch seemed to fail
+        failures += setMode(fd, 1) != 0;
+    (void)inSoftwareMode;
     close(fd);
     return failures ? 1 : 0;
 }
