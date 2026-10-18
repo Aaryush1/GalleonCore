@@ -198,6 +198,12 @@ So the device exposes a small file system: a file is opened into a numbered buff
 
 **Operating mode** (property 3, which OpenRGB names "render mode"): the client's names are 1 = SELF_OPERATED, 2 = HOST_CONTROLLED, **3 = BOOTLOADER**, 4 = SLEEP, **5 = MCU_BOOTLOADER**, 6 = LIMITED_HOST_CONTROLLER, 7 = ESPORTS. Only 1 and 2 may ever be written by our tools; 3 and 5 would put the device in a bootloader. `bragi-probe` writes only 1 and 2.
 
+**Files read on Linux (2026-10-18, `tools/linux/bragi-read-file.c`, read-only: open, describe, read, unbind)**, keyboard firmware 2.3.88, hardware mode, no session:
+
+- File 0x000f: opens, size 8, content `13 00 02 00 60 6d 65 6d`, identical to what the Web Hub read in the capture. This validates the tool and the frame layout.
+- File **0x0022** (the file galleon-deck's `0d 00 22` opens and OpenRGB calls LIGHT_CTRL2): it **exists**, opens with status 0, size 8, content **all zeros** while idle. What it controls is not known.
+- Reply layout seen: byte 4 = status, data from byte 5; the describe reply carries the size as 16 bits at byte 7 (0x23 for file 0x26, 0x89 for the profile, 8 here).
+
 Not found in the client: any name or function for a live per-key colour stream. The client has lighting "layers" and "effects" stored as profile data.
 
 ## Captures
