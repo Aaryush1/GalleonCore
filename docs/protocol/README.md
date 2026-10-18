@@ -126,6 +126,8 @@ Same firmware (keyboard v2.3.88), same sequence on both parts, with `tools/linux
 - **Keyboard part, interface 4 (108 lamps): accepted but nothing visible.** Every report is acknowledged (`ok`, no error), yet no key changes colour, with the tool and with OpenRGB. Reading the 108 lamps works.
 - **The 12 LCD keys' backlight: not affected** by either interface.
 
+Second test, software mode held: `bragi-probe --hold 100` kept the Bragi render mode (property 3) at 2 while `lamparray-test-lamp keyboard sweep` ran in the same shell (both overlapped: lamps 0 to 107 lit in turn, full frames, control report 6 = 0 first). **Still no key changed.** So switching the keyboard out of its hardware lighting mode is not what keeps the keys from obeying LampArray. The Windows session had suspected Windows Dynamic Lighting rewriting the keys; Linux has no such service and shows the same result, so that is not the cause either.
+
 So on this firmware the keys' RGB is not reachable through LampArray. Not tested: other firmware versions, and the vendor interface (usage page 0xFF42, "Bragi"/V2) that galleon-deck uses, which is the risky one (see the freeze warning above).
 
 
