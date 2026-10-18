@@ -6,20 +6,18 @@
 // from a fixed list: nothing that selects a mode, writes a colour or touches
 // the lighting is ever sent.
 //
-// Format, from two sources that agree:
-//   - galleon-deck docs/PROTOCOL.md ("Read-only queries"): packets are 128
-//     bytes after a zero report number; request  08 02 <prop>;
-//     reply  00 02 <status> <value, u32 little-endian>.
-//   - The interface's own report descriptor (read 2026-10-18): unnumbered
-//     reports, input and output of exactly 128 bytes. Through hidraw the
-//     "zero report number" is therefore NOT written: write() takes the 128
-//     bytes only (a 129-byte write shifts the command by one byte and gets no
-//     reply, as the first version of this probe showed).
-//   - OpenRGB Controllers/CorsairPeripheralV2Controller, GetAddress():
-//     write command 0x08, GET command 0x02, status at byte 2, value at 3..6.
-//   Properties tried (all listed as answering in galleon-deck):
-//     0x11 vendor ID, 0x12 product ID, 0x13 firmware, 0x41 layout, 0x02 (1000,
-//     probably brightness, unconfirmed).
+// Format, observed in a usbmon capture of the Corsair Web Hub talking to this
+// keyboard (firmware v2.3.88, docs/protocol/README.md, section "Vendor
+// interface seen from the Corsair Web Hub"): 128-byte unnumbered reports.
+//   request  00 01 00 02 <property>              (command 0x02 = read a property)
+//   answer   00 00 00 02 <status> <value u32 little-endian>
+// The Web Hub itself sent 65 such reads in 71 s. Status 0 = ok; 5 was the
+// answer for properties it does not have.
+// The `08 02 <property>` format of galleon-deck and OpenRGB gets NO answer on
+// this firmware (first version of this probe).
+// Properties asked: only ones the Web Hub read with status 0:
+//   0x01 (4), 0x02 (1000, probably brightness), 0x05 (0x0501), 0x0a (5),
+//   0x13 (firmware, bytes 02 03 58 = 2.3.88), 0x41 (2), 0x6e (1).
 //
 // Build: gcc -Wall -o bragi-probe bragi-probe.c
 // Run:   ./bragi-probe          (close OpenRGB and OpenLinkHub first)
@@ -36,9 +34,8 @@
 
 enum { PacketSize = 128, MaxHidraw = 64, TimeoutMs = 500 };
 
-static const uint8_t WriteCommand = 0x08;
 static const uint8_t CommandGet = 0x02;
-static const uint8_t Properties[] = {0x11, 0x12, 0x13, 0x41, 0x02};
+static const uint8_t Properties[] = {0x01, 0x02, 0x05, 0x0a, 0x13, 0x41, 0x6e};
 // Report descriptor start of the interface: Usage Page (0xFF42), Usage (1).
 static const uint8_t VendorDescriptorStart[] = {0x06, 0x42, 0xff, 0x09, 0x01};
 
@@ -106,9 +103,9 @@ static int query(int fd, uint8_t property)
 {
     uint8_t request[PacketSize];
     memset(request, 0, sizeof request);
-    request[0] = WriteCommand;
-    request[1] = CommandGet;
-    request[2] = property;
+    request[1] = 0x01;
+    request[3] = CommandGet;
+    request[4] = property;
 
     drain(fd); // never match a stale reply
     if (write(fd, request, sizeof request) != (ssize_t)sizeof request) {
@@ -123,19 +120,22 @@ static int query(int fd, uint8_t property)
     }
     uint8_t reply[256];
     const ssize_t n = read(fd, reply, sizeof reply);
-    if (n < 7) {
+    if (n < 9) {
         printf("prop 0x%02x: short reply (%zd bytes)\n", property, n);
         return -1;
     }
     printf("prop 0x%02x: raw", property);
     for (int i = 0; i < 12 && i < n; i++)
         printf(" %02x", reply[i]);
-    if (reply[1] != CommandGet) {
-        printf("  (unexpected: byte 1 is not 0x02)\n");
+    if (reply[3] != CommandGet) {
+        printf("  (unexpected: byte 3 is not 0x02)\n");
         return -1;
     }
-    const uint32_t value = (uint32_t)reply[3] | ((uint32_t)reply[4] << 8) | ((uint32_t)reply[5] << 16) | ((uint32_t)reply[6] << 24);
-    printf("  status=%u value=0x%x (%u)\n", reply[2], value, value);
+    const uint32_t value = (uint32_t)reply[5] | ((uint32_t)reply[6] << 8) | ((uint32_t)reply[7] << 16) | ((uint32_t)reply[8] << 24);
+    printf("  status=%u value=0x%x (%u)", reply[4], value, value);
+    if (property == 0x13 && reply[4] == 0)
+        printf("  firmware %u.%u.%u", reply[5], reply[6], reply[7] | (reply[8] << 8));
+    printf("\n");
     return 0;
 }
 
