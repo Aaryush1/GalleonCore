@@ -62,6 +62,16 @@ Le gel observé par galleon-deck vient très probablement d'un mauvais format de
 - Format V2 existant : 2 à 4 soirées.
 - Variante de protocole : 1 à 3 semaines de soirées.
 
+### Décision : pilote dans le plugin (16 octobre 2026)
+
+Plutôt que d'attendre une version d'OpenRGB qui intègre le contrôleur, le pilote RVB est enregistré **à l'exécution par le plugin**, via l'API des plugins d'OpenRGB (API v5, branche `master` : `RegisterVirtualRGBController`, structure `RGBController_Setup` avec ses rappels `DeviceUpdateLEDs` / `DeviceUpdateMode`). Un OpenRGB standard suffit. Source : `OpenRGBPluginInterface.h` et `RGBControllerInterface.h` d'OpenRGB.
+
+- À prouver d'abord, sans clavier : un plugin minimal qui enregistre un faux contrôleur de 12 LED.
+- Les contrôleurs « virtuels » n'ont pas été conçus pour du matériel réel : aucun exemple connu. **Plan B : patcher OpenRGB.**
+- Le code Corsair V2 d'OpenRGB n'est pas exposé aux plugins : le format d'envoi est à reprendre dans le plugin (GPL-2.0-or-later), toujours en lecture seule tant que le format n'est pas compris.
+- La proposition au cœur d'OpenRGB reste l'objectif à terme.
+- Qui écrit sur le clavier (plugin ou `galleond`) reste à trancher.
+
 ## 4. Écran du clavier et Plasmoids
 
 Un Plasmoid ne peut pas s'afficher directement sur le Galleon, qui attend des JPEG envoyés en HID.
