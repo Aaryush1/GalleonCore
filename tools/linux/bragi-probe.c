@@ -10,6 +10,11 @@
 //   - galleon-deck docs/PROTOCOL.md ("Read-only queries"): packets are 128
 //     bytes after a zero report number; request  08 02 <prop>;
 //     reply  00 02 <status> <value, u32 little-endian>.
+//   - The interface's own report descriptor (read 2026-10-18): unnumbered
+//     reports, input and output of exactly 128 bytes. Through hidraw the
+//     "zero report number" is therefore NOT written: write() takes the 128
+//     bytes only (a 129-byte write shifts the command by one byte and gets no
+//     reply, as the first version of this probe showed).
 //   - OpenRGB Controllers/CorsairPeripheralV2Controller, GetAddress():
 //     write command 0x08, GET command 0x02, status at byte 2, value at 3..6.
 //   Properties tried (all listed as answering in galleon-deck):
@@ -29,7 +34,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-enum { PacketSize = 128, WriteSize = PacketSize + 1, MaxHidraw = 64, TimeoutMs = 500 };
+enum { PacketSize = 128, MaxHidraw = 64, TimeoutMs = 500 };
 
 static const uint8_t WriteCommand = 0x08;
 static const uint8_t CommandGet = 0x02;
@@ -99,12 +104,11 @@ static void drain(int fd)
 
 static int query(int fd, uint8_t property)
 {
-    uint8_t request[WriteSize];
+    uint8_t request[PacketSize];
     memset(request, 0, sizeof request);
-    request[0] = 0x00; // report number
-    request[1] = WriteCommand;
-    request[2] = CommandGet;
-    request[3] = property;
+    request[0] = WriteCommand;
+    request[1] = CommandGet;
+    request[2] = property;
 
     drain(fd); // never match a stale reply
     if (write(fd, request, sizeof request) != (ssize_t)sizeof request) {
