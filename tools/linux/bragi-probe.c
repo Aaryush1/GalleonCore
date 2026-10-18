@@ -13,8 +13,8 @@
 //   answer   00 00 00 02 <status> <value u32 little-endian>
 // The Web Hub itself sent 65 such reads in 71 s. Status 0 = ok; 5 was the
 // answer for properties it does not have.
-// The `08 02 <property>` format of galleon-deck and OpenRGB gets NO answer on
-// this firmware (first version of this probe).
+// The `08 02 <property>` format of galleon-deck and OpenRGB got NO answer on
+// this firmware (first version of this probe, which framed it correctly).
 // Properties asked: only ones the Web Hub read with status 0:
 //   0x01 (4), 0x02 (1000, probably brightness), 0x05 (0x0501), 0x0a (5),
 //   0x13 (firmware, bytes 02 03 58 = 2.3.88), 0x41 (2), 0x6e (1).
@@ -42,6 +42,19 @@
 #include <unistd.h>
 
 enum { PacketSize = 128, MaxHidraw = 64, TimeoutMs = 500 };
+
+// hidraw write(): the first byte is the report number, and the kernel drops it
+// when it is 0 (unnumbered reports, like this interface's 128-byte ones). So
+// 129 bytes must be written: a 0, then the 128-byte frame. Writing only the
+// 128 bytes loses the first frame byte (seen with usbmon on 2026-10-18: the
+// transfers were 127 bytes long and the keyboard did not answer).
+static int sendFrame(int fd, const uint8_t frame[PacketSize])
+{
+    uint8_t buffer[PacketSize + 1];
+    buffer[0] = 0x00;
+    memcpy(buffer + 1, frame, PacketSize);
+    return write(fd, buffer, sizeof buffer) == (ssize_t)sizeof buffer ? 0 : -1;
+}
 
 static const uint8_t CommandGet = 0x02;
 static const uint8_t Properties[] = {0x01, 0x02, 0x05, 0x0a, 0x13, 0x41, 0x6e};
@@ -117,7 +130,7 @@ static int query(int fd, uint8_t property)
     request[4] = property;
 
     drain(fd); // never match a stale reply
-    if (write(fd, request, sizeof request) != (ssize_t)sizeof request) {
+    if (sendFrame(fd, request) != 0) {
         printf("prop 0x%02x: write failed (%s)\n", property, strerror(errno));
         return -1;
     }
@@ -159,7 +172,7 @@ static int setMode(int fd, uint8_t mode)
     request[4] = 0x03;
     request[6] = mode;
     drain(fd);
-    if (write(fd, request, sizeof request) != (ssize_t)sizeof request) {
+    if (sendFrame(fd, request) != 0) {
         printf("set mode %u: write failed (%s)\n", mode, strerror(errno));
         return -1;
     }
