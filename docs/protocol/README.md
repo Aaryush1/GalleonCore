@@ -107,6 +107,17 @@ Source: Kubuntu, kernel 7.0.0-38, 2026-10-18, keyboard firmware v1.4.73.
 
 What this suggests, not yet verified: the RGB driver must use libusb control transfers on the LampArray interfaces (or the Bragi interface), not hidraw.
 
+### LampArray write test (Linux, 2026-10-18)
+
+Source: `tools/linux/lamparray-test-lamp.c`, run by the user on Kubuntu, keyboard firmware v1.4.73. Report layouts come from the interface's own descriptor (Stream Deck part, interface 3):
+
+- 229: LampArrayControlReport, one 8-bit field, AutonomousMode (0 = host controls the lamps, 1 = the keyboard's own lighting).
+- 227: LampMultiUpdateReport, 51 bytes with the ID: lamp count (8 bits), flags (8 bits), 8 lamp IDs (16 bits each), then 8 x (red, green, blue, intensity).
+
+Sequence tested: control 229 with 0, then update 227 with one lamp (ID 0, red 255, intensity 255, flag 1 = update complete), 6 s later control 229 with 1. **Result: lamp 0 of the Stream Deck part lit red for 6 s, then the lighting went back to the keyboard's. No freeze.** Nothing is written to flash by these reports (standard LampArray, volatile).
+
+Still open: which dial lamp 0 is (not recorded), the effect of intensity values below 255, and the same test on the keyboard part (interface 4, reports 1 to 6, so control = 6 and multi-update = 4).
+
 ## Captures
 
 Put raw captures under `captures/`, named `YYYY-MM-DD-<what>.pcapng`, with a short note on what was done during the capture.
