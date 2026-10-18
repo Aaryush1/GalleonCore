@@ -10,27 +10,33 @@
 // printed first) so that each ID can be matched to a physical key. Ctrl-C
 // stops it and gives the lighting back.
 //
+// Every step sends a FULL FRAME (all lamps, black except the target), in
+// batches of 8 lamps with the "update complete" flag on the last batch only,
+// like the OpenRGB plugin does. Reports are spaced by the device's minimum
+// update interval (3 ms keyboard, 20 ms deck, from the attributes report).
+//
 // Report IDs and sizes come from each interface's own descriptor, read on
 // 2026-10-18 (docs/protocol/README.md). Same layout on both parts:
 //   control      : AutonomousMode, 8 bits (0 = host controls the lamps)
 //   multi-update : count, flags, 8 lamp IDs (16 bits), 8 x (R, G, B, I);
 //                  51 bytes with the ID
-//   deck (2b18, interface 3): control 229, multi-update 227
-//   keyboard (2b0c, interface 4): control 6, multi-update 4
+//   deck (2b18, interface 3): control 229, multi-update 227, 2 lamps, 20 ms
+//   keyboard (2b0c, interface 4): control 6, multi-update 4, 108 lamps, 3 ms
 //
 // Build: gcc -o lamparray-test-lamp lamparray-test-lamp.c $(pkg-config --cflags --libs libusb-1.0)
 
 #include <libusb-1.0/libusb.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
 #include <unistd.h>
 
-enum { VendorId = 0x1b1c, MultiUpdateSize = 51, MaxLampId = 1023 };
+enum { VendorId = 0x1b1c, MultiUpdateSize = 51, MaxLamps = 108, BatchSize = 8 };
 
 static libusb_device_handle *handle;
 static int Interface;
+static useconds_t intervalUs;
 static volatile sig_atomic_t stopRequested;
 
 static void onSignal(int signal)
@@ -39,31 +45,58 @@ static void onSignal(int signal)
     stopRequested = 1;
 }
 
-static int setFeature(unsigned char *report, int size)
+static int setFeature(unsigned char *report, int size, int verbose)
 {
+    usleep(intervalUs);
     const int r = libusb_control_transfer(handle, 0x21, 0x09, (3 << 8) | report[0], Interface, report, size, 1000);
-    printf("SET report %u (%d bytes): %s\n", report[0], size, r < 0 ? libusb_error_name(r) : "ok");
+    if (verbose || r < 0)
+        printf("SET report %u (%d bytes): %s\n", report[0], size, r < 0 ? libusb_error_name(r) : "ok");
     return r;
+}
+
+// Sends the whole frame: lamp i gets red[i] only (green and blue stay 0).
+static int sendFrame(int multiUpdateId, int lampCount, const unsigned char *red)
+{
+    for (int first = 0; first < lampCount; first += BatchSize) {
+        const int count = lampCount - first < BatchSize ? lampCount - first : BatchSize;
+        unsigned char report[MultiUpdateSize];
+        memset(report, 0, sizeof report);
+        report[0] = (unsigned char)multiUpdateId;
+        report[1] = (unsigned char)count;
+        report[2] = first + count >= lampCount; // update complete, last batch only
+        for (int i = 0; i < count; i++) {
+            const int lamp = first + i;
+            report[3 + 2 * i] = lamp & 0xFF;
+            report[3 + 2 * i + 1] = lamp >> 8;
+            report[19 + 4 * i] = red[lamp];
+            report[19 + 4 * i + 3] = 255; // intensity
+        }
+        if (setFeature(report, sizeof report, 0) < 0)
+            return -1;
+    }
+    return 0;
 }
 
 int main(int argc, char **argv)
 {
-    int productId = 0x2b18, controlId = 229, multiUpdateId = 227;
+    int productId = 0x2b18, controlId = 229, multiUpdateId = 227, lampCount = 2;
     Interface = 3;
+    intervalUs = 20000;
     if (argc > 1 && strcmp(argv[1], "keyboard") == 0) {
         productId = 0x2b0c;
         controlId = 6;
         multiUpdateId = 4;
+        lampCount = 108;
         Interface = 4;
+        intervalUs = 3000;
     } else if (argc > 1 && strcmp(argv[1], "deck") != 0) {
-        puts("usage: lamparray-test-lamp [deck|keyboard] [lamp-id]");
+        puts("usage: lamparray-test-lamp [deck|keyboard] [lamp-id|sweep]");
         return 2;
     }
     const int sweep = argc > 2 && strcmp(argv[2], "sweep") == 0;
-    const int lampCount = productId == 0x2b0c ? 108 : 2; // measured, docs/protocol/README.md
-    int lampId = (argc > 2 && !sweep) ? atoi(argv[2]) : 0;
-    if (lampId < 0 || lampId > MaxLampId) {
-        puts("bad lamp id");
+    const int lampId = (argc > 2 && !sweep) ? atoi(argv[2]) : 0;
+    if (lampId < 0 || lampId >= lampCount || lampCount > MaxLamps) {
+        printf("lamp id must be 0..%d\n", lampCount - 1);
         return 2;
     }
 
@@ -80,22 +113,15 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    unsigned char hostControl[2] = {controlId, 0};
-    unsigned char autonomous[2] = {controlId, 1};
+    unsigned char hostControl[2] = {(unsigned char)controlId, 0};
+    unsigned char autonomous[2] = {(unsigned char)controlId, 1};
+    unsigned char red[MaxLamps];
 
-    unsigned char update[MultiUpdateSize];
-    memset(update, 0, sizeof update);
-    update[0] = multiUpdateId;
-    update[1] = 1;  // one lamp
-    update[2] = 1;  // LampUpdateComplete
-    update[3] = lampId & 0xFF; // lamp ID, 16 bits little-endian
-    update[4] = lampId >> 8;
-    update[19] = 255; // red of the first lamp (after 3 header bytes + 16 ID bytes)
-    update[22] = 255; // intensity
-
-    int ok = setFeature(hostControl, sizeof hostControl) >= 0;
+    int ok = setFeature(hostControl, sizeof hostControl, 1) >= 0;
     if (ok && !sweep) {
-        ok = setFeature(update, sizeof update) >= 0;
+        memset(red, 0, sizeof red);
+        red[lampId] = 255;
+        ok = sendFrame(multiUpdateId, lampCount, red) == 0;
         if (ok) {
             printf("lamp %d should be RED now (6 s)\n", lampId);
             fflush(stdout);
@@ -108,30 +134,15 @@ int main(int argc, char **argv)
         sigaction(SIGINT, &action, NULL);
         sigaction(SIGTERM, &action, NULL);
         for (int lamp = 0; ok && !stopRequested && lamp < lampCount; lamp++) {
-            // Two lamps per report: the previous one back to black, this one red.
-            memset(update, 0, sizeof update);
-            update[0] = multiUpdateId;
-            update[1] = lamp > 0 ? 2 : 1;
-            update[2] = 1;
-            const int first = lamp > 0 ? lamp - 1 : lamp;
-            update[3] = first & 0xFF;
-            update[4] = first >> 8;
-            int redAt = 19;
-            if (lamp > 0) {
-                update[5] = lamp & 0xFF;
-                update[6] = lamp >> 8;
-                redAt = 19 + 4; // the second lamp's colour slot
-                update[22] = 0; // previous lamp: black, intensity left at 0
-            }
-            update[redAt] = 255;
-            update[redAt + 3] = 255;
-            ok = setFeature(update, sizeof update) >= 0;
+            memset(red, 0, sizeof red);
+            red[lamp] = 255;
+            ok = sendFrame(multiUpdateId, lampCount, red) == 0;
             printf("lamp %d\n", lamp);
             fflush(stdout);
             usleep(600000);
         }
     }
-    setFeature(autonomous, sizeof autonomous); // always give the lighting back
+    setFeature(autonomous, sizeof autonomous, 1); // always give the lighting back
 
     libusb_release_interface(handle, Interface);
     libusb_close(handle);
