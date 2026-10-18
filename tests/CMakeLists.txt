@@ -15,3 +15,17 @@ endfunction()
 galleon_add_test(test_layout)
 galleon_add_test(test_protocol)
 galleon_add_test(test_streamdeck FakeTransport.h)
+
+# Daemon logic. The source folders let the tests use the real widget and the
+# project's wallpapers.
+function(galleond_add_test name)
+    galleon_add_test(${name})
+    target_link_libraries(${name} PRIVATE galleond_core)
+    target_compile_definitions(${name} PRIVATE
+        GALLEON_SOURCE_WIDGETS="${CMAKE_SOURCE_DIR}/widgets"
+        GALLEON_SOURCE_WALLPAPERS="${CMAKE_SOURCE_DIR}/public/wallpaper"
+    )
+endfunction()
+
+galleond_add_test(test_wallpapercatalog)
+galleond_add_test(test_screenrenderer)

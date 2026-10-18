@@ -47,4 +47,5 @@ if(GALLEON_FUZZ)
 endif()
 
 install(DIRECTORY widgets/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/widgets)
+install(DIRECTORY public/wallpaper/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/wallpaper)
 install(FILES tools/udev/70-galleon.rules DESTINATION lib/udev/rules.d)
