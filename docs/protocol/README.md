@@ -116,7 +116,19 @@ Source: `tools/linux/lamparray-test-lamp.c`, run by the user on Kubuntu, keyboar
 
 Sequence tested: control 229 with 0, then update 227 with one lamp (ID 0, red 255, intensity 255, flag 1 = update complete), 6 s later control 229 with 1. **Result: lamp 0 of the Stream Deck part lit red for 6 s, then the lighting went back to the keyboard's. No freeze.** Nothing is written to flash by these reports (standard LampArray, volatile).
 
-Still open: which dial lamp 0 is (not recorded), the effect of intensity values below 255, and the same test on the keyboard part (interface 4, reports 1 to 6, so control = 6 and multi-update = 4).
+Still open: which dial lamp 0 is (not recorded) and the effect of intensity values below 255.
+
+### What LampArray drives, and what it does not (Linux, 2026-10-18)
+
+Same firmware (keyboard v1.4.73), same sequence on both parts, with `tools/linux/lamparray-test-lamp` (single lamps, then full frames of all lamps in batches of 8 with the complete flag on the last batch, paced at the device's minimum interval) and with the OpenRGB plugin (all LEDs set to one colour):
+
+- **Stream Deck part, interface 3 (2 lamps): works.** The rings around the dials change colour, one lamp per ring, in the tool and in OpenRGB.
+- **Keyboard part, interface 4 (108 lamps): accepted but nothing visible.** Every report is acknowledged (`ok`, no error), yet no key changes colour, with the tool and with OpenRGB. Reading the 108 lamps works.
+- **The 12 LCD keys' backlight: not affected** by either interface.
+
+So on this firmware the keys' RGB is not reachable through LampArray. Not tested: firmware v2.3.88 (offered by the official tool; it would need its own recorded measurements), and the vendor interface (usage page 0xFF42, "Bragi"/V2) that galleon-deck uses, which is the risky one (see the freeze warning above).
+
+
 
 ## Captures
 
