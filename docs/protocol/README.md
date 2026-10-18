@@ -20,7 +20,7 @@ Facts about the Galleon 100 SD USB protocol, each with its source.
 
 ## USB interfaces as declared by the hardware
 
-**Firmware at the time of all measurements below: keyboard v1.4.73** (as shown by the official update tool, which offered v2.3.88 on 2026-10-18). A major version change may alter interfaces, report IDs and lighting behaviour: measurements made after the update must be recorded separately, with the new version.
+**Firmware of the Windows measurements below: keyboard v1.4.73** (as shown by the official update tool, 2026-10-18). The keyboard was then updated to **v2.3.88**, and the three read-only scripts gave identical results (same interfaces, 108 and 2 lamps, same CSV). Everything measured on Linux (next sections) was done on v2.3.88, which the Web Hub capture confirms through property 0x13. A major version change may alter interfaces, report IDs and lighting behaviour: record the version with every measurement.
 
 Source: `tools/windows/hid-caps.ps1` on Windows 11, 2026-10-18, a Galleon 100 SD plugged in and idle (numpad mode). It opens each HID interface with zero access rights and reads the capabilities the device declares (`HidP_GetCaps`): nothing is sent to the device. Lengths include the report ID byte. Device serial numbers are deliberately not recorded.
 
@@ -98,7 +98,7 @@ What this suggests, not yet verified:
 
 ## Linux behaviour (measured)
 
-Source: Kubuntu, kernel 7.0.0-38, 2026-10-18, keyboard firmware v1.4.73.
+Source: Kubuntu, kernel 7.0.0-38, 2026-10-18, keyboard firmware v2.3.88.
 
 - The kernel's `usbhid` driver **does not bind the LampArray interfaces**: `usbhid 1-10.1:1.4: couldn't find an input interrupt endpoint` (keyboard, interface 4) and the same for `1-10.2:1.3` (Stream Deck module, interface 3). These interfaces only carry feature reports, so they have no interrupt endpoint.
 - Consequence: no `/dev/hidraw*` node exists for them. The 4 keyboard nodes and 3 Stream Deck nodes expose no usage page 0x59 descriptor. Any tool reading LampArray through hidraw (OpenRGB's `HIDLampArrayController`, built at commit 96e198a) sees nothing on Linux, although it works on Windows.
@@ -109,7 +109,7 @@ What this suggests, not yet verified: the RGB driver must use libusb control tra
 
 ### LampArray write test (Linux, 2026-10-18)
 
-Source: `tools/linux/lamparray-test-lamp.c`, run by the user on Kubuntu, keyboard firmware v1.4.73. Report layouts come from the interface's own descriptor (Stream Deck part, interface 3):
+Source: `tools/linux/lamparray-test-lamp.c`, run by the user on Kubuntu, keyboard firmware v2.3.88. Report layouts come from the interface's own descriptor (Stream Deck part, interface 3):
 
 - 229: LampArrayControlReport, one 8-bit field, AutonomousMode (0 = host controls the lamps, 1 = the keyboard's own lighting).
 - 227: LampMultiUpdateReport, 51 bytes with the ID: lamp count (8 bits), flags (8 bits), 8 lamp IDs (16 bits each), then 8 x (red, green, blue, intensity).
@@ -120,13 +120,13 @@ Still open: which dial lamp 0 is (not recorded) and the effect of intensity valu
 
 ### What LampArray drives, and what it does not (Linux, 2026-10-18)
 
-Same firmware (keyboard v1.4.73), same sequence on both parts, with `tools/linux/lamparray-test-lamp` (single lamps, then full frames of all lamps in batches of 8 with the complete flag on the last batch, paced at the device's minimum interval) and with the OpenRGB plugin (all LEDs set to one colour):
+Same firmware (keyboard v2.3.88), same sequence on both parts, with `tools/linux/lamparray-test-lamp` (single lamps, then full frames of all lamps in batches of 8 with the complete flag on the last batch, paced at the device's minimum interval) and with the OpenRGB plugin (all LEDs set to one colour):
 
 - **Stream Deck part, interface 3 (2 lamps): works.** The rings around the dials change colour, one lamp per ring, in the tool and in OpenRGB.
 - **Keyboard part, interface 4 (108 lamps): accepted but nothing visible.** Every report is acknowledged (`ok`, no error), yet no key changes colour, with the tool and with OpenRGB. Reading the 108 lamps works.
 - **The 12 LCD keys' backlight: not affected** by either interface.
 
-So on this firmware the keys' RGB is not reachable through LampArray. Not tested: firmware v2.3.88 (offered by the official tool; it would need its own recorded measurements), and the vendor interface (usage page 0xFF42, "Bragi"/V2) that galleon-deck uses, which is the risky one (see the freeze warning above).
+So on this firmware the keys' RGB is not reachable through LampArray. Not tested: other firmware versions, and the vendor interface (usage page 0xFF42, "Bragi"/V2) that galleon-deck uses, which is the risky one (see the freeze warning above).
 
 
 
@@ -143,7 +143,7 @@ This differs from the `08 02 <property>` request given by galleon-deck and by Op
 
 **Commands seen** (counts in the capture): 0x01 (26), 0x02 (65), 0x05 (66), 0x06 (12), 0x07 (3), 0x08 (43), 0x09 (42), 0x0d (55), 0x12 (12). They match the command numbers of OpenRGB's `corsair_v2_cmd` (SET 0x01, GET 0x02, STOP_TX 0x05, BLK_W1 0x06, BLK_WN 0x07, START_TX 0x0D); that is an observation of the same numbers, not proof of the same semantics.
 
-- `00 01 00 02 <property>`: read a property. Answers seen include property 0x02 = 0x03e8 (1000), 0x41 = 2, and 0x13 = bytes `02 03 58`, which reads as firmware **2.3.88**, the version the official tool offered (the Windows measurements were taken on v1.4.73): whether the keyboard was updated in between is not known.
+- `00 01 00 02 <property>`: read a property. Answers seen include property 0x02 = 0x03e8 (1000), 0x41 = 2, and 0x13 = bytes `02 03 58`, which reads as firmware **2.3.88**, the version the keyboard was updated to after the Windows measurements. The galleon-deck notes mention firmware 3.70.1, so the protocol details they give may belong to another firmware generation.
 - `00 01 00 01 03 00 <1|2>`: set property 3 to 1 or 2 (what OpenRGB calls the render mode); the Web Hub toggles it many times, always answered `00 00 00 01 00`.
 - `0x0d`, `0x09`, `0x08`, `0x05`: open a resource, query its size, read it, close it (a file-like sequence; interpretation, not documented).
 - `0x06` / `0x07`: block writes. The three colour changes each produced one write whose payload contains the text "Profile": the Web Hub stored the colour in the keyboard's **saved profile**. That is a persistent write: **do not replay it** (project rule: nothing that writes to flash).

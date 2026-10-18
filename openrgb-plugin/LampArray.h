@@ -76,8 +76,8 @@ struct Lamp
 // Parses the answer to a GET_REPORT of the attributes report.
 //
 // The ID byte of the answer is NOT checked: the keyboard part answers with
-// another ID (04 when asked for 1) and a valid payload, measured on firmware
-// v1.4.73 and recorded in docs/protocol/README.md. The length is checked
+// another ID (04 or 06 when asked for 1) and a valid payload, measured on
+// firmware v1.4.73 and v2.3.88 and recorded in docs/protocol/README.md. The length is checked
 // exactly instead, and the values must be plausible.
 [[nodiscard]] std::optional<Attributes> parseAttributes(std::span<const std::uint8_t> report);
 
