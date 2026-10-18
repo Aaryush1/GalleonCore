@@ -1,0 +1,8 @@
+{
+    "OpenRGBPluginAPIVersion": 5,
+    "Id": "org.galleoncore.openrgb",
+    "Name": "GalleonCore",
+    "Url": "https://github.com/Paullux/GalleonCore",
+    "VersionStr": "0.1.0",
+    "Commit": "unknown"
+}
