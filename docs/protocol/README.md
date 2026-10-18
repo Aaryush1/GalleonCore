@@ -148,6 +148,8 @@ This differs from the `08 02 <property>` request given by galleon-deck and by Op
 - `0x0d`, `0x09`, `0x08`, `0x05`: open a resource, query its size, read it, close it (a file-like sequence; interpretation, not documented).
 - `0x06` / `0x07`: block writes. The three colour changes each produced one write whose payload contains the text "Profile": the Web Hub stored the colour in the keyboard's **saved profile**. That is a persistent write: **do not replay it** (project rule: nothing that writes to flash).
 
+A second capture (2026-10-18, 60 s: rainbow effect, one setting change, then a fixed green) gives the same picture: 94 requests, only two block-write sequences, each one a write of the saved profile (the effect and then the green), and no stream of frames. So the Web Hub never uses a live software-lighting stream for these effects.
+
 What this does not show: the live, non-persistent per-key lighting stream (software mode). The Web Hub does not use it for a fixed colour. A capture of iCUE running a software effect would be needed, and the freeze warning above still applies.
 
 ## Captures
