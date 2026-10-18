@@ -168,6 +168,38 @@ What this does not show: the live, non-persistent per-key lighting stream (softw
 
 [`webhub-lighting-analysis.md`](webhub-lighting-analysis.md) gathers what was observed with Corsair Web Hub (vendor-interface traffic, where the static colour is, what is a profile write to flash and must never be replayed), the safe LampArray route, the Stream Deck facts, the open questions and how to reproduce the capture on Linux. The sanitized frames are in [`webhub-capture-2026-10-18.txt`](webhub-capture-2026-10-18.txt).
 
+## Protocol facts read from the Web Hub's own client (2026-10-18)
+
+Source: the public JavaScript of `corsair.com/web-hub` (main bundle `assets/BDiHBs-c.js`, read offline on 2026-10-18; only facts are recorded here, no code is copied, and the files are not in the repository). It names the keyboard's product ID 11020 (0x2b0c) and builds the frames seen in the usbmon captures, so it explains them.
+
+**Frame header, 4 bytes** (the client calls it protocol header v1.5; the Galleon's frames in the captures have exactly this shape): byte 0 = 0, byte 1 = 1 (request), byte 2 = **session ID** (0 when no session is open), byte 3 = command. The frame is then zero-padded to the report length. Answers echo the command at byte 3; in an answer, byte 1 = 15 means "session expired" and byte 4 = 3 means "invalid state" (client's validation).
+
+**Commands, as named by the client** (decimal in the client, hex here), all matching the numbers seen in the captures:
+
+| Hex | Client's name | Arguments (as built by the client) |
+|---|---|---|
+| 01 | set property | property ID (2 bytes LE), value (4 bytes) |
+| 02 | get property | property ID (2 bytes LE) |
+| 03 | get several properties | count, then the IDs (2 bytes LE each) |
+| 05 | unbind buffer | count, then buffer indexes |
+| 06 | write buffer, begin | buffer index, total length (4 bytes LE), first data |
+| 07 | write buffer, continue | buffer index, data |
+| 08 | read buffer | buffer index |
+| 09 | describe buffer | buffer index |
+| 0a | calibration control | 2 bytes |
+| 0b | create file | file ID (2 bytes LE) |
+| 0c | delete file | file ID (2 bytes LE) |
+| 0d | open file | buffer index, file ID (2 bytes LE) |
+| 0f | **factory reset** | 1 byte. **Never send.** |
+| 12 | ping (also used for pairing) | none; the Web Hub pings every ~30 s |
+| 1b | host software session | start: `01`, 4 random bytes, `00`, answer byte 9 = session ID; stop: `02`, 4 zero bytes, session ID |
+
+So the device exposes a small file system: a file is opened into a numbered buffer, then described (size), read or written, then unbound. The profile written by the Web Hub is such a file (file IDs of the form 0x6dNN seen in the captures). `0d 00 22` from galleon-deck would be "open file 0x22 into buffer 0"; what file 0x22 is on this keyboard is not known.
+
+**Operating mode** (property 3, which OpenRGB names "render mode"): the client's names are 1 = SELF_OPERATED, 2 = HOST_CONTROLLED, **3 = BOOTLOADER**, 4 = SLEEP, **5 = MCU_BOOTLOADER**, 6 = LIMITED_HOST_CONTROLLER, 7 = ESPORTS. Only 1 and 2 may ever be written by our tools; 3 and 5 would put the device in a bootloader. `bragi-probe` writes only 1 and 2.
+
+Not found in the client: any name or function for a live per-key colour stream. The client has lighting "layers" and "effects" stored as profile data.
+
 ## Captures
 
 Put raw captures under `captures/`, named `YYYY-MM-DD-<what>.pcapng`, with a short note on what was done during the capture.
