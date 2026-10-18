@@ -26,9 +26,9 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 
 | Partie | État |
 |---|---|
-| Protocole Stream Deck (touches, écran, molettes) | Connu grâce au travail communautaire, à implémenter dans `libgalleon` |
-| Rendu QML hors écran vers le deck | Prévu |
-| Démon + interface D-Bus | Squelette |
+| Protocole Stream Deck (touches, écran, molettes) | Keep-alive, luminosité, images des touches et de l'écran implémentés d'après le descripteur du module et le travail communautaire ; **pas encore essayés sur le matériel**. Rapports d'entrée (touches, molettes) à faire |
+| Rendu QML hors écran vers le deck | Fond d'écran avec l'heure (`WallpaperClock.qml`), rendu logiciel |
+| Démon + interface D-Bus | Choix du fond (`galleond --preview`) et `org.galleoncore.Deck` (`SetWallpaper`, `ClearWallpaper`, `Wallpapers`) |
 | Widgets KDE Plasma | Squelette |
 | Éclairage RVB | **En cours d'investigation.** Le protocole (Corsair « V2 »/Bragi) n'est encore supporté nulle part. Le support doit être intégré en amont dans OpenRGB. |
 | Plugin OpenRGB | Prévu |
@@ -99,6 +99,19 @@ cmake --build build-asan
 ctest --test-dir build-asan
 ./build-asan/fuzz/fuzz_input_report -max_total_time=60
 ```
+
+## Fond d'écran et heure sur l'écran
+
+`galleond` dessine une des images de [`public/wallpaper/`](public/wallpaper/) sur l'écran du Galleon (720 × 384), avec l'heure par-dessus, et la redessine chaque minute.
+
+```sh
+./build/daemon/galleond --preview                         # fenêtre de choix du fond
+./build/daemon/galleond --wallpaper manga-cyberpunk/manga-cyberpunk-01.jpg
+./build/daemon/galleond --wallpaper cinematic/cinematic-02.jpg --render-to ecran.png   # sans matériel
+busctl --user call org.galleoncore.Deck /org/galleoncore/Deck org.galleoncore.Deck SetWallpaper s cinematic/cinematic-02.jpg
+```
+
+Seules les images du dossier des fonds peuvent être choisies, et chacune est vérifiée (vrai JPEG ou PNG, taille, pas de lien symbolique). Le dernier choix est mémorisé. Le dossier est `--wallpapers`, `$GALLEONCORE_WALLPAPERS`, `<dossier de données>/galleoncore/wallpaper`, ou l'arbre des sources.
 
 ## Notes matérielles
 

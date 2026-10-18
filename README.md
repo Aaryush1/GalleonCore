@@ -26,9 +26,9 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 
 | Part | Status |
 |---|---|
-| Stream Deck protocol (keys, screen, dials) | Known from community work, to be implemented in `libgalleon` |
-| Off-screen QML rendering to the deck | Planned |
-| Daemon + D-Bus interface | Skeleton |
+| Stream Deck protocol (keys, screen, dials) | Keep-alive, brightness, key and screen images implemented from the module's own descriptor and community work; **not yet tried on the hardware**. Input reports (keys, dials) still to do |
+| Off-screen QML rendering to the deck | Wallpaper with the time (`WallpaperClock.qml`), software renderer |
+| Daemon + D-Bus interface | Wallpaper picker (`galleond --preview`) and `org.galleoncore.Deck` (`SetWallpaper`, `ClearWallpaper`, `Wallpapers`) |
 | KDE Plasma widgets | Skeleton |
 | RGB lighting | **Under investigation.** The protocol (Corsair "V2"/Bragi) is not supported anywhere yet. Support is meant to land upstream in OpenRGB. |
 | OpenRGB plugin | Planned |
@@ -99,6 +99,19 @@ cmake --build build-asan
 ctest --test-dir build-asan
 ./build-asan/fuzz/fuzz_input_report -max_total_time=60
 ```
+
+## Wallpaper and clock on the screen
+
+`galleond` draws one of the images of [`public/wallpaper/`](public/wallpaper/) on the Galleon's screen (720 × 384) with the time over it, and redraws every minute.
+
+```sh
+./build/daemon/galleond --preview                         # window to pick a wallpaper
+./build/daemon/galleond --wallpaper manga-cyberpunk/manga-cyberpunk-01.jpg
+./build/daemon/galleond --wallpaper cinematic/cinematic-02.jpg --render-to screen.png   # no hardware
+busctl --user call org.galleoncore.Deck /org/galleoncore/Deck org.galleoncore.Deck SetWallpaper s cinematic/cinematic-02.jpg
+```
+
+Only the images found in the wallpaper folder can be chosen, and each one is checked (real JPEG or PNG, size, no symbolic link). The last choice is remembered. The folder is `--wallpapers`, `$GALLEONCORE_WALLPAPERS`, `<data dir>/galleoncore/wallpaper`, or the source tree.
 
 ## Hardware notes
 
