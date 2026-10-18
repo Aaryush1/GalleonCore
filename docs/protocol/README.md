@@ -150,6 +150,10 @@ This differs from the `08 02 <property>` request given by galleon-deck and by Op
 
 A second capture (2026-10-18, 60 s: rainbow effect, one setting change, then a fixed green) gives the same picture: 94 requests, only two block-write sequences, each one a write of the saved profile (the effect and then the green), and no stream of frames. So the Web Hub never uses a live software-lighting stream for these effects.
 
+**Read-only access confirmed on Linux (2026-10-18)**, with `tools/linux/bragi-probe.c` through `/dev/hidraw` of the vendor interface (usage page 0xFF42, usage 1): the frame above is answered. Properties read, as `status=0 value`: 0x01 = 4, 0x02 = 1000 (0x3e8), 0x0a = 5, 0x13 = 0x580302 (firmware 2.3.88: bytes major 2, minor 3, patch 0x0058 = 88), 0x41 = 2, 0x6e = 1; property 0x05 asked without the extra argument 01 answers `status=5` (the Web Hub asks it with 01 and gets 0x0501).
+
+Pitfall that cost three runs: on hidraw, the first byte of `write()` is the report number and the kernel drops it when it is 0. This interface has unnumbered 128-byte reports, so **129 bytes must be written** (a 0, then the 128-byte frame). Writing 128 bytes loses the first byte of the frame (usbmon showed 127-byte transfers and the keyboard stayed silent). Do not read from the same hidraw while a browser using WebHID is open: every reader gets a copy of every answer.
+
 What this does not show: the live, non-persistent per-key lighting stream (software mode). The Web Hub does not use it for a fixed colour. A capture of iCUE running a software effect would be needed, and the freeze warning above still applies.
 
 ## Captures
