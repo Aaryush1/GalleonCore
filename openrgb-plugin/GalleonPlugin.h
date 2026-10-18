@@ -7,10 +7,14 @@
 
 #include <QObject>
 
+#include <vector>
+
 namespace galleon::openrgb {
 
-// Proof of concept: registers one fake 12-LED controller through the plugin
-// API (RegisterVirtualRGBController) and logs the colours OpenRGB sends it.
+// Reads the two LampArray interfaces of the Galleon 100 SD with libusb and
+// registers one controller per part through the plugin API
+// (RegisterVirtualRGBController). READ-ONLY for now: the colours OpenRGB sets
+// are logged, never sent to the hardware.
 class GalleonPlugin : public QObject, public OpenRGBPluginInterface
 {
     Q_OBJECT
@@ -42,7 +46,8 @@ private:
     void log(unsigned int level, const char *message);
 
     OpenRGBPluginAPIInterface *m_api = nullptr;
-    RGBControllerInterface *m_controller = nullptr;
+    std::vector<RGBControllerInterface *> m_controllers;
+    bool m_loggedFirstUpdate = false;
 };
 
 } // namespace galleon::openrgb

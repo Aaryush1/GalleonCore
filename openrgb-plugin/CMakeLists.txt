@@ -22,13 +22,21 @@ endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
 
-add_library(galleon_fakekeys STATIC FakeKeys.cpp FakeKeys.h)
-target_include_directories(galleon_fakekeys PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-set_target_properties(galleon_fakekeys PROPERTIES POSITION_INDEPENDENT_CODE ON)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBUSB REQUIRED IMPORTED_TARGET libusb-1.0)
+
+# Pure parsing: no libusb, no Qt, no OpenRGB.
+add_library(galleon_lamparray STATIC LampArray.cpp LampArray.h)
+target_include_directories(galleon_lamparray PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(galleon_lamparray PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+add_library(galleon_usb_lamparray STATIC UsbLampArray.cpp UsbLampArray.h)
+target_link_libraries(galleon_usb_lamparray PUBLIC galleon_lamparray PkgConfig::LIBUSB)
+set_target_properties(galleon_usb_lamparray PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(galleon_openrgb_plugin MODULE
     GalleonPlugin.cpp GalleonPlugin.h
-    FakeController.cpp FakeController.h
+    LampArrayController.cpp LampArrayController.h
     galleon-plugin.json
 )
 target_include_directories(galleon_openrgb_plugin SYSTEM PRIVATE
@@ -37,13 +45,13 @@ target_include_directories(galleon_openrgb_plugin SYSTEM PRIVATE
     ${OPENRGB_SOURCE_DIR}/dependencies/json
 )
 target_link_libraries(galleon_openrgb_plugin PRIVATE
-    galleon_fakekeys Qt6::Core Qt6::Gui Qt6::Widgets
+    galleon_usb_lamparray Qt6::Core Qt6::Gui Qt6::Widgets
 )
 set_target_properties(galleon_openrgb_plugin PROPERTIES OUTPUT_NAME galleoncore-openrgb)
 
 enable_testing()
 find_package(Qt6 REQUIRED COMPONENTS Test)
-add_executable(test_fakekeys tests/test_fakekeys.cpp)
-target_link_libraries(test_fakekeys PRIVATE galleon_fakekeys Qt6::Test)
-add_test(NAME test_fakekeys COMMAND test_fakekeys)
-set_tests_properties(test_fakekeys PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_executable(test_lamparray tests/test_lamparray.cpp)
+target_link_libraries(test_lamparray PRIVATE galleon_lamparray Qt6::Test)
+add_test(NAME test_lamparray COMMAND test_lamparray)
+set_tests_properties(test_lamparray PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
