@@ -160,7 +160,7 @@ Pitfall that cost three runs: on hidraw, the first byte of `write()` is the repo
 `04..45` (all 66 values), `47..65` (31 values), `69..6f`, `73..77`, `7a`, `7c`, `81..87`, `8b..91`.
 That is HID keyboard usage numbers (04 = A, 1e = 1, 29 = Esc, ...), with 0x46 left out. So the keyboard's own lighting engine addresses **125 keys by usage number**, not 108 lamps by index as the LampArray interface does; how the two numberings relate is not known. The four colour bytes read as `ff, blue, green, red`: red was `ff 00 00 ff`, green `ff 00 ff 00`, magenta-ish `ff 4f 00 ff` (observation from three captures, not a documented layout). Block writes of this record are persistent profile writes: never replay them.
 
-What this does not show: the live, non-persistent per-key lighting stream (software mode). The Web Hub does not use it for a fixed colour. A capture of iCUE running a software effect would be needed, and the freeze warning above still applies.
+What this does not show: the live, non-persistent per-key lighting stream (software mode). The Web Hub does not use it for a fixed colour or for effects. iCUE does not detect this keyboard (new Corsair devices are managed by the Web Hub), so there is no known application whose traffic would show such a stream; the freeze warning above still applies to any attempt to write one.
 
 ## Web Hub capture and Linux hand-over
 
