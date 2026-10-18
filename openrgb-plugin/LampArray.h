@@ -27,12 +27,17 @@ inline constexpr std::size_t MaxDescriptorSize = 4096;
 inline constexpr std::size_t AttributesReportSize = 23;
 inline constexpr std::size_t LampRequestReportSize = 3;
 inline constexpr std::size_t LampResponseReportSize = 29;
+inline constexpr std::size_t ControlReportSize = 2;
+inline constexpr std::size_t MultiUpdateReportSize = 51;
+inline constexpr std::size_t MaxLampsPerUpdate = 8;
 
 struct ReportIds
 {
     std::uint8_t attributes = 0; // LampArrayAttributesReport
     std::uint8_t request = 0;    // LampAttributesRequestReport (selects a lamp)
     std::uint8_t response = 0;   // LampAttributesResponseReport
+    std::uint8_t multiUpdate = 0; // LampMultiUpdateReport (up to 8 lamps)
+    std::uint8_t control = 0;    // LampArrayControlReport (autonomous mode)
 };
 
 struct Attributes
@@ -61,9 +66,10 @@ struct Lamp
     std::uint8_t inputBinding = 0;
 };
 
-// Finds the report IDs of the three reports we use by scanning the descriptor
+// Finds the report IDs of the five reports we use by scanning the descriptor
 // for `Report ID (n)  Usage (u)  Collection (Logical)`, with u = 0x02
-// (attributes), 0x20 (request) and 0x22 (response). Empty if any is missing,
+// (attributes), 0x20 (request), 0x22 (response), 0x50 (multi-update) and
+// 0x70 (control). Empty if any is missing,
 // zero or duplicated, or if the descriptor is empty or too large.
 [[nodiscard]] std::optional<ReportIds> findReportIds(std::span<const std::uint8_t> descriptor);
 
@@ -83,5 +89,24 @@ struct Lamp
 // another lamp than `expectedId` (the sequence must stay in step). The ID byte
 // is not checked, for the same reason as above.
 [[nodiscard]] std::optional<Lamp> parseLampResponse(std::span<const std::uint8_t> report, unsigned int expectedId);
+
+struct LampColor
+{
+    unsigned int id = 0;
+    std::uint8_t red = 0;
+    std::uint8_t green = 0;
+    std::uint8_t blue = 0;
+};
+
+// LampArrayControlReport: autonomous = true gives the lighting back to the
+// keyboard; false makes the host the only one to drive the lamps.
+[[nodiscard]] std::array<std::uint8_t, ControlReportSize> makeControlReport(std::uint8_t controlId, bool autonomous);
+
+// LampMultiUpdateReport for 1 to MaxLampsPerUpdate lamps (more or none: empty
+// result). `complete` sets the LampUpdateComplete flag, which tells the device
+// to apply the batch: set it on the last report of a frame only. Lamp IDs above
+// MaxLamps are refused. The intensity channel is always 255.
+[[nodiscard]] std::optional<std::array<std::uint8_t, MultiUpdateReportSize>>
+makeMultiUpdateReport(std::uint8_t multiUpdateId, std::span<const LampColor> lamps, bool complete);
 
 } // namespace galleon::openrgb

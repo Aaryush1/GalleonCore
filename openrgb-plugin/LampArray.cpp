@@ -15,6 +15,11 @@ constexpr std::uint8_t CollectionLogical = 0x02;
 constexpr std::uint8_t UsageAttributes = 0x02;
 constexpr std::uint8_t UsageRequest = 0x20;
 constexpr std::uint8_t UsageResponse = 0x22;
+constexpr std::uint8_t UsageMultiUpdate = 0x50;
+constexpr std::uint8_t UsageControl = 0x70;
+
+constexpr std::uint8_t FlagUpdateComplete = 0x01;
+constexpr std::uint8_t FullIntensity = 255;
 
 // A lamp array larger than 10 m is not a keyboard: reject the report.
 constexpr std::uint32_t MaxDimensionUm = 10'000'000;
@@ -56,6 +61,12 @@ std::optional<ReportIds> findReportIds(std::span<const std::uint8_t> descriptor)
         case UsageResponse:
             target = &ids.response;
             break;
+        case UsageMultiUpdate:
+            target = &ids.multiUpdate;
+            break;
+        case UsageControl:
+            target = &ids.control;
+            break;
         default:
             break;
         }
@@ -66,7 +77,7 @@ std::optional<ReportIds> findReportIds(std::span<const std::uint8_t> descriptor)
         *target = id;
     }
 
-    if (ids.attributes == 0 || ids.request == 0 || ids.response == 0)
+    if (ids.attributes == 0 || ids.request == 0 || ids.response == 0 || ids.multiUpdate == 0 || ids.control == 0)
         return std::nullopt;
     return ids;
 }
@@ -119,6 +130,40 @@ std::optional<Lamp> parseLampResponse(std::span<const std::uint8_t> report, unsi
     lamp.programmable = report[27] != 0;
     lamp.inputBinding = report[28];
     return lamp;
+}
+
+std::array<std::uint8_t, ControlReportSize> makeControlReport(std::uint8_t controlId, bool autonomous)
+{
+    return {controlId, static_cast<std::uint8_t>(autonomous ? 1 : 0)};
+}
+
+std::optional<std::array<std::uint8_t, MultiUpdateReportSize>>
+makeMultiUpdateReport(std::uint8_t multiUpdateId, std::span<const LampColor> lamps, bool complete)
+{
+    if (lamps.empty() || lamps.size() > MaxLampsPerUpdate)
+        return std::nullopt;
+    for (const LampColor &lamp : lamps) {
+        if (lamp.id >= MaxLamps)
+            return std::nullopt;
+    }
+
+    // Layout (from the devices' descriptors): ID, count, flags, 8 lamp IDs of
+    // 16 bits, then 8 x (red, green, blue, intensity). Unused slots stay zero.
+    std::array<std::uint8_t, MultiUpdateReportSize> report{};
+    report[0] = multiUpdateId;
+    report[1] = static_cast<std::uint8_t>(lamps.size());
+    report[2] = complete ? FlagUpdateComplete : 0;
+    constexpr std::size_t idsAt = 3;
+    constexpr std::size_t colorsAt = idsAt + 2 * MaxLampsPerUpdate;
+    for (std::size_t i = 0; i < lamps.size(); ++i) {
+        report[idsAt + 2 * i] = static_cast<std::uint8_t>(lamps[i].id & 0xFF);
+        report[idsAt + 2 * i + 1] = static_cast<std::uint8_t>((lamps[i].id >> 8) & 0xFF);
+        report[colorsAt + 4 * i] = lamps[i].red;
+        report[colorsAt + 4 * i + 1] = lamps[i].green;
+        report[colorsAt + 4 * i + 2] = lamps[i].blue;
+        report[colorsAt + 4 * i + 3] = FullIntensity;
+    }
+    return report;
 }
 
 } // namespace galleon::openrgb

@@ -3,20 +3,21 @@
 
 #pragma once
 
-// Reads a Galleon LampArray interface with libusb control transfers.
+// A Galleon LampArray interface, driven with libusb control transfers.
 //
 // Why not hidraw: on Linux, usbhid refuses these interfaces (no interrupt
 // endpoint), so no /dev/hidraw node exists (docs/protocol/README.md).
 //
-// READ-ONLY with respect to lighting: the only things sent are standard GET
-// requests and, per lamp, the LampAttributesRequest that merely selects which
-// lamp the next answer describes. No lamp update, range update or control
-// report is ever sent.
+// Reading is harmless: GET requests, plus per lamp the LampAttributesRequest
+// that only selects which lamp the next answer describes. Writing is separate
+// and explicit (setAutonomous, writeColors): standard LampArray reports,
+// volatile, nothing is saved to flash.
 
 #include "LampArray.h"
 
 #include <cstdint>
-#include <optional>
+#include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -29,12 +30,38 @@ struct LampArrayData
     std::vector<Lamp> lamps; // lamps[i].id == i
 };
 
-struct ReadResult
+class LampArrayDevice
 {
-    std::optional<LampArrayData> data;
-    std::string error; // set when data is empty
-};
+public:
+    // Opens the device, claims the interface (never detaches a kernel driver)
+    // and reads the report IDs and the attributes. Null on failure, with the
+    // reason in `error`.
+    [[nodiscard]] static std::unique_ptr<LampArrayDevice> open(std::uint16_t vendorId,
+                                                                std::uint16_t productId,
+                                                                int interfaceNumber,
+                                                                std::string &error);
+    ~LampArrayDevice();
+    LampArrayDevice(const LampArrayDevice &) = delete;
+    LampArrayDevice &operator=(const LampArrayDevice &) = delete;
 
-[[nodiscard]] ReadResult readLampArray(std::uint16_t vendorId, std::uint16_t productId, int interfaceNumber);
+    [[nodiscard]] const ReportIds &ids() const;
+    [[nodiscard]] const Attributes &attributes() const;
+
+    // Reads every lamp's attributes.
+    [[nodiscard]] bool readLamps(std::vector<Lamp> &lamps, std::string &error);
+
+    // false = the host drives the lamps; true = the keyboard's own lighting.
+    [[nodiscard]] bool setAutonomous(bool autonomous, std::string &error);
+
+    // Sends the colours in batches of MaxLampsPerUpdate, the last batch
+    // flagged "complete". Waits for the device's minimum update interval
+    // between reports. setAutonomous(false) must have been called before.
+    [[nodiscard]] bool writeColors(std::span<const LampColor> colors, std::string &error);
+
+private:
+    struct Impl;
+    explicit LampArrayDevice(std::unique_ptr<Impl> impl);
+    std::unique_ptr<Impl> m_impl;
+};
 
 } // namespace galleon::openrgb

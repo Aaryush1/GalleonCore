@@ -97,6 +97,8 @@ private Q_SLOTS:
         QCOMPARE(int(ids->attributes), 1);
         QCOMPARE(int(ids->request), 2);
         QCOMPARE(int(ids->response), 3);
+        QCOMPARE(int(ids->multiUpdate), 4);
+        QCOMPARE(int(ids->control), 6);
     }
 
     void reportIdsOfTheDeck()
@@ -106,6 +108,8 @@ private Q_SLOTS:
         QCOMPARE(int(ids->attributes), 224);
         QCOMPARE(int(ids->request), 225);
         QCOMPARE(int(ids->response), 226);
+        QCOMPARE(int(ids->multiUpdate), 227);
+        QCOMPARE(int(ids->control), 229);
     }
 
     void reportIdsRejectBadDescriptors()
@@ -207,6 +211,54 @@ private Q_SLOTS:
     {
         QVERIFY(!parseLampResponse(keyboardLamp1, 0).has_value());
         QVERIFY(!parseLampResponse(keyboardLamp1, 2).has_value());
+    }
+
+    void controlReportMatchesTheHardwareTest()
+    {
+        // Bytes sent by tools/linux/lamparray-test-lamp on the deck (worked).
+        QCOMPARE(int(makeControlReport(229, false)[0]), 229);
+        QCOMPARE(int(makeControlReport(229, false)[1]), 0);
+        QCOMPARE(int(makeControlReport(229, true)[1]), 1);
+    }
+
+    void multiUpdateMatchesTheHardwareTest()
+    {
+        // The exact 51 bytes of the successful test: lamp 0 red on the deck.
+        const std::vector<LampColor> lamps = {{0, 255, 0, 0}};
+        const auto report = makeMultiUpdateReport(227, lamps, true);
+        QVERIFY(report.has_value());
+        std::vector<std::uint8_t> expected(MultiUpdateReportSize, 0);
+        expected[0] = 227;
+        expected[1] = 1;
+        expected[2] = 1;
+        expected[19] = 255;
+        expected[22] = 255;
+        QCOMPARE(std::vector<std::uint8_t>(report->begin(), report->end()), expected);
+    }
+
+    void multiUpdateEncodesSeveralLamps()
+    {
+        std::vector<LampColor> lamps;
+        for (unsigned int i = 0; i < MaxLampsPerUpdate; ++i)
+            lamps.push_back({100 + i * 100, std::uint8_t(i), std::uint8_t(i + 1), std::uint8_t(i + 2)});
+        const auto report = makeMultiUpdateReport(4, lamps, false);
+        QVERIFY(report.has_value());
+        QCOMPARE(int((*report)[1]), 8);
+        QCOMPARE(int((*report)[2]), 0); // not the last batch of a frame
+        // Lamp 1 has ID 200, two bytes after the first ID slot.
+        QCOMPARE(int((*report)[3 + 2]), 200);
+        QCOMPARE(int((*report)[3 + 3]), 0);
+        QCOMPARE(int((*report)[19 + 4]), 1); // red of lamp 1
+        QCOMPARE(int((*report)[19 + 7]), 255);
+    }
+
+    void multiUpdateRejectsBadInput()
+    {
+        QVERIFY(!makeMultiUpdateReport(4, {}, true).has_value());
+        const std::vector<LampColor> tooMany(MaxLampsPerUpdate + 1);
+        QVERIFY(!makeMultiUpdateReport(4, tooMany, true).has_value());
+        const std::vector<LampColor> badId = {{MaxLamps, 1, 2, 3}};
+        QVERIFY(!makeMultiUpdateReport(4, badId, true).has_value());
     }
 
     void lampResponseRejectsWrongLengths()
