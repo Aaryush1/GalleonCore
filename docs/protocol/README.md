@@ -154,6 +154,8 @@ A second capture (2026-10-18, 60 s: rainbow effect, one setting change, then a f
 
 Pitfall that cost three runs: on hidraw, the first byte of `write()` is the report number and the kernel drops it when it is 0. This interface has unnumbered 128-byte reports, so **129 bytes must be written** (a 0, then the 128-byte frame). Writing 128 bytes loses the first byte of the frame (usbmon showed 127-byte transfers and the keyboard stayed silent). Do not read from the same hidraw while a browser using WebHID is open: every reader gets a copy of every answer.
 
+**Mode switch tested on Linux (2026-10-18)**: `bragi-probe --software-mode` sent `00 01 00 01 03 00 02` (property 3 = 2, software RGB mode in OpenRGB's naming), read the properties, then `00 01 00 01 03 00 01` (back to 1). Both were answered `00 00 00 01 00` (accepted), and the property reads gave the same values in both modes. No colour was sent. The visual effect on the keys during mode 2 was not recorded.
+
 What this does not show: the live, non-persistent per-key lighting stream (software mode). The Web Hub does not use it for a fixed colour. A capture of iCUE running a software effect would be needed, and the freeze warning above still applies.
 
 ## Captures
