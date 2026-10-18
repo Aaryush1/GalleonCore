@@ -27,8 +27,16 @@
 //   Ctrl-C. The keyboard's lighting may change or go dark while in mode 2.
 //   Without this option nothing at all is written but the read requests.
 //
+// Optional: ./bragi-probe --hold <seconds>
+//   Sets mode 2, does NOT read anything, waits <seconds> (1 to 300, Ctrl-C
+//   ends it early), then sets mode 1 back. Meant to be run while another tool
+//   (lamparray-test-lamp keyboard sweep) drives the lamps through the LampArray
+//   interface in a second terminal: does the keyboard obey LampArray for its
+//   keys only while its hardware lighting mode is off? Nothing but property 3
+//   is written, and mode 1 is restored on every exit path.
+//
 // Build: gcc -Wall -o bragi-probe bragi-probe.c
-// Run:   ./bragi-probe [--software-mode]   (close OpenRGB and OpenLinkHub first)
+// Run:   ./bragi-probe [--software-mode | --hold <seconds>]   (close OpenRGB and OpenLinkHub first)
 
 #include <errno.h>
 #include <fcntl.h>
@@ -37,6 +45,7 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -201,12 +210,32 @@ int main(int argc, char **argv)
         return 1;
     }
     const int softwareMode = argc > 1 && strcmp(argv[1], "--software-mode") == 0;
-    if (argc > 1 && !softwareMode) {
-        puts("usage: bragi-probe [--software-mode]");
+    const int hold = argc > 2 && strcmp(argv[1], "--hold") == 0;
+    int holdSeconds = hold ? atoi(argv[2]) : 0;
+    if ((argc > 1 && !softwareMode && !hold) || (hold && (holdSeconds < 1 || holdSeconds > 300))) {
+        puts("usage: bragi-probe [--software-mode | --hold <1..300 seconds>]");
+        close(fd);
         return 2;
     }
     signal(SIGINT, onSignal);
     signal(SIGTERM, onSignal);
+
+    if (hold) {
+        signal(SIGINT, onSignal);
+        signal(SIGTERM, onSignal);
+        if (setMode(fd, 2) != 0) {
+            setMode(fd, 1);
+            close(fd);
+            return 1;
+        }
+        printf("software mode on for %d s (Ctrl-C to stop early)\n", holdSeconds);
+        fflush(stdout);
+        for (int i = 0; i < holdSeconds * 10 && !interrupted; i++)
+            usleep(100000);
+        const int restored = setMode(fd, 1);
+        close(fd);
+        return restored == 0 ? 0 : 1;
+    }
 
     int failures = 0;
     int inSoftwareMode = 0;
