@@ -206,6 +206,20 @@ So the device exposes a small file system: a file is opened into a numbered buff
 
 Not found in the client: any name or function for a live per-key colour stream. The client has lighting "layers" and "effects" stored as profile data.
 
+## Stream Deck module facts (interface 0 of `1b1c:2b18`), checked 2026-10-18
+
+Measured on this unit (read-only: the HID report descriptor and GET feature reports):
+- Reports are numbered. Output ID 2 = 1023 data bytes (1024 with the ID), input ID 1 = 511 (512), feature IDs 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20, 21 = 31 (32). So galleon-deck's `02 ...` and `03 27` are report ID then data.
+- Feature report 8 (layout): `04 03 a0 00 a0 00 d0 02 00 05 02 05 00 00 04 00 d0 02 80 01 ...`. It holds 160 x 160 (`a0 00 a0 00`) and 720 x 384 (`d0 02 80 01`).
+- Feature reports 4, 5, 7 carry firmware strings from byte 6: `2.00.002`, `3.06.005`, `3.06.005`.
+- The module has four HID interfaces: 0 = control (the one to open), 1 = numpad keyboard, 2 = dial consumer keys, 3 = LampArray without endpoints.
+
+Cross-checked against a second, independent implementation, OpenActionAPI/rust-elgato-streamdeck pull request 63 (linked from OpenDeck issue 272): VID/PID 1b1c:2b18, interface 0 only, keep-alive `03 27` in a 32-byte feature report every 500 ms, keys 160 x 160 JPEG and screen 720 x 384 JPEG, both without rotation or mirroring.
+
+That implementation also lights the dial rings through the Stream Deck protocol: a 6-byte feature report `03 24 <led> <red> <green> <blue>`, 4 LEDs per dial (led = (1 - dial) * 4 + segment, so dial 0 uses LEDs 4 to 7 and dial 1 uses LEDs 0 to 3). Not tested here. The LampArray interface sees only one lamp per ring.
+
+Image headers (galleon-deck, and the Stream Deck Plus conventions the Rust code reuses for the Galleon): key `02 07 <key> <last> <len u16le> <part u16le>`, screen `02 0c <x> <y> <w> <h> <last> <part> <len> 00`. Byte order, `last` = 1 on the final report and `part` counting from 0 are to be verified by drawing an image on the unit.
+
 ## Captures
 
 Put raw captures under `captures/`, named `YYYY-MM-DD-<what>.pcapng`, with a short note on what was done during the capture.

@@ -6,20 +6,20 @@
         "streamDeckProductId": "2b18"
     },
     "statusScreen": {
-        "widthPx": null,
-        "heightPx": null,
-        "source": "To confirm on the hardware: sources disagree (1280x720 or 720x180)."
+        "widthPx": 720,
+        "heightPx": 384,
+        "source": "Feature report 8 of the Stream Deck module (read 2026-10-18) ends with d0 02 80 01 = 720 x 384 little-endian; galleon-deck docs/PROTOCOL.md and OpenActionAPI/rust-elgato-streamdeck PR #63 give the same size. Confirmed on the hardware by the descriptor-level read, not yet by displaying an image."
     },
     "keys": {
-        "columns": null,
-        "rows": null,
-        "imageWidthPx": null,
-        "imageHeightPx": null,
+        "columns": 3,
+        "rows": 4,
+        "imageWidthPx": 160,
+        "imageHeightPx": 160,
         "keyWidthMm": null,
         "keyHeightMm": null,
         "gapXMm": null,
         "gapYMm": null,
-        "source": "To measure with a ruler on the hardware. 12 keys in total; layout to confirm."
+        "source": "Pixel sizes: feature report 8 holds a0 00 a0 00 = 160 x 160 (read 2026-10-18); galleon-deck gives 160 x 160 JPEG. Grid: report 8 starts with 04 03 and galleon-deck says 3 keys wide and 4 high (rust-elgato-streamdeck PR #63 writes it as 4 x 3: only the orientation of the wording differs, 12 keys). Key and gap sizes in mm: to measure with a ruler."
     },
     "throughput": {
         "statusScreenMaxFps": null,
