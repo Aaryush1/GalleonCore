@@ -96,6 +96,17 @@ What this suggests, not yet verified:
 - RGB may also be reachable through the standard HID LampArray interface (MI_04 and MI_03), whose report layout is public in the HID Usage Tables, instead of only the proprietary Bragi interface. No LampArray write has been tried.
 - The rule against writing RGB reports before the format is understood still applies.
 
+## Linux behaviour (measured)
+
+Source: Kubuntu, kernel 7.0.0-38, 2026-10-18, keyboard firmware v1.4.73.
+
+- The kernel's `usbhid` driver **does not bind the LampArray interfaces**: `usbhid 1-10.1:1.4: couldn't find an input interrupt endpoint` (keyboard, interface 4) and the same for `1-10.2:1.3` (Stream Deck module, interface 3). These interfaces only carry feature reports, so they have no interrupt endpoint.
+- Consequence: no `/dev/hidraw*` node exists for them. The 4 keyboard nodes and 3 Stream Deck nodes expose no usage page 0x59 descriptor. Any tool reading LampArray through hidraw (OpenRGB's `HIDLampArrayController`, built at commit 96e198a) sees nothing on Linux, although it works on Windows.
+- The interfaces are reachable by libusb with a control transfer (`GET_REPORT`, feature, `wIndex` = interface). Read-only probe: `tools/linux/lamparray-probe.c`. It reproduces the Windows attributes exactly: keyboard 108 lamps, 440 × 150 × 25 mm, kind 1, 3 ms; Stream Deck module 2 lamps, 20 ms. The keyboard answers report 1 with ID byte `04`, as on Windows.
+- Access to `/dev/bus/usb/...` needs the `uaccess` rule in `tools/udev/70-galleon.rules`.
+
+What this suggests, not yet verified: the RGB driver must use libusb control transfers on the LampArray interfaces (or the Bragi interface), not hidraw.
+
 ## Captures
 
 Put raw captures under `captures/`, named `YYYY-MM-DD-<what>.pcapng`, with a short note on what was done during the capture.
