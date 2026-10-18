@@ -10,10 +10,13 @@
 namespace galleon {
 
 // Transport over hidapi (hidraw backend).
+//
+// A USB part exposes several HID interfaces (the Stream Deck module has four);
+// `interfaceNumber` selects the one to open, or -1 for the first one found.
 class HidTransport final : public Transport
 {
 public:
-    HidTransport(std::uint16_t vendorId, std::uint16_t productId);
+    HidTransport(std::uint16_t vendorId, std::uint16_t productId, int interfaceNumber = -1);
     ~HidTransport() override;
 
     HidTransport(const HidTransport &) = delete;
@@ -32,6 +35,7 @@ private:
     struct Device;
     std::uint16_t m_vendorId;
     std::uint16_t m_productId;
+    int m_interfaceNumber;
     std::unique_ptr<Device> m_device;
 };
 

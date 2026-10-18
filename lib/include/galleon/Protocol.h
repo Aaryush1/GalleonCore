@@ -21,6 +21,10 @@ inline constexpr std::uint16_t CorsairVendorId = 0x1b1c;
 inline constexpr std::uint16_t StreamDeckProductId = 0x2b18;
 inline constexpr std::uint16_t KeyboardProductId = 0x2b0c;
 
+// USB interface of the module that carries keys, screen and dials (measured
+// 2026-10-18; rust-elgato-streamdeck PR 63 also opens only this one).
+inline constexpr int ControlInterface = 0;
+
 inline constexpr int KeyCount = 12;
 inline constexpr int DialCount = 2;
 

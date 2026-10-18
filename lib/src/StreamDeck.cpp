@@ -5,7 +5,10 @@
 
 #include "galleon/HidTransport.h"
 
+#include <QBuffer>
+#include <QByteArray>
 #include <QDebug>
+#include <QImageWriter>
 
 #include <array>
 
@@ -14,6 +17,35 @@ namespace galleon {
 namespace {
 constexpr int InputPollIntervalMs = 10;
 constexpr std::size_t InputBufferSize = 512;
+constexpr int JpegQuality = 90;
+
+// Scales to the exact size the module draws (the module does no scaling) and
+// encodes a baseline JPEG, which is what the module is documented to take.
+QByteArray encodeJpeg(const QImage &image, int width, int height)
+{
+    QImage prepared = image.convertToFormat(QImage::Format_RGB888);
+    if (prepared.width() != width || prepared.height() != height)
+        prepared = prepared.scaled(width, height, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    QImageWriter writer(&buffer, "jpeg");
+    writer.setQuality(JpegQuality);
+    if (!writer.write(prepared))
+        return {};
+    return bytes;
+}
+
+bool writeAll(Transport &transport, const std::vector<std::vector<std::uint8_t>> &reports)
+{
+    if (reports.empty())
+        return false;
+    for (const auto &report : reports) {
+        if (!transport.write(report))
+            return false;
+    }
+    return true;
+}
 } // namespace
 
 StreamDeck::StreamDeck(std::unique_ptr<Transport> transport, QObject *parent)
@@ -22,7 +54,8 @@ StreamDeck::StreamDeck(std::unique_ptr<Transport> transport, QObject *parent)
 {
     if (!m_transport) {
         m_transport = std::make_unique<HidTransport>(protocol::CorsairVendorId,
-                                                     protocol::StreamDeckProductId);
+                                                     protocol::StreamDeckProductId,
+                                                     protocol::ControlInterface);
     }
 
     m_keepAliveTimer.setInterval(protocol::KeepAliveIntervalMs);
@@ -68,24 +101,32 @@ bool StreamDeck::setKeyImage(int key, const QImage &image)
 {
     if (!isOpen() || key < 0 || key >= protocol::KeyCount || image.isNull())
         return false;
-    // TODO: JPEG encode and split into reports, per node-elgato-stream-deck.
-    return false;
+    const QByteArray jpeg = encodeJpeg(image, protocol::KeyImageSize, protocol::KeyImageSize);
+    if (jpeg.isEmpty())
+        return false;
+    const auto bytes = std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(jpeg.constData()),
+                                                     static_cast<std::size_t>(jpeg.size()));
+    return writeAll(*m_transport, protocol::keyImageReports(key, bytes));
 }
 
 bool StreamDeck::setScreenImage(const QImage &image)
 {
     if (!isOpen() || image.isNull())
         return false;
-    // TODO: confirm the screen resolution, then implement.
-    return false;
+    const QByteArray jpeg = encodeJpeg(image, protocol::ScreenWidth, protocol::ScreenHeight);
+    if (jpeg.isEmpty())
+        return false;
+    const auto bytes = std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(jpeg.constData()),
+                                                     static_cast<std::size_t>(jpeg.size()));
+    return writeAll(*m_transport,
+                    protocol::screenImageReports(bytes, 0, 0, protocol::ScreenWidth, protocol::ScreenHeight));
 }
 
 bool StreamDeck::setBrightness(int percent)
 {
     if (!isOpen() || percent < 0 || percent > 100)
         return false;
-    // TODO: brightness feature report, per node-elgato-stream-deck.
-    return false;
+    return m_transport->sendFeatureReport(protocol::brightnessReport(percent));
 }
 
 void StreamDeck::setKeepAliveInterval(int ms)

@@ -97,6 +97,80 @@ private Q_SLOTS:
         QVERIFY(!f.deck->setScreenImage(image));
     }
 
+    void screenImageIsSentAsJpegReports()
+    {
+        Fixture f;
+        QVERIFY(f.deck->open());
+        QImage image(300, 100, QImage::Format_RGB32); // not the screen size: it is scaled
+        image.fill(Qt::red);
+        QVERIFY(f.deck->setScreenImage(image));
+
+        QVERIFY(!f.transport->writes.empty());
+        QByteArray joined;
+        for (std::size_t i = 0; i < f.transport->writes.size(); ++i) {
+            const auto &r = f.transport->writes[i];
+            QCOMPARE(r.size(), galleon::protocol::OutputReportSize);
+            QCOMPARE(int(r[0]), 0x02);
+            QCOMPARE(int(r[1]), 0x0c);
+            QCOMPARE(int(r[6] | (r[7] << 8)), galleon::protocol::ScreenWidth);
+            QCOMPARE(int(r[8] | (r[9] << 8)), galleon::protocol::ScreenHeight);
+            const int length = r[13] | (r[14] << 8);
+            joined.append(reinterpret_cast<const char *>(r.data()) + 16, length);
+        }
+        // A JPEG of the exact screen size.
+        QVERIFY(joined.startsWith("\xff\xd8"));
+        QVERIFY(joined.endsWith("\xff\xd9"));
+        QImage decoded;
+        QVERIFY(decoded.loadFromData(joined, "JPEG"));
+        QCOMPARE(decoded.width(), galleon::protocol::ScreenWidth);
+        QCOMPARE(decoded.height(), galleon::protocol::ScreenHeight);
+        QVERIFY(qRed(decoded.pixel(10, 10)) > 200); // still red after the JPEG round trip
+    }
+
+    void keyImageIsSentAsJpegReports()
+    {
+        Fixture f;
+        QVERIFY(f.deck->open());
+        QImage image(160, 160, QImage::Format_RGB32);
+        image.fill(Qt::blue);
+        QVERIFY(f.deck->setKeyImage(7, image));
+
+        QVERIFY(!f.transport->writes.empty());
+        QByteArray joined;
+        for (const auto &r : f.transport->writes) {
+            QCOMPARE(int(r[0]), 0x02);
+            QCOMPARE(int(r[1]), 0x07);
+            QCOMPARE(int(r[2]), 7);
+            joined.append(reinterpret_cast<const char *>(r.data()) + 8, r[4] | (r[5] << 8));
+        }
+        QImage decoded;
+        QVERIFY(decoded.loadFromData(joined, "JPEG"));
+        QCOMPARE(decoded.size(), QSize(160, 160));
+    }
+
+    void brightnessIsSentAsFeatureReport()
+    {
+        Fixture f;
+        QVERIFY(f.deck->open());
+        const auto before = f.transport->featureReports.size();
+        QVERIFY(f.deck->setBrightness(40));
+        QCOMPARE(f.transport->featureReports.size(), before + 1);
+        const auto &report = f.transport->featureReports.back();
+        QCOMPARE(int(report[0]), 0x03);
+        QCOMPARE(int(report[1]), 0x08);
+        QCOMPARE(int(report[2]), 40);
+    }
+
+    void failedWriteIsReported()
+    {
+        Fixture f;
+        QVERIFY(f.deck->open());
+        QImage image(10, 10, QImage::Format_RGB32);
+        image.fill(Qt::green);
+        f.transport->close(); // writes now fail; the deck sees it is closed
+        QVERIFY(!f.deck->setScreenImage(image));
+    }
+
     void outOfRangeArgumentsAreRejected()
     {
         Fixture f;
