@@ -156,6 +156,10 @@ Pitfall that cost three runs: on hidraw, the first byte of `write()` is the repo
 
 **Mode switch tested on Linux (2026-10-18)**: `bragi-probe --software-mode` sent `00 01 00 01 03 00 02` (property 3 = 2, software RGB mode in OpenRGB's naming), read the properties, then `00 01 00 01 03 00 01` (back to 1). Both were answered `00 00 00 01 00` (accepted), and the property reads gave the same values in both modes. No colour was sent. The visual effect on the keys during mode 2 was not recorded.
 
+**The Web Hub's lighting record names 125 keys.** The profile write that sets a fixed colour is a resource of 0x89 (137) bytes. After a short header (`7e 20 01 00 00 00 01`), four colour bytes and the count `7d` (125), it lists 125 one-byte key identifiers, in this order (hex):
+`04..45` (all 66 values), `47..65` (31 values), `69..6f`, `73..77`, `7a`, `7c`, `81..87`, `8b..91`.
+That is HID keyboard usage numbers (04 = A, 1e = 1, 29 = Esc, ...), with 0x46 left out. So the keyboard's own lighting engine addresses **125 keys by usage number**, not 108 lamps by index as the LampArray interface does; how the two numberings relate is not known. The four colour bytes read as `ff, blue, green, red`: red was `ff 00 00 ff`, green `ff 00 ff 00`, magenta-ish `ff 4f 00 ff` (observation from three captures, not a documented layout). Block writes of this record are persistent profile writes: never replay them.
+
 What this does not show: the live, non-persistent per-key lighting stream (software mode). The Web Hub does not use it for a fixed colour. A capture of iCUE running a software effect would be needed, and the freeze warning above still applies.
 
 ## Captures
