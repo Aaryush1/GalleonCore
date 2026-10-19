@@ -31,6 +31,8 @@ Rectangle {
     property bool themeChoosing: false
     // Seconds left of the countdown shown after a wallpaper is chosen (0: none).
     property int countdown: 0
+    // The name and place of the wallpaper being chosen (empty: not choosing).
+    property string wallpaperLabel
     // Language, 12/24 hour clock and date order of the text. The system's by
     // default; QML's own Qt.formatDate()/formatTime() ignore it and always
     // give English, so the formats are taken from this locale instead.
@@ -168,6 +170,27 @@ Rectangle {
             font.pixelSize: 52 * root.height / 384
             font.bold: true
             text: root.countdown
+        }
+    }
+    // While a wallpaper is being chosen: its name and place among the wallpapers.
+    Rectangle {
+        visible: root.wallpaperLabel !== ""
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 18 * root.height / 384
+        width: Math.min(root.width - 32 * root.height / 384, wallpaperLabelText.implicitWidth + 64 * root.height / 384)
+        height: 64 * root.height / 384
+        radius: 14 * root.height / 384
+        color: "#d9000000"
+        border.width: 3 * root.height / 384
+        border.color: "#ff00ff"
+        Text {
+            id: wallpaperLabelText
+            anchors.centerIn: parent
+            color: "white"
+            font.pixelSize: 28 * root.height / 384
+            font.bold: true
+            text: "\u25C0  " + root.wallpaperLabel + "  \u25B6"
         }
     }
 }

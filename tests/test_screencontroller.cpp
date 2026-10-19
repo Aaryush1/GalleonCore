@@ -536,6 +536,34 @@ private Q_SLOTS:
         QVERIFY(magenta() > 150);
         QTRY_COMPARE_WITH_TIMEOUT(magenta(), 0, 4000); // and it goes when the time is over
     }
+
+    void whileChoosingTheScreenShowsTheNameAndPlaceOfTheWallpaper()
+    {
+        Fixture f;
+        QImage red(1600, 900, QImage::Format_RGB32);
+        red.fill(QColor(200, 30, 30));
+        QVERIFY(red.save(f.dir.filePath("wall/style/red.png")));
+        ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(), WallpaperCatalog(f.dir.filePath("wall")),
+                                    WidgetsDir + "/WallpaperClock.qml");
+        QVERIFY(controller.SetWallpaper("style/green.png"));
+        const auto magentaBand = [&f] {
+            const QImage image = f.lastScreen();
+            int count = 0;
+            for (int y = 384 - 82; y < 384 - 18; ++y) {
+                for (int x = 360 - 150; x < 360 + 150; ++x)
+                    count += near(image.pixel(x, y), qRgb(255, 0, 255), 50) ? 1 : 0;
+            }
+            return count;
+        };
+        QCOMPARE(magentaBand(), 0);
+        controller.setBottomBar(0xff00ff, true); // choosing: the band with the name appears
+        QTRY_VERIFY_WITH_TIMEOUT(magentaBand() > 150, 2000);
+        controller.stepWallpaper(1);
+        QTest::qWait(300);
+        QVERIFY(magentaBand() > 150); // still there, for the next wallpaper
+        controller.setBottomBar(0xffffff, false);
+        QTRY_COMPARE_WITH_TIMEOUT(magentaBand(), 0, 2000);
+    }
 };
 
 QTEST_MAIN(TestScreenController)

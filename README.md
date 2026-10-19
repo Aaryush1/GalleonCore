@@ -181,6 +181,8 @@ The ring colours use the Stream Deck protocol's per-LED feature report (`03 24 <
 
 ### Choosing the wallpaper with a dial
 
+The wallpapers are listed by style, then by file name with numbers read as numbers (`-2` before `-10`); the dial moves one wallpaper per turn event, and the screen shows the name and place of the wallpaper being chosen (`portrait-01   10/24`).
+
 A dial press with `{ "type": "wallpaper-mode" }` switches that dial from the player control to choosing the wallpaper: turning it steps through the wallpapers of the catalog (remembered, shown even while a track plays), and a second press validates and goes back. After `screen.wallpaper_validate_seconds` (default 4) without touching the dial, the choice is validated by itself: the dial is the player control again (white ring and line) and the chosen wallpaper stays on the screen for `screen.wallpaper_hold_seconds` seconds, with a countdown, before a playing track takes it back. A thin line along the bottom of the screen and the right dial's ring show the mode: white for the player control, magenta for choosing the wallpaper.
 
 ### Keypad theme, automatic themes and tinted keys

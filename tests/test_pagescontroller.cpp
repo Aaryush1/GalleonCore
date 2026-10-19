@@ -695,7 +695,9 @@ private Q_SLOTS:
         QCOMPARE(rightRing(), (std::array<int, 3>{255, 0, 255})); // magenta
         f.turnDial(1, 3);
         QCOMPARE(steps.count(), 1);
-        QCOMPARE(steps.first().first().toInt(), 3);
+        QCOMPARE(steps.first().first().toInt(), 1); // one place per turn event, even if the dial reports 3
+        f.turnDial(1, -4);
+        QCOMPARE(steps.last().first().toInt(), -1);
         QCOMPARE(f.media.seekTotal, 10); // the player is left alone
 
         f.pressDial(1, true); // a second press leaves the mode

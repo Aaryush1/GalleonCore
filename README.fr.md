@@ -181,6 +181,8 @@ La couleur des anneaux utilise le rapport de fonctionnalité par LED du protocol
 
 ### Choisir le fond d'écran avec une molette
 
+Les fonds sont classés par style, puis par nom de fichier en lisant les nombres comme des nombres (`-2` avant `-10`) ; la molette avance d'un fond par cran, et l'écran montre le nom et la place du fond en cours de choix (`portrait-01   10/24`).
+
 Un appui de molette avec `{ "type": "wallpaper-mode" }` fait passer cette molette du contrôle du lecteur au choix du fond d'écran : la tourner parcourt les fonds du catalogue (le choix est retenu, et le fond s'affiche même pendant qu'une piste joue), un second appui valide et revient en arrière. Après `screen.wallpaper_validate_seconds` (4 par défaut) sans toucher la molette, le choix est validé tout seul : la molette redevient le contrôle du lecteur (anneau et ligne blancs) et le fond choisi reste à l'écran pendant `screen.wallpaper_hold_seconds` secondes, avec un décompte, avant qu'une piste en cours reprenne la main. Une fine ligne en bas de l'écran et l'anneau de la molette droite indiquent le mode : blanc pour le contrôle du lecteur, magenta pour le choix du fond.
 
 ### Thème pavé numérique, thèmes automatiques et touches teintées

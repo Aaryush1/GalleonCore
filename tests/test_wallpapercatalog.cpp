@@ -50,6 +50,24 @@ private Q_SLOTS:
         QVERIFY(QFileInfo(catalog.entries()[0].path).isAbsolute());
     }
 
+    void numbersAreReadAsNumbersAndCaseDoesNotMatter()
+    {
+        QTemporaryDir dir;
+        for (const char *name : {"x-10.jpg", "x-2.jpg", "x-1.jpg", "X-3.jpg"})
+            QVERIFY(writeImage(dir.filePath(QStringLiteral("style/") + name), 32, 18, "JPEG"));
+        QVERIFY(writeImage(dir.filePath("style-10/y-1.jpg"), 32, 18, "JPEG"));
+        QVERIFY(writeImage(dir.filePath("style-2/y-1.jpg"), 32, 18, "JPEG"));
+
+        const WallpaperCatalog catalog(dir.path());
+        QStringList names;
+        for (const auto &entry : catalog.entries())
+            names << entry.name;
+        QCOMPARE(names, (QStringList{"style/x-1.jpg", "style/x-2.jpg", "style/X-3.jpg", "style/x-10.jpg",
+                                     "style-2/y-1.jpg", "style-10/y-1.jpg"}));
+        // The same order again: it does not depend on the file system.
+        QCOMPARE(WallpaperCatalog(dir.path()).entries().size(), catalog.entries().size());
+    }
+
     void onlyListedNamesAreFound()
     {
         QTemporaryDir dir;

@@ -509,17 +509,21 @@ void PagesController::onDialRotated(int dial, int steps)
     const auto index = static_cast<std::size_t>(dial);
     if (now - m_lastPressAt[index] < ClickWindowMs)
         return; // the release of the click, not a turn
+    // Choosing a theme or a wallpaper goes one place per turn event, whatever the dial
+    // reports: it counts several steps when turned a little fast, and the choice must not skip.
+    const bool choosing = dial == m_themeDial || dial == m_wallpaperDial;
+    const int counted = choosing ? std::clamp(steps, -1, 1) : steps;
     auto &recent = m_recentTurns[index];
     std::rotate(recent.begin(), recent.begin() + 1, recent.end()); // the oldest slot is reused
-    recent.back() = {now, steps};
+    recent.back() = {now, counted};
     if (dial == m_themeDial) {
         m_themeTimeout.start(); // in use: keep the mode
-        stepTheme(steps);
+        stepTheme(counted);
         return;
     }
     if (dial == m_wallpaperDial) {
         m_wallpaperTimeout.start(); // in use: keep the mode
-        Q_EMIT wallpaperStep(steps);
+        Q_EMIT wallpaperStep(counted);
         return;
     }
     perform(m_config.dials[static_cast<std::size_t>(dial)].turn, steps);

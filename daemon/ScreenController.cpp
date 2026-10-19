@@ -12,6 +12,7 @@
 
 #include <QColor>
 #include <QDateTime>
+#include <QFileInfo>
 #include <QIcon>
 #include <QDebug>
 #include <QSettings>
@@ -216,6 +217,19 @@ void ScreenController::setSuspended(bool suspended)
         draw();
 }
 
+QString ScreenController::choosingLabel() const
+{
+    if (!m_choosingWallpaper)
+        return {};
+    // "portrait-01  10/24": the file's name and its place among all the wallpapers.
+    const QList<WallpaperEntry> &entries = m_catalog.entries();
+    for (qsizetype i = 0; i < entries.size(); ++i) {
+        if (entries[i].name == m_wallpaper)
+            return QStringLiteral("%1   %2/%3").arg(QFileInfo(entries[i].name).completeBaseName()).arg(i + 1).arg(entries.size());
+    }
+    return {};
+}
+
 void ScreenController::startHold(bool countdown)
 {
     m_holding = true;
@@ -282,7 +296,8 @@ void ScreenController::showStepped()
 
 QVariantMap ScreenController::themeProperties() const
 {
-    return {{QStringLiteral("countdown"), m_countdown},
+    return {{QStringLiteral("wallpaperLabel"), choosingLabel()},
+            {QStringLiteral("countdown"), m_countdown},
             {QStringLiteral("barColor"), QColor::fromRgb(m_barRgb)},
             {QStringLiteral("themeChoosing"), m_themeChoosing},
             {QStringLiteral("themeName"), m_themeName},

@@ -142,6 +142,7 @@ private:
     QTimer m_holdTimer;   // the wallpaper is kept for a moment, then the track returns
     bool m_holding = false;
     void startHold(bool countdown = false);
+    [[nodiscard]] QString choosingLabel() const;
     QTimer m_countTimer; // ticks each second of the hold after a choice
     int m_countdown = 0; // seconds left, shown over the wallpaper; 0 = none
     QTimer m_previewTimer; // groups the wallpaper steps of a turning dial into few pictures
