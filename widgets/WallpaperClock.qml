@@ -29,6 +29,8 @@ Rectangle {
     property color themeColor: "white"
     // True while the theme is being chosen with a dial: the name is shown large.
     property bool themeChoosing: false
+    // Seconds left of the countdown shown after a wallpaper is chosen (0: none).
+    property int countdown: 0
     // Language, 12/24 hour clock and date order of the text. The system's by
     // default; QML's own Qt.formatDate()/formatTime() ignore it and always
     // give English, so the formats are taken from this locale instead.
@@ -145,6 +147,27 @@ Rectangle {
             font.pixelSize: 34 * root.height / 384
             font.bold: true
             text: "\u25C0  " + root.themeName + "  \u25B6"
+        }
+    }
+    // The seconds left while the chosen wallpaper is kept before the track returns.
+    Rectangle {
+        visible: root.countdown > 0
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: 24 * root.height / 384
+        anchors.bottomMargin: 24 * root.height / 384
+        width: 84 * root.height / 384
+        height: width
+        radius: width / 2
+        color: "#d9000000"
+        border.width: 4 * root.height / 384
+        border.color: "#ff00ff"
+        Text {
+            anchors.centerIn: parent
+            color: "white"
+            font.pixelSize: 52 * root.height / 384
+            font.bold: true
+            text: root.countdown
         }
     }
 }

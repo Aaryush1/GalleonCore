@@ -663,6 +663,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
             {"version", 1},
             {"home", "main"},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}}},
             {"pages", QJsonObject{{"main", page({})}}},
             {"dials", QJsonObject{{"1", QJsonObject{{"turn", mediaAction("volume").value("type").toString() == "media"
                                                               ? QJsonObject{{"type", "media"}, {"command", "seek"}, {"seconds", 5}}
@@ -820,6 +821,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
             {"version", 1},
             {"home", "main"},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}}},
             {"pages", QJsonObject{{"main", page({})}}},
             {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffd600"}}}},
             {"dials", QJsonObject{{"0", QJsonObject{{"press", QJsonObject{{"type", "theme"}}}}},
@@ -837,6 +839,33 @@ private Q_SLOTS:
         f.pressDial(1, true); // and back
         f.pressDial(1, false);
         QVERIFY(f.controller->wallpaperMode() && !f.controller->themeMode());
+    }
+
+    void withoutTouchingTheDialTheWallpaperChoiceIsValidatedByItself()
+    {
+        const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
+            {"version", 1},
+            {"home", "main"},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 1}}},
+            {"pages", QJsonObject{{"main", page({})}}},
+            {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+
+        f.pressDial(1, true);
+        f.pressDial(1, false);
+        QVERIFY(f.controller->wallpaperMode());
+        // Turning keeps the mode: the time starts again at each step.
+        for (int i = 0; i < 3; ++i) {
+            QTest::qWait(600);
+            f.turnDial(1, 1);
+            QVERIFY(f.controller->wallpaperMode());
+        }
+        QCOMPARE(steps.count(), 3);
+        // Left alone for a second: validated, the dial is the player control again.
+        QTRY_VERIFY_WITH_TIMEOUT(!f.controller->wallpaperMode(), 3000);
     }
 };
 

@@ -192,6 +192,22 @@ private Q_SLOTS:
         }
         QVERIFY2(bandPixels > 150, "the band with the theme name is drawn on the wallpaper screen too");
 
+        // The countdown after a choice: a magenta ring with the seconds, bottom right.
+        const auto magenta = [](const QImage &image) {
+            int count = 0;
+            for (int y = Height - 120; y < Height - 20; ++y) {
+                for (int x = Width - 120; x < Width - 20; ++x)
+                    count += similar(image.pixel(x, y), qRgb(255, 0, 255), 20) ? 1 : 0;
+            }
+            return count;
+        };
+        frame = clock.render({{"countdown", 3}, {"themeName", ""}, {"themeChoosing", false},
+                              {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}},
+                             QSize(Width, Height));
+        QVERIFY(magenta(frame) > 150);
+        frame = clock.render({{"countdown", 0}, {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}}, QSize(Width, Height));
+        QCOMPARE(magenta(frame), 0);
+
         // No theme: no line.
         properties.insert("themeName", "");
         frame = nowPlaying.render(properties, QSize(Width, Height));

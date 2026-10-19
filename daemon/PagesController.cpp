@@ -57,7 +57,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     });
 
     m_wallpaperTimeout.setSingleShot(true);
-    m_wallpaperTimeout.setInterval(ModeTimeoutMs);
+    m_wallpaperTimeout.setInterval(4000); // replaced by screen.wallpaper_validate_seconds when a file is applied
     connect(&m_wallpaperTimeout, &QTimer::timeout, this, [this] { setWallpaperMode(-1); });
 
     m_themeApply.setSingleShot(true);
@@ -100,6 +100,7 @@ void PagesController::setConfig(const PagesConfig &config)
     m_pressed.fill(false);
     m_wallpaperDial = -1; // a new file: back to the player control
     m_wallpaperTimeout.stop();
+    m_wallpaperTimeout.setInterval(config.screen.wallpaperValidateSeconds * 1000);
     m_themeDial = -1;
     m_themeTimeout.stop();
     redraw(true);

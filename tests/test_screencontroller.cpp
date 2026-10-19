@@ -512,6 +512,30 @@ private Q_SLOTS:
         QSettings settings(QStringLiteral("galleoncore"), QStringLiteral("galleond"));
         QCOMPARE(settings.value("wallpaper").toString(), QStringLiteral("style/red.png")); // written at the end of the burst
     }
+
+    void aCountdownIsShownWhileAChosenWallpaperIsKept()
+    {
+        Fixture f;
+        ScreenConfig config;
+        config.wallpaperHoldSeconds = 3;
+        f.controller->setScreenConfig(config);
+        QVERIFY(f.controller->SetWallpaper(f.wallpaper()));
+        f.controller->setBottomBar(0xff00ff, true);  // choosing
+        f.controller->setBottomBar(0xffffff, false); // validated: kept 3 s, with the seconds shown
+        const auto magenta = [&f] {
+            const QImage image = f.lastScreen();
+            int count = 0;
+            for (int y = 264; y < 364; ++y) {
+                for (int x = 600; x < 700; ++x)
+                    count += near(image.pixel(x, y), qRgb(255, 0, 255), 50) ? 1 : 0;
+            }
+            return count;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(magenta() > 150, 2000);
+        QTest::qWait(1200); // the number goes down: the picture is sent again
+        QVERIFY(magenta() > 150);
+        QTRY_COMPARE_WITH_TIMEOUT(magenta(), 0, 4000); // and it goes when the time is over
+    }
 };
 
 QTEST_MAIN(TestScreenController)

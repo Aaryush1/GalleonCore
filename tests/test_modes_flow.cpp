@@ -73,6 +73,7 @@ PagesConfig userLikeConfig()
     const QJsonObject root{
         {"version", 1},
         {"home", "main"},
+        {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}}}, // the tests validate by hand
         {"pages", QJsonObject{{"main", page()}, {"son", page()}, {"numpad", page()}}},
         {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffd600"}, {"when", "media"}},
                               QJsonObject{{"name", "Sound"}, {"page", "son"}, {"color", "#e53935"}},

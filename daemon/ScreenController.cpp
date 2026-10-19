@@ -8,6 +8,8 @@
 #include <galleon/Protocol.h>
 #include <galleon/StreamDeck.h>
 
+#include <algorithm>
+
 #include <QColor>
 #include <QDateTime>
 #include <QIcon>
@@ -73,8 +75,20 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
     }
     m_holdTimer.setSingleShot(true);
     m_holdTimer.setInterval(WallpaperHoldMs);
+    m_countTimer.setInterval(1000);
+    connect(&m_countTimer, &QTimer::timeout, this, [this] {
+        if (m_countdown > 1) {
+            --m_countdown;
+            if (!m_wallpaper.isEmpty())
+                draw();
+        } else {
+            m_countTimer.stop();
+        }
+    });
     connect(&m_holdTimer, &QTimer::timeout, this, [this] {
         m_holding = false;
+        m_countdown = 0;
+        m_countTimer.stop();
         if (!m_wallpaper.isEmpty())
             draw(); // a playing track takes the screen now
     });
@@ -202,9 +216,16 @@ void ScreenController::setSuspended(bool suspended)
         draw();
 }
 
-void ScreenController::startHold()
+void ScreenController::startHold(bool countdown)
 {
     m_holding = true;
+    m_countdown = 0;
+    m_countTimer.stop();
+    if (countdown) {
+        // The seconds left are shown over the wallpaper while it is kept.
+        m_countdown = std::max(1, m_holdTimer.interval() / 1000);
+        m_countTimer.start();
+    }
     qInfo() << "galleond: the chosen wallpaper stays on the screen for" << m_holdTimer.interval() / 1000 << "s";
     m_holdTimer.start();
 }
@@ -214,9 +235,13 @@ void ScreenController::setBottomBar(std::uint32_t rgb, bool choosingWallpaper)
     if (rgb == m_barRgb && choosingWallpaper == m_choosingWallpaper)
         return;
     if (m_choosingWallpaper && !choosingWallpaper)
-        startHold(); // the choice is made: show it, then back to the track
-    else if (choosingWallpaper)
+        startHold(true); // the choice is made: show it with a countdown, then back to the track
+    else if (choosingWallpaper) {
         m_holdTimer.stop();
+        m_countTimer.stop();
+        m_countdown = 0;
+        m_holding = false;
+    }
     m_barRgb = rgb;
     m_choosingWallpaper = choosingWallpaper;
     if (!m_wallpaper.isEmpty())
@@ -257,7 +282,8 @@ void ScreenController::showStepped()
 
 QVariantMap ScreenController::themeProperties() const
 {
-    return {{QStringLiteral("barColor"), QColor::fromRgb(m_barRgb)},
+    return {{QStringLiteral("countdown"), m_countdown},
+            {QStringLiteral("barColor"), QColor::fromRgb(m_barRgb)},
             {QStringLiteral("themeChoosing"), m_themeChoosing},
             {QStringLiteral("themeName"), m_themeName},
             {QStringLiteral("themeColor"), QColor::fromRgb(m_themeRgb)}};
