@@ -575,17 +575,20 @@ private Q_SLOTS:
         QVERIFY(f.controller->currentTheme());
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control"));
 
-        // The rings take the theme's colour: 4 LEDs per dial, 8 reports.
-        const auto ringReports = [&] {
+        // The left ring (LEDs 4..7) takes the theme's colour, the right one
+        // (LEDs 0..3) is white.
+        const auto ringReports = [&](bool left) {
             std::vector<std::vector<std::uint8_t>> reports;
             for (const auto &r : f.transport->featureReports) {
-                if (r.size() > 5 && r[1] == 0x24)
+                if (r.size() > 5 && r[1] == 0x24 && (r[2] >= 4) == left)
                     reports.push_back(r);
             }
             return reports;
         };
-        auto rings = ringReports();
-        QVERIFY(rings.size() >= 8);
+        auto rings = ringReports(true);
+        QVERIFY(rings.size() >= 4);
+        for (const auto &r : ringReports(false))
+            QVERIFY(r[3] == 255 && r[4] == 255 && r[5] == 255);
         QCOMPARE(int(rings.back()[3]), 255);
 
         const auto before = f.transport->writes.size();
@@ -594,7 +597,7 @@ private Q_SLOTS:
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Sound"));
         QCOMPARE(f.controller->currentPage(), QStringLiteral("sound"));
         QVERIFY(f.keysDrawnSince(before).contains(0));
-        rings = ringReports();
+        rings = ringReports(true);
         QCOMPARE(int(rings.back()[3]), 0xe5);
         QCOMPARE(int(rings.back()[4]), 0x39);
         QCOMPARE(int(rings.back()[5]), 0x35);

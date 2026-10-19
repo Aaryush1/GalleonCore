@@ -64,8 +64,8 @@ public:
     // none or the current page belongs to no theme. Valid until the config changes.
     [[nodiscard]] const Theme *currentTheme() const;
 
-    // Lights the dial rings with the current theme's colour (or switches them
-    // off without a theme). Also done by every theme change; call it again
+    // Lights the left dial ring with the current theme's colour (off without
+    // a theme) and the right one white. Also done by every theme change; call it again
     // when the module was plugged in again.
     void applyRings();
 

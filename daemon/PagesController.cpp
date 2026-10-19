@@ -234,12 +234,13 @@ void PagesController::applyRings()
 {
     if (!m_deck->isOpen())
         return;
+    // The left ring shows the theme (dark without one); the right ring stays
+    // white, for the music player control.
     const Theme *theme = currentTheme();
     const std::uint32_t rgb = theme ? theme->rgb : 0;
-    for (int dial = 0; dial < galleon::protocol::DialCount; ++dial) {
-        m_deck->setDialRing(dial, static_cast<std::uint8_t>(rgb >> 16), static_cast<std::uint8_t>(rgb >> 8),
-                            static_cast<std::uint8_t>(rgb));
-    }
+    m_deck->setDialRing(0, static_cast<std::uint8_t>(rgb >> 16), static_cast<std::uint8_t>(rgb >> 8),
+                        static_cast<std::uint8_t>(rgb));
+    m_deck->setDialRing(1, 0xff, 0xff, 0xff);
 }
 
 DesktopApp PagesController::appFor(const QString &desktop)
