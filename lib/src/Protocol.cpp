@@ -7,14 +7,111 @@
 
 namespace galleon::protocol {
 
+namespace {
+
+constexpr std::uint8_t InputReportId = 0x01;
+constexpr std::uint8_t InputKindKeys = 0x00;
+constexpr std::uint8_t InputKindDials = 0x03;
+constexpr std::uint8_t DialSubButtons = 0x00;
+constexpr std::uint8_t DialSubRotation = 0x01;
+constexpr std::size_t InputHeaderSize = 4;
+
+InputResult invalid()
+{
+    return {InputStatus::Invalid, {}};
+}
+
+unsigned int u16le(std::span<const std::uint8_t> report, std::size_t at)
+{
+    return static_cast<unsigned int>(report[at]) | (static_cast<unsigned int>(report[at + 1]) << 8);
+}
+
+InputResult decodeKeys(std::span<const std::uint8_t> report, InputState &state)
+{
+    if (u16le(report, 2) != static_cast<unsigned int>(KeyCount) || report.size() < InputHeaderSize + KeyCount)
+        return invalid();
+    std::array<bool, KeyCount> pressed{};
+    for (int i = 0; i < KeyCount; ++i) {
+        const std::uint8_t byte = report[InputHeaderSize + static_cast<std::size_t>(i)];
+        if (byte > 1)
+            return invalid();
+        pressed[static_cast<std::size_t>(i)] = byte == 1;
+    }
+
+    InputResult result{InputStatus::Ok, {}};
+    for (int i = 0; i < KeyCount; ++i) {
+        const auto index = static_cast<std::size_t>(i);
+        if (pressed[index] == state.keys[index])
+            continue;
+        result.events.push_back({pressed[index] ? InputEvent::Type::KeyPressed : InputEvent::Type::KeyReleased, i, 0});
+    }
+    state.keys = pressed;
+    return result;
+}
+
+InputResult decodeDials(std::span<const std::uint8_t> report, InputState &state)
+{
+    constexpr std::size_t countField = 1 + DialCount; // the kind byte, then one byte per dial
+    if (u16le(report, 2) != countField || report.size() < InputHeaderSize + countField)
+        return invalid();
+    const std::uint8_t kind = report[InputHeaderSize];
+    const auto data = report.subspan(InputHeaderSize + 1, DialCount);
+
+    InputResult result{InputStatus::Ok, {}};
+    if (kind == DialSubButtons) {
+        std::array<bool, DialCount> pressed{};
+        for (std::size_t i = 0; i < DialCount; ++i) {
+            if (data[i] > 1)
+                return invalid();
+            pressed[i] = data[i] == 1;
+        }
+        for (std::size_t i = 0; i < DialCount; ++i) {
+            if (pressed[i] == state.dialButtons[i])
+                continue;
+            result.events.push_back(
+                {pressed[i] ? InputEvent::Type::DialPressed : InputEvent::Type::DialReleased, static_cast<int>(i), 0});
+        }
+        state.dialButtons = pressed;
+        return result;
+    }
+    if (kind == DialSubRotation) {
+        std::array<int, DialCount> steps{};
+        for (std::size_t i = 0; i < DialCount; ++i) {
+            steps[i] = static_cast<std::int8_t>(data[i]);
+            if (steps[i] > MaxDialSteps || steps[i] < -MaxDialSteps)
+                return invalid();
+        }
+        for (std::size_t i = 0; i < DialCount; ++i) {
+            if (steps[i] != 0)
+                result.events.push_back({InputEvent::Type::DialRotated, static_cast<int>(i), steps[i]});
+        }
+        return result;
+    }
+    return {InputStatus::Ignored, {}};
+}
+
+} // namespace
+
+InputResult decodeInputReport(std::span<const std::uint8_t> report, InputState &state)
+{
+    if (report.empty() || report[0] != InputReportId)
+        return {InputStatus::Ignored, {}};
+    if (report.size() < InputHeaderSize)
+        return invalid();
+    switch (report[1]) {
+    case InputKindKeys:
+        return decodeKeys(report, state);
+    case InputKindDials:
+        return decodeDials(report, state);
+    default:
+        return {InputStatus::Ignored, {}};
+    }
+}
+
 std::vector<InputEvent> parseInputReport(std::span<const std::uint8_t> report)
 {
-    if (report.empty())
-        return {};
-
-    // TODO: decode key and dial reports, per node-elgato-stream-deck's
-    // Galleon support. Until then every report is treated as unknown.
-    return {};
+    InputState state;
+    return decodeInputReport(report, state).events;
 }
 
 namespace {

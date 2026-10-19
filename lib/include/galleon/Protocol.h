@@ -9,6 +9,7 @@
 // Protocol facts must come from node-elgato-stream-deck, galleon-deck's
 // docs/PROTOCOL.md or real captures in docs/protocol/. Never guess bytes.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -72,9 +73,46 @@ struct InputEvent
     friend bool operator==(const InputEvent &, const InputEvent &) = default;
 };
 
-// Decode one input report read from the deck.
-// Malformed or unknown reports yield no event: this function must never
-// read out of bounds, whatever the input.
+// What the module last said about its keys and dial buttons. The module sends
+// the complete state each time, so events are the differences with this.
+struct InputState
+{
+    std::array<bool, KeyCount> keys{};
+    std::array<bool, DialCount> dialButtons{};
+};
+
+enum class InputStatus : std::uint8_t {
+    Ok,       // a key or dial report, understood (it may carry no change)
+    Ignored,  // not a key or dial report: another report ID, or a type we do not use
+    Invalid,  // it claims to be a key or dial report but is malformed: dropped
+};
+
+struct InputResult
+{
+    InputStatus status = InputStatus::Ignored;
+    std::vector<InputEvent> events;
+};
+
+// Input report layout (interface 0, report ID 1, 512 bytes with the ID).
+// Source: galleon-deck docs/PROTOCOL.md ("Input reports"), the same layout as
+// the Stream Deck Plus in node-elgato-stream-deck and rust-elgato-streamdeck:
+//   keys   01 00 <count u16le = 12> <12 bytes, 1 = pressed, 0 = released>
+//   dials  01 03 <count u16le = 3>  <kind u8> <dial 0> <dial 1>
+//          kind 0 = button states (1 = pressed), kind 1 = rotation (signed
+//          steps since the last report)
+// The order of the 12 key bytes (0 = top left, row by row) and the dial
+// numbering are the sources' statement, verified on the hardware.
+//
+// Input comes from a device and is not trusted: the length and the declared
+// counts must fit, key and button bytes must be 0 or 1, and a rotation of more
+// than MaxDialSteps in one report is not plausible. Anything else is Invalid
+// and changes nothing, `state` included.
+inline constexpr int MaxDialSteps = 32;
+
+InputResult decodeInputReport(std::span<const std::uint8_t> report, InputState &state);
+
+// Same, for callers that keep no state: events relative to "nothing pressed".
+// Malformed or unknown reports yield no event; never reads out of bounds.
 std::vector<InputEvent> parseInputReport(std::span<const std::uint8_t> report);
 
 // Feature report that keeps the deck in host mode: report ID 3 then 0x27,

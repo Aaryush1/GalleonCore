@@ -10,5 +10,11 @@
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t *data, std::size_t size)
 {
     galleon::protocol::parseInputReport({data, size});
+
+    // The stateful decoder too, with a state that survives between inputs
+    // inside one run of this function: a report must never corrupt it.
+    galleon::protocol::InputState state;
+    galleon::protocol::decodeInputReport({data, size}, state);
+    galleon::protocol::decodeInputReport({data, size}, state);
     return 0;
 }

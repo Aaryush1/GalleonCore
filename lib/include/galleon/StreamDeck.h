@@ -56,6 +56,8 @@ private:
     std::unique_ptr<Transport> m_transport;
     QTimer m_keepAliveTimer;
     QTimer m_inputTimer;
+    protocol::InputState m_inputState;
+    int m_invalidReports = 0;
 };
 
 } // namespace galleon

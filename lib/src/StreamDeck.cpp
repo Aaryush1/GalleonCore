@@ -10,6 +10,7 @@
 #include <QDebug>
 #include <QImageWriter>
 
+#include <algorithm>
 #include <array>
 
 namespace galleon {
@@ -82,6 +83,7 @@ bool StreamDeck::open()
 
 void StreamDeck::close()
 {
+    m_inputState = {}; // a device that comes back starts with nothing pressed
     m_keepAliveTimer.stop();
     m_inputTimer.stop();
     m_transport->close();
@@ -153,7 +155,15 @@ void StreamDeck::pollInput()
         return;
 
     const auto report = std::span<const std::uint8_t>(buffer).first(static_cast<std::size_t>(read));
-    for (const auto &event : protocol::parseInputReport(report))
+    const protocol::InputResult result = protocol::decodeInputReport(report, m_inputState);
+    if (result.status == protocol::InputStatus::Invalid) {
+        // Dropped, and said: the first ones, then one in a hundred, so that a
+        // misbehaving device cannot flood the log.
+        if (m_invalidReports++ % 100 == 0)
+            qWarning() << "galleon: malformed input report dropped, first bytes" << QByteArray(reinterpret_cast<const char *>(report.data()), static_cast<qsizetype>(std::min<std::size_t>(report.size(), 8))).toHex(' ');
+        return;
+    }
+    for (const auto &event : result.events)
         dispatch(event);
 }
 

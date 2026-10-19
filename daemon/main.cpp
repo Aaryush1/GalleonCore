@@ -123,9 +123,15 @@ int main(int argc, char *argv[])
     else
         qInfo() << "galleond: Stream Deck module opened, serial" << deck.serialNumber();
 
-    QObject::connect(&deck, &galleon::StreamDeck::keyPressed, [](int key) {
-        qInfo() << "key pressed" << key;
+    // Until keys and dials do something, say what they send: this is also how
+    // the key numbering and the dial numbering are checked on the hardware.
+    QObject::connect(&deck, &galleon::StreamDeck::keyPressed, [](int key) { qInfo() << "key pressed" << key; });
+    QObject::connect(&deck, &galleon::StreamDeck::keyReleased, [](int key) { qInfo() << "key released" << key; });
+    QObject::connect(&deck, &galleon::StreamDeck::dialRotated, [](int dial, int steps) {
+        qInfo() << "dial" << dial << "rotated" << steps;
     });
+    QObject::connect(&deck, &galleon::StreamDeck::dialPressed, [](int dial) { qInfo() << "dial" << dial << "pressed"; });
+    QObject::connect(&deck, &galleon::StreamDeck::dialReleased, [](int dial) { qInfo() << "dial" << dial << "released"; });
 
     galleond::ScreenRenderer renderer(widgetFile);
     if (!renderer.isValid())

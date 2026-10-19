@@ -89,6 +89,72 @@ private Q_SLOTS:
         QCOMPARE(pressed.count(), 0);
     }
 
+    void keysEmitPressAndRelease()
+    {
+        Fixture f;
+        const QSignalSpy pressed(f.deck.get(), &StreamDeck::keyPressed);
+        const QSignalSpy released(f.deck.get(), &StreamDeck::keyReleased);
+        QVERIFY(f.deck->open());
+
+        std::vector<std::uint8_t> report = {0x01, 0x00, 0x0c, 0x00};
+        report.resize(4 + galleon::protocol::KeyCount, 0);
+        report[4 + 6] = 1;
+        f.transport->pendingReads.push_back(report);
+        QTRY_COMPARE_WITH_TIMEOUT(pressed.count(), 1, 2000);
+        QCOMPARE(pressed.at(0).at(0).toInt(), 6);
+
+        report[4 + 6] = 0;
+        f.transport->pendingReads.push_back(report);
+        QTRY_COMPARE_WITH_TIMEOUT(released.count(), 1, 2000);
+        QCOMPARE(released.at(0).at(0).toInt(), 6);
+    }
+
+    void dialsEmitRotationAndPress()
+    {
+        Fixture f;
+        const QSignalSpy rotated(f.deck.get(), &StreamDeck::dialRotated);
+        const QSignalSpy pressed(f.deck.get(), &StreamDeck::dialPressed);
+        QVERIFY(f.deck->open());
+
+        f.transport->pendingReads.push_back({0x01, 0x03, 0x03, 0x00, 0x01, 0xfd, 0x00}); // dial 0: -3
+        QTRY_COMPARE_WITH_TIMEOUT(rotated.count(), 1, 2000);
+        QCOMPARE(rotated.at(0).at(0).toInt(), 0);
+        QCOMPARE(rotated.at(0).at(1).toInt(), -3);
+
+        f.transport->pendingReads.push_back({0x01, 0x03, 0x03, 0x00, 0x00, 0x00, 0x01}); // dial 1 pressed
+        QTRY_COMPARE_WITH_TIMEOUT(pressed.count(), 1, 2000);
+        QCOMPARE(pressed.at(0).at(0).toInt(), 1);
+    }
+
+    void malformedReportsEmitNothing()
+    {
+        Fixture f;
+        const QSignalSpy pressed(f.deck.get(), &StreamDeck::keyPressed);
+        QVERIFY(f.deck->open());
+        std::vector<std::uint8_t> report = {0x01, 0x00, 0x0c, 0x00};
+        report.resize(4 + galleon::protocol::KeyCount, 7); // bytes that are not 0 or 1
+        f.transport->pendingReads.push_back(report);
+        QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
+        QCOMPARE(pressed.count(), 0);
+    }
+
+    void aReopenedDeckStartsWithNothingPressed()
+    {
+        Fixture f;
+        const QSignalSpy pressed(f.deck.get(), &StreamDeck::keyPressed);
+        QVERIFY(f.deck->open());
+        std::vector<std::uint8_t> report = {0x01, 0x00, 0x0c, 0x00};
+        report.resize(4 + galleon::protocol::KeyCount, 0);
+        report[4] = 1;
+        f.transport->pendingReads.push_back(report);
+        QTRY_COMPARE_WITH_TIMEOUT(pressed.count(), 1, 2000);
+
+        f.deck->close();
+        QVERIFY(f.deck->open());
+        f.transport->pendingReads.push_back(report); // key 0 still down on the new connection
+        QTRY_COMPARE_WITH_TIMEOUT(pressed.count(), 2, 2000);
+    }
+
     void imagesAreRejectedWhenClosed()
     {
         Fixture f;
