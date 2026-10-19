@@ -167,7 +167,7 @@ The edit is checked like any pages file, the previous version is kept as `pages.
 
 ### Themes
 
-A `themes` list gives pages a name and a colour. A dial press with `{ "type": "theme" }` steps through them: the keys show the theme's page, a line in the theme's colour runs along the top of the screen with its name, and the ring around the left dial takes the colour (the right ring stays white, for the player control).
+A `themes` list gives pages a name and a colour. A dial press with `{ "type": "theme" }` switches that dial to choosing the theme: turning it steps through the themes, and a second press goes back to the player control (after 30 seconds without a turn, it goes back by itself). The keys show the theme's page, a line in the theme's colour runs along the top of the screen with its name, and the ring around the left dial takes the colour (the right ring stays white, for the player control). While the theme is being chosen, the line along the bottom of the screen takes the theme's colour too. On a key, the same action steps to the next theme.
 
 ```json
 "themes": [

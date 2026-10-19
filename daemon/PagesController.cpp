@@ -20,7 +20,7 @@ namespace {
 constexpr int ReloadDelayMs = 250; // editors write a file in several steps
 constexpr int MinLaunchIntervalMs = 700; // a double press must not start an application twice
 constexpr int MaxLookedUpApps = 64;
-constexpr int WallpaperModeTimeoutMs = 30000; // back to the player control when left alone
+constexpr int ModeTimeoutMs = 30000; // back to the player control when left alone
 constexpr std::uint32_t WallpaperModeRgb = 0xff00ff; // magenta
 
 } // namespace
@@ -43,8 +43,12 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     connect(m_media, &MediaController::stateChanged, this, [this] { redraw(); });
 
     m_wallpaperTimeout.setSingleShot(true);
-    m_wallpaperTimeout.setInterval(WallpaperModeTimeoutMs);
+    m_wallpaperTimeout.setInterval(ModeTimeoutMs);
     connect(&m_wallpaperTimeout, &QTimer::timeout, this, [this] { setWallpaperMode(-1); });
+
+    m_themeTimeout.setSingleShot(true);
+    m_themeTimeout.setInterval(ModeTimeoutMs);
+    connect(&m_themeTimeout, &QTimer::timeout, this, [this] { setThemeMode(-1); });
 
     m_reloadTimer.setSingleShot(true);
     m_reloadTimer.setInterval(ReloadDelayMs);
@@ -69,10 +73,13 @@ void PagesController::setConfig(const PagesConfig &config)
     m_pressed.fill(false);
     m_wallpaperDial = -1; // a new file: back to the player control
     m_wallpaperTimeout.stop();
+    m_themeDial = -1;
+    m_themeTimeout.stop();
     redraw(true);
     applyRings();
     Q_EMIT themeChanged();
     Q_EMIT wallpaperModeChanged();
+    Q_EMIT themeModeChanged();
     if (screenChanged)
         Q_EMIT screenConfigChanged();
 }
@@ -196,8 +203,10 @@ void PagesController::perform(const Action &action, int times)
         setWallpaperMode(m_pressedDial);
         return;
     case ActionType::Theme:
-        if (!m_config.themes.empty())
-            selectTheme((m_theme + 1) % static_cast<int>(m_config.themes.size()));
+        if (m_pressedDial >= 0)
+            setThemeMode(m_pressedDial); // a dial: choose the theme by turning it
+        else
+            stepTheme(1);
         return;
     case ActionType::Media:
         break;
@@ -230,6 +239,29 @@ const Theme *PagesController::currentTheme() const
     if (m_theme < 0 || m_theme >= static_cast<int>(m_config.themes.size()))
         return nullptr;
     return &m_config.themes[static_cast<std::size_t>(m_theme)];
+}
+
+void PagesController::stepTheme(int steps)
+{
+    const auto count = static_cast<int>(m_config.themes.size());
+    if (count == 0)
+        return;
+    // `steps` is bounded by the dial decoder; the modulo keeps any value in range.
+    selectTheme((((m_theme < 0 ? -1 : m_theme) + steps) % count + count) % count);
+}
+
+void PagesController::setThemeMode(int dial)
+{
+    // A press toggles: the dial that is in the mode leaves it, any other enters it.
+    const int wanted = dial >= 0 && dial != m_themeDial && !m_config.themes.empty() ? dial : -1;
+    if (wanted == m_themeDial)
+        return;
+    m_themeDial = wanted;
+    if (themeMode())
+        m_themeTimeout.start();
+    else
+        m_themeTimeout.stop();
+    Q_EMIT themeModeChanged();
 }
 
 void PagesController::selectTheme(int index)
@@ -328,6 +360,11 @@ void PagesController::onDialRotated(int dial, int steps)
 {
     if (dial < 0 || dial >= galleon::protocol::DialCount || steps == 0)
         return;
+    if (dial == m_themeDial) {
+        m_themeTimeout.start(); // in use: keep the mode
+        stepTheme(steps);
+        return;
+    }
     if (dial == m_wallpaperDial) {
         m_wallpaperTimeout.start(); // in use: keep the mode
         Q_EMIT wallpaperStep(steps);

@@ -167,7 +167,7 @@ La modification est vérifiée comme tout fichier de pages, l'ancienne version e
 
 ### Thèmes
 
-Une liste `themes` donne un nom et une couleur à des pages. Un appui de molette avec `{ "type": "theme" }` les parcourt : les touches montrent la page du thème, une ligne de la couleur du thème court en haut de l'écran avec son nom, et l'anneau de la molette gauche prend la couleur (l'anneau droit reste blanc, pour le contrôle du lecteur).
+Une liste `themes` donne un nom et une couleur à des pages. Un appui de molette avec `{ "type": "theme" }` fait passer cette molette au choix du thème : la tourner parcourt les thèmes, un second appui revient au contrôle du lecteur (après 30 secondes sans rotation, le retour se fait tout seul). Les touches montrent la page du thème, une ligne de la couleur du thème court en haut de l'écran avec son nom, et l'anneau de la molette gauche prend la couleur (l'anneau droit reste blanc, pour le contrôle du lecteur). Pendant le choix du thème, la ligne du bas de l'écran prend aussi la couleur du thème. Sur une touche, la même action passe au thème suivant.
 
 ```json
 "themes": [

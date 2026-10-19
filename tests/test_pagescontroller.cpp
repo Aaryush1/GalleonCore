@@ -565,7 +565,8 @@ private Q_SLOTS:
                                   {"sound", page({keyJson(0, "B", mediaAction("next"))})}}},
             {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffffff"}},
                                   QJsonObject{{"name", "Sound"}, {"page", "sound"}, {"color", "#e53935"}}}},
-            {"dials", QJsonObject{{"0", QJsonObject{{"press", QJsonObject{{"type", "theme"}}}}}}}};
+            {"dials", QJsonObject{{"0", QJsonObject{{"turn", QJsonObject{{"type", "media"}, {"command", "volume"}, {"step", 2}}},
+                                                    {"press", QJsonObject{{"type", "theme"}}}}}}}};
         const auto parsed = parsePagesConfig(QJsonDocument(config).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
 
@@ -592,8 +593,13 @@ private Q_SLOTS:
         QCOMPARE(int(rings.back()[3]), 255);
 
         const auto before = f.transport->writes.size();
+        // A press enters theme mode: turning the dial then steps the themes.
         f.pressDial(0, true);
         f.pressDial(0, false);
+        QVERIFY(f.controller->themeMode());
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control")); // a press alone changes nothing
+        f.turnDial(0, 1);
+        QCOMPARE(f.media.volumeTotal, 0); // the volume is left alone
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Sound"));
         QCOMPARE(f.controller->currentPage(), QStringLiteral("sound"));
         QVERIFY(f.keysDrawnSince(before).contains(0));
@@ -602,11 +608,19 @@ private Q_SLOTS:
         QCOMPARE(int(rings.back()[4]), 0x39);
         QCOMPARE(int(rings.back()[5]), 0x35);
 
-        f.pressDial(0, true); // wraps around to the first
-        f.pressDial(0, false);
+        f.turnDial(0, 1); // wraps around to the first
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control"));
         QCOMPARE(f.controller->currentPage(), QStringLiteral("main"));
-        QVERIFY(changed.count() >= 3);
+        f.turnDial(0, -1); // and backwards
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Sound"));
+        QVERIFY(changed.count() >= 4);
+
+        // A second press goes back to the player control: turning is the volume again.
+        f.pressDial(0, true);
+        f.pressDial(0, false);
+        QVERIFY(!f.controller->themeMode());
+        f.turnDial(0, 1);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Sound"));
     }
 
     void withoutThemesTheRingsStayDarkAndThePressDoesNothing()

@@ -64,6 +64,10 @@ public:
     // none or the current page belongs to no theme. Valid until the config changes.
     [[nodiscard]] const Theme *currentTheme() const;
 
+    // True while a dial is set to choosing the theme (its press toggles it;
+    // turning it steps through the themes).
+    [[nodiscard]] bool themeMode() const { return m_themeDial >= 0; }
+
     // True while a dial is set to choosing the wallpaper (its press toggles it).
     [[nodiscard]] bool wallpaperMode() const { return m_wallpaperDial >= 0; }
 
@@ -75,6 +79,8 @@ public:
 Q_SIGNALS:
     // The dial in wallpaper mode turned: `steps` wallpapers forward (negative: back).
     void wallpaperStep(int steps);
+    // Theme mode was entered or left.
+    void themeModeChanged();
     // Wallpaper mode was entered or left.
     void wallpaperModeChanged();
     // The theme changed (also to none): the screen's line and the rings follow.
@@ -103,8 +109,13 @@ private:
     TileRenderer m_tiles;
     PagesConfig m_config;
     void selectTheme(int index);
+    void stepTheme(int steps);
 
     void setWallpaperMode(int dial); // -1 leaves the mode
+    void setThemeMode(int dial);     // -1 leaves the mode
+
+    int m_themeDial = -1; // the dial that chooses the theme, -1 = none
+    QTimer m_themeTimeout;
 
     int m_pressedDial = -1; // the dial whose press is being performed
     int m_wallpaperDial = -1; // the dial that chooses the wallpaper, -1 = none

@@ -378,20 +378,24 @@ int main(int argc, char *argv[])
                                                             galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
         QObject::connect(pages.get(), &galleond::PagesController::screenConfigChanged, &controller,
                          [&pages, &controller] { controller.setScreenConfig(pages->screenConfig()); });
-        const auto showTheme = [&pages, &controller] {
+        // The theme line along the top; and the line along the bottom: magenta
+        // while choosing the wallpaper, the theme's colour while choosing the
+        // theme, white for the player control.
+        const auto showState = [&pages, &controller] {
             const galleond::Theme *theme = pages->currentTheme();
             controller.setTheme(theme ? theme->name : QString(), theme ? theme->rgb : 0);
+            const std::uint32_t bar = pages->wallpaperMode() ? 0xff00ff
+                                      : pages->themeMode() && theme ? theme->rgb
+                                                                    : 0xffffff;
+            controller.setBottomBar(bar, pages->wallpaperMode());
         };
-        QObject::connect(pages.get(), &galleond::PagesController::themeChanged, &controller, showTheme);
-        const auto showMode = [&pages, &controller] {
-            controller.setBottomBar(pages->wallpaperMode() ? 0xff00ff : 0xffffff, pages->wallpaperMode());
-        };
-        QObject::connect(pages.get(), &galleond::PagesController::wallpaperModeChanged, &controller, showMode);
+        for (auto signal : {&galleond::PagesController::themeChanged, &galleond::PagesController::themeModeChanged,
+                            &galleond::PagesController::wallpaperModeChanged})
+            QObject::connect(pages.get(), signal, &controller, showState);
         QObject::connect(pages.get(), &galleond::PagesController::wallpaperStep, &controller,
                          [&controller](int steps) { controller.stepWallpaper(steps); });
-        showMode();
         pages->loadFile(pagesFile);
-        showTheme();
+        showState();
         controller.setScreenConfig(pages->screenConfig());
         // A module plugged in again shows its old icons: send everything.
         QObject::connect(&controller, &galleond::ScreenController::deckAvailableChanged, pages.get(),
