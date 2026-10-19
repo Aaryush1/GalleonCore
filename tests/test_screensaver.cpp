@@ -233,6 +233,18 @@ private Q_SLOTS:
         const auto list = parse({{"video", QJsonArray{"a.mp4", "b.mp4"}}, {"geometry", geometry}});
         QVERIFY2(list.config.has_value(), qPrintable(list.errors.join('\n')));
         QCOMPARE(list.config->screensaver.videos, (QStringList{"a.mp4", "b.mp4"}));
+        QCOMPARE(list.config->screensaver.titles, (QStringList{"", ""}));
+
+        // A video can have a title (a display name); an object has only these two fields.
+        const auto titled = parse({{"video", QJsonArray{QJsonObject{{"file", "a.mp4"}, {"title", "Nuit gaming sous la lune rose"}},
+                                                        "b.mp4"}},
+                                   {"geometry", geometry}});
+        QVERIFY2(titled.config.has_value(), qPrintable(titled.errors.join('\n')));
+        QCOMPARE(titled.config->screensaver.videos, (QStringList{"a.mp4", "b.mp4"}));
+        QCOMPARE(titled.config->screensaver.titles, (QStringList{"Nuit gaming sous la lune rose", ""}));
+        QVERIFY(!parse({{"video", QJsonArray{QJsonObject{{"file", "a.mp4"}, {"name", "x"}}}}}).config.has_value());
+        QVERIFY(!parse({{"video", QJsonArray{QJsonObject{{"title", "x"}}}}}).config.has_value());
+        QVERIFY(!parse({{"video", QJsonArray{QJsonObject{{"file", "a.mp4"}, {"title", QString(61, 'x')}}}}}).config.has_value());
         QVERIFY(!parse({{"video", QString(500, 'x')}}).config.has_value());
         QVERIFY(!parse({{"colour", "red"}}).config.has_value());
         QVERIFY(!parse({{"geometry", QJsonObject{{"screen_mm", QJsonArray{90}}}}}).config.has_value());

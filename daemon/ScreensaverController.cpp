@@ -121,9 +121,12 @@ void ScreensaverController::start()
 {
     // The next readable video of the list; the others are skipped with a warning.
     QString video;
+    QString title;
     for (qsizetype tried = 0; tried < m_config.videos.size() && video.isEmpty(); ++tried) {
-        const QString configured = m_config.videos.at((m_next + tried) % m_config.videos.size());
+        const qsizetype index = (m_next + tried) % m_config.videos.size();
+        const QString configured = m_config.videos.at(index);
         video = resolveVideo(configured);
+        title = index < m_config.titles.size() ? m_config.titles.at(index) : QString();
         if (video.isEmpty())
             qWarning() << "galleond: the screensaver video" << configured << "is not a readable video file (mp4, mkv, webm, avi, mov...)";
         else
@@ -135,7 +138,7 @@ void ScreensaverController::start()
         return;
     }
     m_playing = video;
-    qInfo() << "galleond: screensaver video" << video;
+    qInfo().noquote() << "galleond: screensaver video" << (title.isEmpty() ? video : QStringLiteral("\"%1\" (%2)").arg(title, video));
     const QString program = QStandardPaths::findExecutable(m_program);
     if (program.isEmpty() && !QFileInfo(m_program).isExecutable()) {
         qWarning() << "galleond: FFmpeg not found: the screensaver stays off";

@@ -135,6 +135,7 @@ struct Theme
 struct ScreensaverConfig
 {
     QStringList videos;     // files, absolute or relative to the pages file's folder, shown in turn; empty = off
+    QStringList titles;     // the title of each video (same order; empty when it has none)
     int idleMinutes = 5;    // 1..720
     int fps = 15;           // 1..20: the module takes about 20 screen + keys rounds per second (measured)
     bool whilePlaying = false; // false: never while a track is playing
@@ -173,6 +174,7 @@ inline constexpr int MaxNameLength = 64;
 inline constexpr int MaxThemes = 8;
 inline constexpr int MaxVideoPathLength = 400;
 inline constexpr int MaxScreensaverVideos = 8;
+inline constexpr int MaxVideoTitleLength = 60;
 inline constexpr int MaxPageDepth = 8; // pages opened one from another, at run time
 
 // Parses and validates the content of a pages file. Never throws, never reads

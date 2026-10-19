@@ -377,29 +377,38 @@ struct Parser
                       path);
         ScreensaverConfig &target = config.screensaver;
         if (object.contains(QStringLiteral("video"))) {
-            // One file, or a list of files shown in turn (one per start of the screensaver).
+            // One file, or a list shown in turn (one per start of the screensaver);
+            // each is a path or { "file": path, "title": "Name" }.
             const QJsonValue videoValue = object.value(QStringLiteral("video"));
-            QStringList paths;
             const QString vpath = path + QStringLiteral(".video");
+            const auto addVideo = [&](const QJsonValue &entry, const QString &where) {
+                QString file;
+                QString title;
+                if (entry.isObject()) {
+                    const QJsonObject item = entry.toObject();
+                    rejectUnknown(item, {QStringLiteral("file"), QStringLiteral("title")}, where);
+                    if (!text(item.value(QStringLiteral("file")), where + QStringLiteral(".file"), MaxVideoPathLength, file))
+                        return;
+                    if (item.contains(QStringLiteral("title")))
+                        text(item.value(QStringLiteral("title")), where + QStringLiteral(".title"), MaxVideoTitleLength, title);
+                } else if (!text(entry, where, MaxVideoPathLength, file)) {
+                    return;
+                }
+                if (file.isEmpty() || file.contains(QLatin1Char('\0')) || file.contains(QLatin1Char('\n'))) {
+                    error(where, QStringLiteral("is not a file path"));
+                    return;
+                }
+                target.videos.append(file);
+                target.titles.append(title);
+            };
             if (videoValue.isArray()) {
                 const QJsonArray array = videoValue.toArray();
                 if (array.isEmpty() || array.size() > MaxScreensaverVideos)
-                    error(vpath, QStringLiteral("must hold 1 to %1 files").arg(MaxScreensaverVideos));
-                for (qsizetype i = 0; i < array.size() && i < MaxScreensaverVideos; ++i) {
-                    QString one;
-                    if (text(array.at(i), QStringLiteral("%1[%2]").arg(vpath).arg(i), MaxVideoPathLength, one))
-                        paths.append(one);
-                }
+                    error(vpath, QStringLiteral("must hold 1 to %1 videos").arg(MaxScreensaverVideos));
+                for (qsizetype i = 0; i < array.size() && i < MaxScreensaverVideos; ++i)
+                    addVideo(array.at(i), QStringLiteral("%1[%2]").arg(vpath).arg(i));
             } else {
-                QString one;
-                if (text(videoValue, vpath, MaxVideoPathLength, one))
-                    paths.append(one);
-            }
-            for (const QString &one : std::as_const(paths)) {
-                if (one.isEmpty() || one.contains(QLatin1Char('\0')) || one.contains(QLatin1Char('\n')))
-                    error(vpath, QStringLiteral("is not a file path"));
-                else
-                    target.videos.append(one);
+                addVideo(videoValue, vpath);
             }
         }
         if (object.contains(QStringLiteral("idle_minutes")))
