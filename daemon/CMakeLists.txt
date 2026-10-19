@@ -3,6 +3,8 @@
 
 # The daemon's logic, as a library so that the tests can use it.
 add_library(galleond_core STATIC
+    MediaController.h
+    MprisController.h MprisController.cpp
     PagesConfig.h PagesConfig.cpp
     WallpaperCatalog.h WallpaperCatalog.cpp
     ScreenRenderer.h ScreenRenderer.cpp
@@ -10,7 +12,7 @@ add_library(galleond_core STATIC
     ScreenController.h ScreenController.cpp
 )
 target_include_directories(galleond_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(galleond_core PUBLIC galleon Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick PRIVATE galleon_warnings)
+target_link_libraries(galleond_core PUBLIC galleon Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus PRIVATE galleon_warnings)
 set_target_properties(galleond_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 qt_add_resources(galleond_core "galleond_ui"
