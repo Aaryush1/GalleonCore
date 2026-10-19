@@ -6,7 +6,44 @@
 #include <QObject>
 #include <QString>
 
+#include <cmath>
+
 namespace galleond {
+
+inline constexpr int MaxMetadataLength = 200;
+
+// What a player says about itself is untrusted: no control characters (a
+// newline in a title would break the layout), no unbounded length.
+[[nodiscard]] inline QString cleanMetadataText(const QString &text)
+{
+    QString out;
+    out.reserve(qMin(text.size(), MaxMetadataLength));
+    for (const QChar c : text) {
+        if (out.size() >= MaxMetadataLength)
+            break;
+        out.append(c.isPrint() || c == QLatin1Char(' ') ? c : QLatin1Char(' '));
+    }
+    return out.simplified();
+}
+
+// The track being played, as the player describes it.
+struct NowPlaying
+{
+    QString title;
+    QString artist;
+    QString artUrl;             // as given by the player: file:// or https://, checked before use
+    double positionSeconds = 0; // 0 when unknown
+    double durationSeconds = 0; // 0 when unknown (a stream)
+
+    [[nodiscard]] bool isEmpty() const { return title.isEmpty() && artist.isEmpty(); }
+    // Position rounded to the second: what a timeline shows.
+    friend bool operator==(const NowPlaying &a, const NowPlaying &b)
+    {
+        return a.title == b.title && a.artist == b.artist && a.artUrl == b.artUrl
+               && std::floor(a.positionSeconds) == std::floor(b.positionSeconds)
+               && std::floor(a.durationSeconds) == std::floor(b.durationSeconds);
+    }
+};
 
 // What the button pages need from a music player. The real one talks MPRIS
 // over D-Bus; the tests use a fake.
@@ -25,6 +62,8 @@ public:
     using QObject::QObject;
 
     [[nodiscard]] virtual State state() const = 0;
+    // The track of the current player; empty when there is none.
+    [[nodiscard]] virtual NowPlaying nowPlaying() const = 0;
 
     virtual void playPause() = 0;
     virtual void next() = 0;
@@ -52,6 +91,8 @@ public:
 
 Q_SIGNALS:
     void stateChanged();
+    // The track, its timeline (once per second while playing) or the state changed.
+    void nowPlayingChanged();
 };
 
 } // namespace galleond

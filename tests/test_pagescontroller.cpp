@@ -27,6 +27,7 @@ class FakeMedia : public MediaController
 {
 public:
     [[nodiscard]] State state() const override { return m_state; }
+    [[nodiscard]] NowPlaying nowPlaying() const override { return {}; }
     void playPause() override { ++playPauseCount; }
     void next() override { ++nextCount; }
     void previous() override { ++previousCount; }

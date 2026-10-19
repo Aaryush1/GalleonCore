@@ -20,6 +20,8 @@ class FakePlayer : public QObject
     Q_CLASSINFO("D-Bus Interface", "org.mpris.MediaPlayer2.Player")
     Q_PROPERTY(QString PlaybackStatus READ playbackStatus)
     Q_PROPERTY(double Volume READ volume WRITE setVolume)
+    Q_PROPERTY(QVariantMap Metadata READ metadata)
+    Q_PROPERTY(qlonglong Position READ position)
 
 public:
     explicit FakePlayer(QString name, QString status = QStringLiteral("Paused"))
@@ -49,6 +51,10 @@ public:
     [[nodiscard]] double volume() const { return m_volume; }
     void setVolume(double volume) { m_volume = volume; }
     void setStatus(const QString &status) { m_status = status; }
+    [[nodiscard]] QVariantMap metadata() const { return m_metadata; }
+    void setMetadata(const QVariantMap &metadata) { m_metadata = metadata; }
+    [[nodiscard]] qlonglong position() const { return m_position; }
+    void setPosition(qlonglong microseconds) { m_position = microseconds; }
 
     int playPauseCount = 0;
     int nextCount = 0;
@@ -76,6 +82,8 @@ private:
     QString m_connectionName;
     QString m_status;
     double m_volume = 0.5;
+    QVariantMap m_metadata;
+    qlonglong m_position = 0;
     bool m_registered = false;
 };
 
@@ -188,6 +196,94 @@ private Q_SLOTS:
         player.reset();
         controller.refreshNow();
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::NoPlayer), 6000);
+    }
+
+    void theTrackIsReadWithItsTimeline()
+    {
+        FakePlayer player(uniqueName("m1"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:title", "A Song"},
+                            {"xesam:artist", QStringList{"First", "Second"}},
+                            {"mpris:artUrl", "https://example.org/cover.jpg"},
+                            {"mpris:length", qlonglong(200'000'000)}});
+        player.setPosition(61'500'000);
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m1"));
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.nowPlaying().isEmpty(), 4000);
+
+        const galleond::NowPlaying track = controller.nowPlaying();
+        QCOMPARE(track.title, QStringLiteral("A Song"));
+        QCOMPARE(track.artist, QStringLiteral("First, Second"));
+        QCOMPARE(track.artUrl, QStringLiteral("https://example.org/cover.jpg"));
+        QCOMPARE(track.durationSeconds, 200.0);
+        QVERIFY(qAbs(track.positionSeconds - 61.5) < 0.001);
+    }
+
+    void aSingleStringArtistIsAccepted()
+    {
+        FakePlayer player(uniqueName("m2"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:title", "T"}, {"xesam:artist", "Solo"}});
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m2"));
+        QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().artist, QStringLiteral("Solo"), 4000);
+    }
+
+    void metadataFromAPlayerIsCleaned()
+    {
+        FakePlayer player(uniqueName("m3"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:title", QStringLiteral("Line1\nLine2\x01\ttab")},
+                            {"xesam:artist", QStringList{QString(500, QLatin1Char('x'))}}});
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m3"));
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.nowPlaying().isEmpty(), 4000);
+        QCOMPARE(controller.nowPlaying().title, QStringLiteral("Line1 Line2 tab"));
+        QCOMPARE(controller.nowPlaying().artist.size(), galleond::MaxMetadataLength);
+    }
+
+    void oddMetadataNeverBreaksAnything()
+    {
+        FakePlayer player(uniqueName("m4"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:title", 42},
+                            {"xesam:artist", QVariantList{1, 2}},
+                            {"mpris:length", "not a number"},
+                            {"mpris:artUrl", QString(5000, QLatin1Char('u'))}});
+        player.setPosition(-5);
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m4"));
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
+        const galleond::NowPlaying track = controller.nowPlaying();
+        QCOMPARE(track.durationSeconds, 0.0);
+        QCOMPARE(track.positionSeconds, 0.0);
+        QVERIFY(track.artUrl.size() <= 2048);
+    }
+
+    void thePositionIsNeverBeyondTheDuration()
+    {
+        FakePlayer player(uniqueName("m5"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:title", "T"}, {"mpris:length", qlonglong(10'000'000)}});
+        player.setPosition(99'000'000);
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m5"));
+        QTRY_VERIFY_WITH_TIMEOUT(controller.nowPlaying().durationSeconds > 0, 4000);
+        QCOMPARE(controller.nowPlaying().positionSeconds, 10.0);
+    }
+
+    void theChangeOfTrackAndTheTimelineAreAnnounced()
+    {
+        FakePlayer player(uniqueName("m6"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:title", "One"}, {"mpris:length", qlonglong(100'000'000)}});
+        player.setPosition(1'000'000);
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m6"));
+        QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().title, QStringLiteral("One"), 4000);
+
+        QSignalSpy changed(&controller, &MediaController::nowPlayingChanged);
+        player.setPosition(5'000'000); // the timeline moves
+        QTRY_VERIFY_WITH_TIMEOUT(changed.count() >= 1, 4000);
+        changed.clear();
+        player.setMetadata({{"xesam:title", "Two"}});
+        QTRY_VERIFY_WITH_TIMEOUT(changed.count() >= 1, 4000);
+        QCOMPARE(controller.nowPlaying().title, QStringLiteral("Two"));
+    }
+
+    void withoutAPlayerTheTrackIsEmpty()
+    {
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m7none"));
+        QTest::qWait(200);
+        QVERIFY(controller.nowPlaying().isEmpty());
     }
 
     void stateNamesMatchTheIconStates()

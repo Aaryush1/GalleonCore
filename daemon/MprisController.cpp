@@ -6,6 +6,7 @@
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
+#include <QDBusArgument>
 #include <QDBusPendingReply>
 #include <QDBusVariant>
 #include <QDebug>
@@ -25,6 +26,50 @@ constexpr int MaxPlayers = 16; // a session never has this many: bounds the poll
 const QString PlayerPath = QStringLiteral("/org/mpris/MediaPlayer2");
 const QString PlayerInterface = QStringLiteral("org.mpris.MediaPlayer2.Player");
 const QString PropertiesInterface = QStringLiteral("org.freedesktop.DBus.Properties");
+
+// "xesam:artist" is a list of strings by the specification, but some players
+// send a single string: both are accepted.
+QString artistOf(const QVariant &value)
+{
+    QStringList artists;
+    if (value.metaType().id() == QMetaType::QString) {
+        artists << value.toString();
+    } else if (value.canConvert<QDBusArgument>()) {
+        artists = qdbus_cast<QStringList>(value.value<QDBusArgument>());
+    } else {
+        artists = value.toStringList();
+    }
+    artists.removeAll(QString());
+    return cleanMetadataText(artists.join(QStringLiteral(", ")));
+}
+
+// The track from the answer of GetAll on org.mpris.MediaPlayer2.Player.
+NowPlaying trackFrom(const QVariantMap &properties)
+{
+    NowPlaying track;
+    QVariantMap metadata;
+    const QVariant raw = properties.value(QStringLiteral("Metadata"));
+    if (raw.canConvert<QDBusArgument>())
+        metadata = qdbus_cast<QVariantMap>(raw.value<QDBusArgument>());
+    else
+        metadata = raw.toMap();
+
+    track.title = cleanMetadataText(metadata.value(QStringLiteral("xesam:title")).toString());
+    track.artist = artistOf(metadata.value(QStringLiteral("xesam:artist")));
+    track.artUrl = metadata.value(QStringLiteral("mpris:artUrl")).toString().left(2048).trimmed();
+
+    // Microseconds, signed or unsigned depending on the player.
+    bool ok = false;
+    const qlonglong length = metadata.value(QStringLiteral("mpris:length")).toLongLong(&ok);
+    if (ok && length > 0)
+        track.durationSeconds = static_cast<double>(length) / 1e6;
+    const qlonglong position = properties.value(QStringLiteral("Position")).toLongLong(&ok);
+    if (ok && position > 0)
+        track.positionSeconds = static_cast<double>(position) / 1e6;
+    if (track.durationSeconds > 0 && track.positionSeconds > track.durationSeconds)
+        track.positionSeconds = track.durationSeconds;
+    return track;
+}
 
 MediaController::State stateFromStatus(const QString &status)
 {
@@ -56,6 +101,12 @@ MediaController::State MprisController::state() const
 {
     const QString name = current();
     return name.isEmpty() ? State::NoPlayer : m_players.value(name).state;
+}
+
+NowPlaying MprisController::nowPlaying() const
+{
+    const QString name = current();
+    return name.isEmpty() ? NowPlaying{} : m_players.value(name).track;
 }
 
 QString MprisController::current() const
@@ -126,30 +177,45 @@ void MprisController::setPlayers()
         refreshState(it.key());
     if (m_players.isEmpty() && m_reported != State::NoPlayer) {
         m_reported = State::NoPlayer;
+        m_reportedTrack = {};
         Q_EMIT stateChanged();
+        Q_EMIT nowPlayingChanged();
     }
 }
 
 void MprisController::refreshState(const QString &name)
 {
-    QDBusMessage message = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("Get"));
-    message << PlayerInterface << QStringLiteral("PlaybackStatus");
+    // One GetAll gives the status, the metadata and the position together.
+    QDBusMessage message = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("GetAll"));
+    message << PlayerInterface;
     auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message, CallTimeoutMs), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, name](QDBusPendingCallWatcher *call) {
         call->deleteLater();
         auto player = m_players.find(name);
         if (player == m_players.end())
             return;
-        const QDBusPendingReply<QDBusVariant> reply = *call;
-        player->state = reply.isError() ? State::Stopped : stateFromStatus(reply.value().variant().toString());
+        const QDBusPendingReply<QVariantMap> reply = *call;
+        if (reply.isError()) {
+            player->state = State::Stopped;
+            player->track = {};
+        } else {
+            const QVariantMap properties = reply.value();
+            player->state = stateFromStatus(properties.value(QStringLiteral("PlaybackStatus")).toString());
+            player->track = trackFrom(properties);
+        }
         if (player->state == State::Playing)
             player->lastPlaying = m_clock.elapsed();
 
         const State now = state();
-        if (now != m_reported) {
-            m_reported = now;
-            Q_EMIT stateChanged();
-        }
+        const NowPlaying track = nowPlaying();
+        const bool stateChanged = now != m_reported;
+        const bool trackChanged = !(track == m_reportedTrack);
+        m_reported = now;
+        m_reportedTrack = track;
+        if (stateChanged)
+            Q_EMIT this->stateChanged();
+        if (stateChanged || trackChanged)
+            Q_EMIT nowPlayingChanged();
     });
 }
 

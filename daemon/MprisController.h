@@ -32,6 +32,7 @@ public:
                              QObject *parent = nullptr);
 
     [[nodiscard]] State state() const override;
+    [[nodiscard]] NowPlaying nowPlaying() const override;
 
     void playPause() override;
     void next() override;
@@ -47,6 +48,7 @@ private:
     struct Player
     {
         State state = State::Stopped;
+        NowPlaying track;
         qint64 lastPlaying = 0; // ordering: the highest was playing most recently
     };
 
@@ -63,6 +65,7 @@ private:
     QTimer m_stateTimer;
     QElapsedTimer m_clock;
     State m_reported = State::NoPlayer;
+    NowPlaying m_reportedTrack;
     // Volume steps arrive faster than a D-Bus round trip: they add up here and
     // one read-then-write at a time applies them, so none is lost.
     int m_pendingVolume = 0;
