@@ -127,7 +127,10 @@ int measureThroughput(galleon::StreamDeck &deck)
 // and ring colours (what the daemon sends all the time). Stop the galleond service first.
 int measureDisplayLag(galleon::StreamDeck &deck)
 {
-    constexpr int Flips = 8;
+    // Three ways of sending a picture, three times each, so that one video shows which one is
+    // shown at once: A = once (what galleond does), B = the same picture sent twice in a row,
+    // C = once, then a keep-alive report right after it.
+    constexpr int Flips = 9;
     constexpr int HoldMs = 2500;
     const QSize screen(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight);
     const auto frame = [&screen](const QColor &colour, const QString &text) {
@@ -160,14 +163,21 @@ int measureDisplayLag(galleon::StreamDeck &deck)
     clock.start();
     for (int i = 1; i <= Flips; ++i) {
         const bool red = i % 2 == 1;
-        // The rings first, then the screen: the two calls are a few milliseconds apart.
+        const int variant = (i - 1) / 3; // 0, 1, 2
+        const QChar letter = QLatin1Char(static_cast<char>('A' + variant));
+        // The rings first, then the screen: the calls are a few milliseconds apart.
         deck.setDialRing(0, red ? 255 : 0, 0, red ? 0 : 255);
         deck.setDialRing(1, red ? 255 : 0, 0, red ? 0 : 255);
         const qint64 ringsAt = clock.elapsed();
-        deck.setScreenImage(frame(red ? QColor(200, 0, 0) : QColor(0, 0, 200), QString::number(i)));
-        const qint64 screenAt = clock.elapsed();
-        qInfo().noquote() << QStringLiteral("flip %1 (%2): rings sent at %3 ms, screen picture sent at %4 ms (took %5 ms)")
-                                 .arg(i).arg(red ? "red" : "blue").arg(ringsAt).arg(screenAt).arg(screenAt - ringsAt);
+        const QImage picture = frame(red ? QColor(200, 0, 0) : QColor(0, 0, 200), QString(letter) + QString::number(i));
+        deck.setScreenImage(picture);
+        if (variant == 1)
+            deck.setScreenImage(picture);
+        if (variant == 2)
+            deck.sendKeepAliveNow();
+        const qint64 doneAt = clock.elapsed();
+        qInfo().noquote() << QStringLiteral("flip %1 variant %2 (%3): rings at %4 ms, all sent at %5 ms")
+                                 .arg(i).arg(letter).arg(red ? "red" : "blue").arg(ringsAt).arg(doneAt);
         wait(HoldMs);
     }
     return 0;

@@ -155,6 +155,11 @@ void StreamDeck::setKeepAliveInterval(int ms)
     m_keepAliveTimer.setInterval(ms);
 }
 
+bool StreamDeck::sendKeepAliveNow()
+{
+    return isOpen() && m_transport->sendFeatureReport(protocol::keepAliveReport());
+}
+
 void StreamDeck::sendKeepAlive()
 {
     m_transport->sendFeatureReport(protocol::keepAliveReport());

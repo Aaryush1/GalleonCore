@@ -41,6 +41,10 @@ public:
     // Lights the ring around a dial (0 or 1) with one colour; see protocol::dialRingReports.
     bool setDialRing(int dial, std::uint8_t red, std::uint8_t green, std::uint8_t blue);
 
+    // Sends the keep-alive report now, outside its timer (used to test whether it makes the module
+    // show a picture it already received). The timer keeps its own rhythm.
+    bool sendKeepAliveNow();
+
     // Logs the first bytes and the status of every input report. For checking
     // what the module really sends; off by default (it is chatty).
     void setTraceInput(bool enabled);
