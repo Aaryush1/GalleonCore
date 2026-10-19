@@ -56,6 +56,12 @@ public:
     [[nodiscard]] QImage cover() const { return m_cover; }
     [[nodiscard]] QString coverUrl() const { return m_url; }
 
+    // For a track that gives no cover: an image next to the local file being
+    // played (cover.jpg, folder.png, front.jpg, albumart.jpg, album.jpg, or one
+    // named like the file), as a file:// address; empty if there is none or the
+    // track is not a local file. Only these names are looked for.
+    [[nodiscard]] static QString findLocalCover(const QString &mediaUrl);
+
     [[nodiscard]] static bool isAllowedUrl(const QUrl &url, bool allowRemote = true);
     // The image in `bytes`, or a null image if it is not a sane JPEG, PNG or WebP.
     [[nodiscard]] static QImage decode(const QByteArray &bytes);

@@ -10,6 +10,8 @@
 #include <QDBusPendingReply>
 #include <QDBusVariant>
 #include <QDebug>
+#include <QFileInfo>
+#include <QUrl>
 
 #include <algorithm>
 #include <utility>
@@ -43,6 +45,18 @@ QString artistOf(const QVariant &value)
     return cleanMetadataText(artists.join(QStringLiteral(", ")));
 }
 
+// A readable title for a track that has none (a video, an untagged file): the
+// name of the file or of the last part of the address, without its extension.
+QString titleFromUrl(const QString &address)
+{
+    const QUrl url(address);
+    if (!url.isValid())
+        return {};
+    QString name = QFileInfo(url.fileName()).completeBaseName(); // fileName() is already percent-decoded
+    name.replace(QLatin1Char('_'), QLatin1Char(' '));
+    return cleanMetadataText(name);
+}
+
 // The track from the answer of GetAll on org.mpris.MediaPlayer2.Player.
 NowPlaying trackFrom(const QVariantMap &properties)
 {
@@ -57,6 +71,10 @@ NowPlaying trackFrom(const QVariantMap &properties)
     track.title = cleanMetadataText(metadata.value(QStringLiteral("xesam:title")).toString());
     track.artist = artistOf(metadata.value(QStringLiteral("xesam:artist")));
     track.artUrl = metadata.value(QStringLiteral("mpris:artUrl")).toString().left(2048).trimmed();
+    track.url = metadata.value(QStringLiteral("xesam:url")).toString().left(2048).trimmed();
+    // A video or an untagged file has no title: its file name stands in.
+    if (track.title.isEmpty() && track.artist.isEmpty())
+        track.title = titleFromUrl(track.url);
 
     // Microseconds, signed or unsigned depending on the player.
     bool ok = false;

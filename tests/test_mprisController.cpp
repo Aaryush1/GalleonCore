@@ -279,6 +279,46 @@ private Q_SLOTS:
         QCOMPARE(controller.nowPlaying().title, QStringLiteral("Two"));
     }
 
+    void aVideoWithoutTagsGetsItsFileNameAsTitle()
+    {
+        // What VLC sends for an untagged file: an address and a length, no title.
+        FakePlayer player(uniqueName("m8"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:url", "file:///run/media/paul/Bureau%20ext-%2B/Download/Quand%20tu%20es%20l%C3%A0%20Stems/Quand-tu-es-la_sous-titres.mp4"},
+                            {"mpris:length", qlonglong(263'600'000)}});
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m8"));
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.nowPlaying().isEmpty(), 4000);
+        QCOMPARE(controller.nowPlaying().title, QStringLiteral("Quand-tu-es-la sous-titres")); // no extension, _ as a space
+        QVERIFY(controller.nowPlaying().artist.isEmpty());
+        QVERIFY(controller.nowPlaying().url.startsWith("file:///run/media/paul/"));
+        QCOMPARE(controller.nowPlaying().durationSeconds, 263.6);
+    }
+
+    void aRealTitleIsNeverReplacedByTheFileName()
+    {
+        FakePlayer player(uniqueName("m9"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:title", "Real Title"}, {"xesam:url", "file:///music/other-name.flac"}});
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m9"));
+        QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().title, QStringLiteral("Real Title"), 4000);
+    }
+
+    void aStreamAddressGivesItsLastPart()
+    {
+        FakePlayer player(uniqueName("m10"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:url", "https://radio.example.org/live/jazz_fm.mp3?token=abc"}});
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m10"));
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.nowPlaying().isEmpty(), 4000);
+        QCOMPARE(controller.nowPlaying().title, QStringLiteral("jazz fm"));
+    }
+
+    void aUselessAddressGivesNoTitle()
+    {
+        FakePlayer player(uniqueName("m11"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:url", "file:///"}});
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m11"));
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
+        QVERIFY(controller.nowPlaying().isEmpty());
+    }
+
     void withoutAPlayerTheTrackIsEmpty()
     {
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("m7none"));

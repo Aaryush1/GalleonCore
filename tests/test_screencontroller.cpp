@@ -242,6 +242,27 @@ private Q_SLOTS:
         QVERIFY(near(pixelOf(f.lastScreen(), 40, 40), qRgb(0x23, 0x28, 0x30))); // the placeholder
     }
 
+    void aTrackWithoutACoverUsesTheImageNextToItsFile()
+    {
+        Fixture f;
+        QVERIFY(f.controller->SetWallpaper(f.wallpaper()));
+        QImage orange(200, 200, QImage::Format_RGB32);
+        orange.fill(QColor(230, 130, 20));
+        QVERIFY(orange.save(f.dir.filePath("cover.png")));
+
+        NowPlaying video = Fixture::track(5, 100);
+        video.url = QUrl::fromLocalFile(f.dir.filePath("movie.mp4")).toString(); // no artUrl, as VLC does
+        f.media.set(MediaController::State::Playing, video);
+        QVERIFY(near(pixelOf(f.lastScreen(), 190, 190), qRgb(230, 130, 20)));
+
+        // The folder is not read again at every second of the timeline: remove the
+        // image and move on by one second; the cover stays.
+        QVERIFY(QFile::remove(f.dir.filePath("cover.png")));
+        video.positionSeconds = 6;
+        f.media.set(MediaController::State::Playing, video);
+        QVERIFY(near(pixelOf(f.lastScreen(), 190, 190), qRgb(230, 130, 20)));
+    }
+
     void aBadCoverFallsBackToThePlaceholder()
     {
         Fixture f;

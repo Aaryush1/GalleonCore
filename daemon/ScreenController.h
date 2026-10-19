@@ -92,6 +92,9 @@ private:
     ScreenConfig m_screenConfig;
     QString m_coverId; // changes with every cover, so the widget never reuses an old one
     int m_coverSerial = 0;
+    QString m_lastArtUrl;   // the track the cover address was worked out for
+    QString m_lastTrackUrl;
+    QString m_wantedCover;  // that address: the player's, or an image next to the file
     bool m_showedNowPlaying = false; // for the log: what the screen last showed
     QString m_wallpaper; // catalog name, empty when nothing is shown
     QTimer m_minuteTimer;

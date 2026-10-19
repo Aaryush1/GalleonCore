@@ -160,7 +160,15 @@ bool ScreenController::wantsNowPlaying() const
 void ScreenController::onNowPlayingChanged()
 {
     // A new cover is wanted whenever the track says another address.
-    m_cover.request(m_media->nowPlaying().artUrl);
+    const NowPlaying track = m_media->nowPlaying();
+    // The folder is listed once per track, not at every second of the timeline
+    // (it may be on a slow drive).
+    if (track.artUrl != m_lastArtUrl || track.url != m_lastTrackUrl) {
+        m_lastArtUrl = track.artUrl;
+        m_lastTrackUrl = track.url;
+        m_wantedCover = track.artUrl.isEmpty() ? CoverLoader::findLocalCover(track.url) : track.artUrl;
+    }
+    m_cover.request(m_wantedCover);
     if (!m_wallpaper.isEmpty())
         draw(); // the track, its timeline, or the return to the wallpaper
 }

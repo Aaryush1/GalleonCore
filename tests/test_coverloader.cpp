@@ -100,6 +100,44 @@ private Q_SLOTS:
         QCOMPARE(CoverLoader::isAllowedUrl(QUrl(url)), allowed);
     }
 
+    void aLocalCoverIsFoundNextToTheFile()
+    {
+        QTemporaryDir dir;
+        const QString video = QUrl::fromLocalFile(dir.filePath("My Song.mp4")).toString();
+        QVERIFY(CoverLoader::findLocalCover(video).isEmpty()); // nothing there yet
+
+        writeFile(dir.filePath("notes.txt"), "x");
+        writeFile(dir.filePath("random.png"), imageBytes(10, 10, "PNG"));
+        QVERIFY(CoverLoader::findLocalCover(video).isEmpty()); // other names are not looked for
+
+        writeFile(dir.filePath("Folder.JPG"), imageBytes(10, 10, "JPEG")); // case does not matter
+        QCOMPARE(QUrl(CoverLoader::findLocalCover(video)).fileName(), QStringLiteral("Folder.JPG"));
+
+        writeFile(dir.filePath("cover.png"), imageBytes(10, 10, "PNG")); // "cover" comes before "folder"
+        QCOMPARE(QUrl(CoverLoader::findLocalCover(video)).fileName(), QStringLiteral("cover.png"));
+
+        writeFile(dir.filePath("my song.jpg"), imageBytes(10, 10, "JPEG")); // named like the file: first
+        QCOMPARE(QUrl(CoverLoader::findLocalCover(video)).fileName(), QStringLiteral("my song.jpg"));
+    }
+
+    void noLocalCoverForWhatIsNotALocalFile()
+    {
+        QVERIFY(CoverLoader::findLocalCover({}).isEmpty());
+        QVERIFY(CoverLoader::findLocalCover("https://example.org/a.mp3").isEmpty());
+        QVERIFY(CoverLoader::findLocalCover("file:///nonexistent/folder/a.mp3").isEmpty());
+        QVERIFY(CoverLoader::findLocalCover("not a url").isEmpty());
+        QVERIFY(CoverLoader::findLocalCover("file:///").isEmpty());
+    }
+
+    void aFoundLocalCoverGoesThroughTheSameChecks()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("cover.jpg"), "this is not an image");
+        CoverLoader loader;
+        loader.request(CoverLoader::findLocalCover(QUrl::fromLocalFile(dir.filePath("a.mp3")).toString()));
+        QVERIFY(loader.cover().isNull()); // found by name, rejected by content
+    }
+
     void remoteCanBeSwitchedOff()
     {
         QVERIFY(!CoverLoader::isAllowedUrl(QUrl("https://i.scdn.co/a.jpg"), false));

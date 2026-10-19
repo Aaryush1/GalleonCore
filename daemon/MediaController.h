@@ -32,6 +32,7 @@ struct NowPlaying
     QString title;
     QString artist;
     QString artUrl;             // as given by the player: file:// or https://, checked before use
+    QString url;                // xesam:url, what is being played (a file:// path for a local file)
     double positionSeconds = 0; // 0 when unknown
     double durationSeconds = 0; // 0 when unknown (a stream)
 
@@ -39,7 +40,7 @@ struct NowPlaying
     // Position rounded to the second: what a timeline shows.
     friend bool operator==(const NowPlaying &a, const NowPlaying &b)
     {
-        return a.title == b.title && a.artist == b.artist && a.artUrl == b.artUrl
+        return a.title == b.title && a.artist == b.artist && a.artUrl == b.artUrl && a.url == b.url
                && std::floor(a.positionSeconds) == std::floor(b.positionSeconds)
                && std::floor(a.durationSeconds) == std::floor(b.durationSeconds);
     }

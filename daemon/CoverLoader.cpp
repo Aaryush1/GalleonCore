@@ -4,6 +4,7 @@
 #include "CoverLoader.h"
 
 #include <QBuffer>
+#include <QDir>
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
@@ -43,6 +44,35 @@ bool CoverLoader::isAllowedUrl(const QUrl &url, bool allowRemote)
             return false;
     }
     return host != QLatin1String("localhost") && host.contains(QLatin1Char('.'));
+}
+
+QString CoverLoader::findLocalCover(const QString &mediaUrl)
+{
+    const QUrl url(mediaUrl);
+    if (!url.isValid() || !url.isLocalFile())
+        return {};
+    const QFileInfo media(url.toLocalFile());
+    const QDir folder = media.absoluteDir();
+    if (media.fileName().isEmpty() || !folder.exists())
+        return {};
+
+    // The names, in order of preference; the extension and the case are free.
+    const QStringList stems{media.completeBaseName(), QStringLiteral("cover"), QStringLiteral("folder"),
+                            QStringLiteral("front"), QStringLiteral("albumart"), QStringLiteral("album")};
+    const QStringList extensions{QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp")};
+    const QStringList files = folder.entryList(QDir::Files | QDir::Readable, QDir::NoSort);
+    for (const QString &stem : stems) {
+        if (stem.isEmpty())
+            continue;
+        for (const QString &file : files) {
+            const QFileInfo info(file);
+            if (info.completeBaseName().compare(stem, Qt::CaseInsensitive) == 0
+                && extensions.contains(info.suffix().toLower())) {
+                return QUrl::fromLocalFile(folder.absoluteFilePath(file)).toString();
+            }
+        }
+    }
+    return {};
 }
 
 QImage CoverLoader::decode(const QByteArray &bytes)
