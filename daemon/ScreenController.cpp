@@ -26,6 +26,8 @@ namespace {
 constexpr int DeckCheckIntervalMs = 5000;
 constexpr int MinuteMs = 60 * 1000;
 constexpr int WallpaperHoldMs = 4000; // a chosen wallpaper is shown this long before a playing track takes the screen
+constexpr int PreviewQuality = 65;    // while a dial chooses: smaller pictures, nothing queues up in the module
+constexpr int NormalQuality = 90;
 constexpr int PreviewIntervalMs = 20; // rest between two pictures while a dial turns fast (a picture takes about 45 ms)
 // Wake up just after the minute changes.
 constexpr int MinuteMarginMs = 50;
@@ -100,7 +102,7 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
         if (!m_previewPending)
             return;
         showStepped();
-        m_previewTimer.start(); // rest again before the next one
+        m_previewTimer.start(previewRest()); // rest again before the next one
     });
     m_minuteTimer.setSingleShot(true);
     connect(&m_minuteTimer, &QTimer::timeout, this, &ScreenController::tick);
@@ -291,7 +293,14 @@ void ScreenController::stepWallpaper(int steps)
         return;
     }
     showStepped();
-    m_previewTimer.start();
+    m_previewTimer.start(previewRest());
+}
+
+int ScreenController::previewRest() const
+{
+    // As long as the picture took, at least: the module is given time to show one before the
+    // next arrives, so that turns never pile up in it. Bounded: the rest never feels long.
+    return std::clamp(m_lastPreviewMs * 2, PreviewIntervalMs, 200);
 }
 
 void ScreenController::showStepped()
@@ -299,10 +308,13 @@ void ScreenController::showStepped()
     m_previewPending = false;
     if (m_wallpaper.isEmpty())
         return;
-    qInfo().noquote() << "galleond: wallpaper" << m_wallpaper;
+    QElapsedTimer took;
+    took.start();
     Q_EMIT wallpaperChanged();
     draw();
     scheduleNextMinute();
+    m_lastPreviewMs = static_cast<int>(took.elapsed());
+    qInfo().noquote() << "galleond: wallpaper" << m_wallpaper << "(" << m_lastPreviewMs << "ms )";
 }
 
 void ScreenController::persistWallpaper()
@@ -405,7 +417,7 @@ bool ScreenController::sendScreen(const QImage &frame)
 {
     QElapsedTimer took;
     took.start();
-    const bool sent = m_deck->setScreenImage(frame);
+    const bool sent = m_deck->setScreenImage(frame, m_choosingWallpaper ? PreviewQuality : NormalQuality);
     if (took.elapsed() > 150) // for finding what makes the dials slow to answer
         qInfo() << "galleond: sending the screen picture took" << took.elapsed() << "ms";
     if (!sent && (m_failedSends++ % 20) == 0)

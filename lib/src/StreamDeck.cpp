@@ -23,7 +23,7 @@ constexpr int JpegQuality = 90;
 
 // Scales to the exact size the module draws (the module does no scaling) and
 // encodes a baseline JPEG, which is what the module is documented to take.
-QByteArray encodeJpeg(const QImage &image, int width, int height)
+QByteArray encodeJpeg(const QImage &image, int width, int height, int quality = JpegQuality)
 {
     QImage prepared = image.convertToFormat(QImage::Format_RGB888);
     if (prepared.width() != width || prepared.height() != height)
@@ -32,7 +32,7 @@ QByteArray encodeJpeg(const QImage &image, int width, int height)
     QByteArray bytes;
     QBuffer buffer(&bytes);
     QImageWriter writer(&buffer, "jpeg");
-    writer.setQuality(JpegQuality);
+    writer.setQuality(quality);
     if (!writer.write(prepared))
         return {};
     return bytes;
@@ -112,11 +112,11 @@ bool StreamDeck::setKeyImage(int key, const QImage &image)
     return writeAll(*m_transport, protocol::keyImageReports(key, bytes));
 }
 
-bool StreamDeck::setScreenImage(const QImage &image)
+bool StreamDeck::setScreenImage(const QImage &image, int quality)
 {
-    if (!isOpen() || image.isNull())
+    if (!isOpen() || image.isNull() || quality < 1 || quality > 100)
         return false;
-    const QByteArray jpeg = encodeJpeg(image, protocol::ScreenWidth, protocol::ScreenHeight);
+    const QByteArray jpeg = encodeJpeg(image, protocol::ScreenWidth, protocol::ScreenHeight, quality);
     if (jpeg.isEmpty())
         return false;
     const auto bytes = std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(jpeg.constData()),

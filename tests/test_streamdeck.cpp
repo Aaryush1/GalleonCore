@@ -240,6 +240,25 @@ private Q_SLOTS:
         QCOMPARE(turns, 12);
     }
 
+    void aLowerQualityMakesASmallerScreenPicture()
+    {
+        Fixture f;
+        QVERIFY(f.deck->open());
+        QImage detail(720, 384, QImage::Format_RGB32);
+        for (int y = 0; y < detail.height(); ++y) {
+            for (int x = 0; x < detail.width(); ++x)
+                detail.setPixel(x, y, qRgb((x * 7 + y) % 256, (x ^ y) % 256, (x * y) % 256));
+        }
+        const auto before = f.transport->writes.size();
+        QVERIFY(f.deck->setScreenImage(detail)); // 90
+        const auto normal = f.transport->writes.size() - before;
+        QVERIFY(f.deck->setScreenImage(detail, 60));
+        const auto light = f.transport->writes.size() - before - normal;
+        QVERIFY2(light < normal, "a lower quality needs fewer reports");
+        QVERIFY(!f.deck->setScreenImage(detail, 0));
+        QVERIFY(!f.deck->setScreenImage(detail, 101));
+    }
+
     void brightnessIsSentAsFeatureReport()
     {
         Fixture f;

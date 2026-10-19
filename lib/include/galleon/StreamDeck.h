@@ -34,7 +34,9 @@ public:
 
     // Return false while the protocol is not implemented.
     bool setKeyImage(int key, const QImage &image);
-    bool setScreenImage(const QImage &image);
+    // `quality`: JPEG quality, 1..100. A lower one makes a smaller picture, quicker to send:
+    // for pictures that change at each step of a dial. 90 otherwise.
+    bool setScreenImage(const QImage &image, int quality = 90);
     bool setBrightness(int percent);
     // Lights the ring around a dial (0 or 1) with one colour; see protocol::dialRingReports.
     bool setDialRing(int dial, std::uint8_t red, std::uint8_t green, std::uint8_t blue);
