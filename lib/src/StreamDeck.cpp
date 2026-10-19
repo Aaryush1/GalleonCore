@@ -17,6 +17,7 @@ namespace galleon {
 
 namespace {
 constexpr int InputPollIntervalMs = 10;
+constexpr int MaxReportsPerPoll = 64; // the most that one tick reads
 constexpr std::size_t InputBufferSize = 512;
 constexpr int JpegQuality = 90;
 
@@ -161,16 +162,27 @@ void StreamDeck::sendKeepAlive()
 
 void StreamDeck::pollInput()
 {
+    // Every report that is waiting, not just one: a module that sends them faster than
+    // this timer ticks would otherwise build a queue, and a turn of a dial would be
+    // read seconds late. Bounded, so that a flood cannot keep this thread here for good.
+    for (int handled = 0; handled < MaxReportsPerPoll; ++handled) {
+        if (!pollOneReport())
+            return;
+    }
+}
+
+bool StreamDeck::pollOneReport()
+{
     std::array<std::uint8_t, InputBufferSize> buffer{};
     const int read = m_transport->read(buffer);
     if (read < 0) {
         qWarning() << "galleon: Stream Deck module disconnected";
         close();
         Q_EMIT disconnected();
-        return;
+        return false;
     }
     if (read == 0)
-        return;
+        return false;
 
     const auto report = std::span<const std::uint8_t>(buffer).first(static_cast<std::size_t>(read));
     const protocol::InputResult result = protocol::decodeInputReport(report, m_inputState);
@@ -187,10 +199,11 @@ void StreamDeck::pollInput()
         // misbehaving device cannot flood the log.
         if (m_invalidReports++ % 100 == 0)
             qWarning() << "galleon: malformed input report dropped, first bytes" << QByteArray(reinterpret_cast<const char *>(report.data()), static_cast<qsizetype>(std::min<std::size_t>(report.size(), 8))).toHex(' ');
-        return;
+        return true;
     }
     for (const auto &event : result.events)
         dispatch(event);
+    return isOpen(); // a handler may have closed the module
 }
 
 void StreamDeck::dispatch(const protocol::InputEvent &event)

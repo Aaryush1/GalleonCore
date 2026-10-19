@@ -226,6 +226,20 @@ private Q_SLOTS:
         QCOMPARE(f.transport->featureReports.size(), before + 4);
     }
 
+    void everyWaitingReportIsReadInOneTick()
+    {
+        Fixture f;
+        QVERIFY(f.deck->open());
+        int turns = 0;
+        QObject::connect(f.deck.get(), &StreamDeck::dialRotated, [&turns](int, int) { ++turns; });
+        // Twelve dial reports waiting at once, as when the module sends faster than the timer ticks.
+        for (int i = 0; i < 12; ++i)
+            f.transport->pendingReads.push_back({0x01, 0x03, 0x03, 0x00, 0x01, 0x01, 0x00});
+        QTest::qWait(25); // two ticks at most: one report per tick would have read two or three
+        QVERIFY(f.transport->pendingReads.empty());
+        QCOMPARE(turns, 12);
+    }
+
     void brightnessIsSentAsFeatureReport()
     {
         Fixture f;

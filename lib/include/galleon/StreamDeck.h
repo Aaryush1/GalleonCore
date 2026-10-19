@@ -57,6 +57,7 @@ Q_SIGNALS:
 private:
     void sendKeepAlive();
     void pollInput();
+    bool pollOneReport(); // false when there is nothing more to read (or the module is gone)
     void dispatch(const protocol::InputEvent &event);
 
     std::unique_ptr<Transport> m_transport;
