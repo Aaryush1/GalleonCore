@@ -615,7 +615,8 @@ private Q_SLOTS:
         QCOMPARE(f.media.volumeTotal, 0); // the volume is left alone
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Sound"));
         QCOMPARE(f.controller->currentPage(), QStringLiteral("sound"));
-        QVERIFY(f.keysDrawnSince(before).contains(0));
+        QTRY_VERIFY_WITH_TIMEOUT(f.keysDrawnSince(before).contains(0), 2000); // drawn a moment later
+        QTRY_VERIFY_WITH_TIMEOUT(int(ringReports(true).back()[3]) == 0xe5, 2000);
         rings = ringReports(true);
         QCOMPARE(int(rings.back()[3]), 0xe5);
         QCOMPARE(int(rings.back()[4]), 0x39);
@@ -626,7 +627,7 @@ private Q_SLOTS:
         QCOMPARE(f.controller->currentPage(), QStringLiteral("main"));
         f.turnDial(0, -1); // and backwards
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Sound"));
-        QVERIFY(changed.count() >= 4);
+        QTRY_VERIFY_WITH_TIMEOUT(changed.count() >= 3, 2000);
 
         // A second press goes back to the player control: turning is the volume again.
         f.pressDial(0, true);

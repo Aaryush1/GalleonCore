@@ -25,6 +25,7 @@ bool isMediaPresent(MediaController::State state)
 {
     return state == MediaController::State::Playing || state == MediaController::State::Paused;
 }
+constexpr int ThemeApplyMs = 50; // a theme takes 13 pictures to show: not one per dial step
 constexpr int ModeTimeoutMs = 30000; // back to the player control when left alone
 constexpr std::uint32_t WallpaperModeRgb = 0xff00ff; // magenta
 
@@ -55,6 +56,9 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     m_wallpaperTimeout.setInterval(ModeTimeoutMs);
     connect(&m_wallpaperTimeout, &QTimer::timeout, this, [this] { setWallpaperMode(-1); });
 
+    m_themeApply.setSingleShot(true);
+    m_themeApply.setInterval(ThemeApplyMs);
+    connect(&m_themeApply, &QTimer::timeout, this, &PagesController::applyTheme);
     m_themeTimeout.setSingleShot(true);
     m_themeTimeout.setInterval(ModeTimeoutMs);
     connect(&m_themeTimeout, &QTimer::timeout, this, [this] { setThemeMode(-1); });
@@ -372,6 +376,14 @@ void PagesController::selectTheme(int index)
     m_stack = {m_config.themes[static_cast<std::size_t>(index)].page};
     m_pressed.fill(false);
     releaseHeldKeys();
+    // The keys, the rings and the screen follow after a short time: a dial turned
+    // fast gives many steps and only the last theme is drawn.
+    if (!m_themeApply.isActive())
+        m_themeApply.start();
+}
+
+void PagesController::applyTheme()
+{
     redraw();
     applyRings();
     Q_EMIT themeChanged();

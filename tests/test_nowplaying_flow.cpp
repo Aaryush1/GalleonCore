@@ -24,6 +24,14 @@ using namespace galleond;
 
 namespace {
 
+// These tests write the saved wallpaper: keep it away from the user's real
+// ~/.config, even when the binary is run by hand and not through ctest.
+const bool IsolatedSettings = [] {
+    qputenv("XDG_CONFIG_HOME", (QDir::tempPath() + QStringLiteral("/galleoncore-test-config")).toUtf8());
+    return true;
+}();
+
+
 const QString WidgetsDir = QStringLiteral(GALLEON_SOURCE_WIDGETS);
 
 class FakePlayer : public QObject

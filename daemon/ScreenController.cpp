@@ -21,6 +21,7 @@ namespace {
 
 constexpr int DeckCheckIntervalMs = 5000;
 constexpr int MinuteMs = 60 * 1000;
+constexpr int PreviewIntervalMs = 60; // at most one picture per this time while a dial turns
 // Wake up just after the minute changes.
 constexpr int MinuteMarginMs = 50;
 const QString SettingWallpaper = QStringLiteral("wallpaper");
@@ -69,6 +70,9 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
                 draw();
         });
     }
+    m_previewTimer.setSingleShot(true);
+    m_previewTimer.setInterval(PreviewIntervalMs);
+    connect(&m_previewTimer, &QTimer::timeout, this, &ScreenController::showStepped);
     m_minuteTimer.setSingleShot(true);
     connect(&m_minuteTimer, &QTimer::timeout, this, &ScreenController::tick);
 
@@ -208,7 +212,22 @@ void ScreenController::stepWallpaper(int steps)
     }
     // Steps are bounded by the dial decoder; the modulo keeps any value in range.
     const int next = (((current < 0 ? 0 : current) + steps) % count + count) % count;
-    SetWallpaper(entries[next].name);
+    // The choice counts at once, but the picture is made after a short time: a
+    // dial turned fast gives many steps, and only the last wallpaper is sent
+    // (a picture takes longer to send than a step to arrive).
+    m_wallpaper = entries[next].name;
+    if (!m_previewTimer.isActive())
+        m_previewTimer.start();
+}
+
+void ScreenController::showStepped()
+{
+    if (m_wallpaper.isEmpty())
+        return;
+    settings().setValue(SettingWallpaper, m_wallpaper); // written once per burst, not at every step
+    Q_EMIT wallpaperChanged();
+    draw();
+    scheduleNextMinute();
 }
 
 QVariantMap ScreenController::themeProperties() const

@@ -21,6 +21,14 @@ using galleon::StreamDeck;
 
 namespace {
 
+// These tests write the saved wallpaper: keep it away from the user's real
+// ~/.config, even when the binary is run by hand and not through ctest.
+const bool IsolatedSettings = [] {
+    qputenv("XDG_CONFIG_HOME", (QDir::tempPath() + QStringLiteral("/galleoncore-test-config")).toUtf8());
+    return true;
+}();
+
+
 const QString WidgetsDir = QStringLiteral(GALLEON_SOURCE_WIDGETS);
 
 class FakeMedia : public MediaController
@@ -424,7 +432,7 @@ private Q_SLOTS:
                                     WidgetsDir + "/WallpaperClock.qml");
         QVERIFY(controller.SetWallpaper("style/green.png"));
         controller.stepWallpaper(1);
-        QCOMPARE(controller.wallpaper(), QStringLiteral("style/red.png"));
+        QCOMPARE(controller.wallpaper(), QStringLiteral("style/red.png")); // the choice counts at once
         controller.stepWallpaper(1); // wraps around
         QCOMPARE(controller.wallpaper(), QStringLiteral("style/green.png"));
         controller.stepWallpaper(-1);
@@ -475,6 +483,27 @@ private Q_SLOTS:
         f.controller->restore();
         QVERIFY(f.controller->wallpaper().isEmpty());
         QCOMPARE(f.frames(), size_t(0));
+    }
+
+    void aFastTurnSendsFewPicturesAndEndsOnTheLastWallpaper()
+    {
+        Fixture f;
+        QImage red(1600, 900, QImage::Format_RGB32);
+        red.fill(QColor(200, 30, 30));
+        QVERIFY(red.save(f.dir.filePath("wall/style/red.png")));
+        ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(), WallpaperCatalog(f.dir.filePath("wall")),
+                                    WidgetsDir + "/WallpaperClock.qml");
+        QVERIFY(controller.SetWallpaper("style/green.png"));
+        const std::size_t before = f.frames();
+        for (int i = 0; i < 9; ++i) // nine steps in a row, as a dial turned fast gives
+            controller.stepWallpaper(1);
+        QCOMPARE(controller.wallpaper(), QStringLiteral("style/red.png")); // 9 steps over 2 wallpapers: odd, so the other one
+        QTRY_VERIFY_WITH_TIMEOUT(f.frames() > before, 2000);
+        QTest::qWait(300);
+        QCOMPARE(f.frames(), before + 1); // one picture for the whole burst
+        QVERIFY(near(f.lastScreen().pixel(690, 200), qRgb(200, 30, 30)));
+        QSettings settings(QStringLiteral("galleoncore"), QStringLiteral("galleond"));
+        QCOMPARE(settings.value("wallpaper").toString(), QStringLiteral("style/red.png")); // written at the end of the burst
     }
 };
 

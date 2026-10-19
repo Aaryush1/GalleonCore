@@ -133,6 +133,8 @@ private:
     bool m_showedNowPlaying = false; // for the log: what the screen last showed
     QString m_wallpaper; // catalog name, empty when nothing is shown
     QTimer m_minuteTimer;
+    QTimer m_previewTimer; // groups the wallpaper steps of a turning dial into few pictures
+    void showStepped();
     QTimer m_deckTimer;
     bool m_wasAvailable = false;
 };

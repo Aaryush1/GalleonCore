@@ -137,6 +137,8 @@ private:
     bool m_suspended = false;
     int m_themeDial = -1; // the dial that chooses the theme, -1 = none
     QTimer m_themeTimeout;
+    QTimer m_themeApply; // groups the theme steps of a turning dial into one redraw
+    void applyTheme();
 
     int m_pressedDial = -1; // the dial whose press is being performed
     int m_wallpaperDial = -1; // the dial that chooses the wallpaper, -1 = none
