@@ -33,6 +33,7 @@ constexpr int MaxPlayers = 16; // a session never has this many: bounds the poll
 
 const QString PlayerPath = QStringLiteral("/org/mpris/MediaPlayer2");
 const QString PlayerInterface = QStringLiteral("org.mpris.MediaPlayer2.Player");
+const QString RootInterface = QStringLiteral("org.mpris.MediaPlayer2");
 const QString PropertiesInterface = QStringLiteral("org.freedesktop.DBus.Properties");
 
 // "xesam:artist" is a list of strings by the specification, but some players
@@ -377,6 +378,83 @@ void MprisController::previous()
 void MprisController::stop()
 {
     callPlayer(QStringLiteral("Stop"));
+}
+
+void MprisController::changeProperty(const QString &interface, const QString &property,
+                                     const std::function<QVariant(const QVariant &)> &next)
+{
+    const QString name = current();
+    if (name.isEmpty())
+        return;
+    QDBusMessage get = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("Get"));
+    get << interface << property;
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(get, CallTimeoutMs), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, name, interface, property, next](QDBusPendingCallWatcher *call) {
+        call->deleteLater();
+        const QDBusPendingReply<QDBusVariant> reply = *call;
+        if (reply.isError())
+            return; // the player has no such property: nothing to change
+        const QVariant value = next(reply.value().variant());
+        if (!value.isValid())
+            return;
+        QDBusMessage set = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("Set"));
+        set << interface << property << QVariant::fromValue(QDBusVariant(value));
+        auto *setWatcher = new QDBusPendingCallWatcher(m_bus.asyncCall(set, CallTimeoutMs), this);
+        connect(setWatcher, &QDBusPendingCallWatcher::finished, this, [name, property](QDBusPendingCallWatcher *done) {
+            done->deleteLater();
+            if (done->isError())
+                qWarning() << "galleond: the player" << name << "refused to change" << property << done->error().message();
+        });
+    });
+}
+
+void MprisController::toggleShuffle()
+{
+    changeProperty(PlayerInterface, QStringLiteral("Shuffle"), [](const QVariant &v) { return QVariant(!v.toBool()); });
+}
+
+void MprisController::cycleRepeat()
+{
+    // None -> the whole playlist -> the track -> none, as a player's own repeat button does.
+    changeProperty(PlayerInterface, QStringLiteral("LoopStatus"), [](const QVariant &v) {
+        const QString now = v.toString();
+        return QVariant(now == QLatin1String("None") ? QStringLiteral("Playlist")
+                        : now == QLatin1String("Playlist") ? QStringLiteral("Track") : QStringLiteral("None"));
+    });
+}
+
+void MprisController::toggleFullscreen()
+{
+    changeProperty(RootInterface, QStringLiteral("Fullscreen"), [](const QVariant &v) { return QVariant(!v.toBool()); });
+}
+
+void MprisController::raisePlayer()
+{
+    const QString name = current();
+    if (name.isEmpty())
+        return;
+    QDBusMessage message = QDBusMessage::createMethodCall(name, PlayerPath, RootInterface, QStringLiteral("Raise"));
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message, CallTimeoutMs), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [name](QDBusPendingCallWatcher *call) {
+        call->deleteLater();
+        if (call->isError())
+            qWarning() << "galleond: the player" << name << "cannot be brought to the front" << call->error().message();
+    });
+}
+
+void MprisController::restartTrack()
+{
+    // Seek back further than the start: a player then goes to the start of the track (MPRIS says so).
+    callPlayer(QStringLiteral("Seek"), {QVariant::fromValue<qlonglong>(-86400LL * 1000000LL)});
+}
+
+void MprisController::toggleMute()
+{
+    if (m_systemVolumeProgram.isEmpty())
+        return;
+    // The system sound, for every player alike: a fixed command, nothing from outside goes in.
+    QProcess::startDetached(m_systemVolumeProgram,
+                            {QStringLiteral("set-mute"), QStringLiteral("@DEFAULT_AUDIO_SINK@"), QStringLiteral("toggle")});
 }
 
 void MprisController::seek(int seconds)

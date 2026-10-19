@@ -526,6 +526,34 @@ private Q_SLOTS:
         QVERIFY(!withKey({{"type", "steam"}, {"appid", 730}, {"command", "x"}}).config.has_value());
     }
 
+    void theExtraMediaCommandsAreAcceptedOnKeysButNotAsADialTurn()
+    {
+        const auto withKey = [](const QString &command) {
+            return parseEdited([&](QJsonObject &object) {
+                QJsonObject pages = object.value("pages").toObject();
+                QJsonObject main = pages.value("main").toObject();
+                QJsonArray keys = main.value("keys").toArray();
+                keys.append(QJsonObject{{"key", 4}, {"label", "X"}, {"action", QJsonObject{{"type", "media"}, {"command", command}}}});
+                main.insert("keys", keys);
+                pages.insert("main", main);
+                object.insert("pages", pages);
+            });
+        };
+        for (const char *command : {"shuffle", "repeat", "mute", "raise", "fullscreen", "restart"}) {
+            const auto result = withKey(command);
+            QVERIFY2(result.config.has_value(), qPrintable(QString(command) + ": " + result.errors.join('\n')));
+        }
+        QVERIFY(!withKey("rewind").config.has_value());
+        const auto turn = parseEdited([](QJsonObject &object) {
+            QJsonObject dials = object.value("dials").toObject();
+            QJsonObject dial = dials.value("0").toObject();
+            dial.insert("turn", QJsonObject{{"type", "media"}, {"command", "mute"}});
+            dials.insert("0", dial);
+            object.insert("dials", dials);
+        });
+        QVERIFY(!turn.config.has_value()); // a dial turn needs a volume or a seek
+    }
+
     void errorsAndConfigAreMutuallyExclusive()
     {
         // Every single-byte change of the default file: never a crash, and

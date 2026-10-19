@@ -36,6 +36,12 @@ public:
     void stop() override { ++stopCount; }
     void changeVolume(int percent) override { volumeTotal += percent; }
     void seek(int seconds) override { seekTotal += seconds; }
+    void toggleShuffle() override { ++shuffleCount; }
+    void cycleRepeat() override { ++repeatCount; }
+    void toggleMute() override { ++muteCount; }
+    void raisePlayer() override { ++raiseCount; }
+    void toggleFullscreen() override { ++fullscreenCount; }
+    void restartTrack() override { ++restartCount; }
 
     void setState(State state)
     {
@@ -49,6 +55,12 @@ public:
     int stopCount = 0;
     int volumeTotal = 0;
     int seekTotal = 0;
+    int shuffleCount = 0;
+    int repeatCount = 0;
+    int muteCount = 0;
+    int raiseCount = 0;
+    int fullscreenCount = 0;
+    int restartCount = 0;
 
 private:
     State m_state = State::Stopped;
@@ -1121,6 +1133,27 @@ private Q_SLOTS:
         f.pressKey(1, true); // the second: "Fourth" (1 h, 5 days) beats "Old Favourite" (faded to nothing)
         f.pressKey(1, false);
         QCOMPARE(started.last(), 44);
+    }
+
+    void theExtraMediaCommandsReachTheController()
+    {
+        const auto key = [](int n, const QString &command) { return keyJson(n, command, mediaAction(command)); };
+        Fixture f;
+        const auto parsed = parsePagesConfig(pagesFile({{"main", page({key(0, "shuffle"), key(1, "repeat"), key(2, "mute"), key(3, "raise"),
+                                                                       key(4, "fullscreen"), key(5, "restart")})}}));
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        f.controller->setConfig(*parsed.config);
+        for (int k = 0; k < 6; ++k) {
+            f.pressKey(k, true);
+            f.pressKey(k, false);
+        }
+        QCOMPARE(f.media.shuffleCount, 1);
+        QCOMPARE(f.media.repeatCount, 1);
+        QCOMPARE(f.media.muteCount, 1);
+        QCOMPARE(f.media.raiseCount, 1);
+        QCOMPARE(f.media.fullscreenCount, 1);
+        QCOMPARE(f.media.restartCount, 1);
+        QCOMPARE(f.media.playPauseCount, 0); // nothing else was pressed
     }
 };
 

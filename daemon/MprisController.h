@@ -6,6 +6,8 @@
 #include "MediaController.h"
 
 #include <QDBusConnection>
+
+#include <functional>
 #include <QDBusMessage>
 #include <QElapsedTimer>
 #include <QHash>
@@ -45,6 +47,12 @@ public:
     void stop() override;
     void changeVolume(int percent) override;
     void seek(int seconds) override;
+    void toggleShuffle() override;
+    void cycleRepeat() override;
+    void toggleMute() override;
+    void raisePlayer() override;
+    void toggleFullscreen() override;
+    void restartTrack() override;
 
     // The icon theme name of a player application, from its MPRIS DesktopEntry
     // ("vlc" -> the Icon= of vlc.desktop). Falls back to the entry itself; empty
@@ -78,6 +86,9 @@ private:
     void setPlayers();
     [[nodiscard]] QString current() const;
     void callPlayer(const QString &method, const QVariantList &arguments = {});
+    // Reads a property of the current player, then writes back what `next` makes of it (a switch,
+    // a cycle). A player without the property is left alone.
+    void changeProperty(const QString &interface, const QString &property, const std::function<QVariant(const QVariant &)> &next);
 
     QDBusConnection m_bus;
     QString m_prefix;

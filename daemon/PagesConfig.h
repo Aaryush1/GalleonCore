@@ -42,6 +42,12 @@ enum class MediaCommand : std::uint8_t {
     Stop,
     Volume, // `step`: percent of the full volume, signed
     Seek,   // `seconds`, signed
+    Shuffle,    // switch shuffle on or off
+    Repeat,     // none -> playlist -> track
+    Mute,       // mute or unmute the system sound
+    Raise,      // bring the player's window to the front
+    Fullscreen, // full screen on or off (a video player)
+    Restart,    // back to the start of the track
 };
 
 struct Action

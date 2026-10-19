@@ -206,14 +206,22 @@ struct Parser
         const QString command = object.value(QStringLiteral("command")).toString();
         out.type = ActionType::Media;
         if (command == QLatin1String("play-pause") || command == QLatin1String("next") || command == QLatin1String("previous")
-            || command == QLatin1String("stop")) {
+            || command == QLatin1String("stop") || command == QLatin1String("shuffle") || command == QLatin1String("repeat")
+            || command == QLatin1String("mute") || command == QLatin1String("raise") || command == QLatin1String("fullscreen")
+            || command == QLatin1String("restart")) {
             rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("command")}, path);
             if (turnAction)
                 error(path, QStringLiteral("a dial turn needs a media volume or seek action"));
-            out.command = command == QLatin1String("next")       ? MediaCommand::Next
-                          : command == QLatin1String("previous") ? MediaCommand::Previous
-                          : command == QLatin1String("stop")     ? MediaCommand::Stop
-                                                                  : MediaCommand::PlayPause;
+            out.command = command == QLatin1String("next")         ? MediaCommand::Next
+                          : command == QLatin1String("previous")   ? MediaCommand::Previous
+                          : command == QLatin1String("stop")       ? MediaCommand::Stop
+                          : command == QLatin1String("shuffle")    ? MediaCommand::Shuffle
+                          : command == QLatin1String("repeat")     ? MediaCommand::Repeat
+                          : command == QLatin1String("mute")       ? MediaCommand::Mute
+                          : command == QLatin1String("raise")      ? MediaCommand::Raise
+                          : command == QLatin1String("fullscreen") ? MediaCommand::Fullscreen
+                          : command == QLatin1String("restart")    ? MediaCommand::Restart
+                                                                    : MediaCommand::PlayPause;
         } else if (command == QLatin1String("volume")) {
             rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("command"), QStringLiteral("step")}, path);
             out.command = MediaCommand::Volume;
@@ -227,7 +235,7 @@ struct Parser
                 error(path + QStringLiteral(".seconds"), QStringLiteral("must not be 0"));
         } else {
             error(path + QStringLiteral(".command"),
-                  QStringLiteral("must be one of play-pause, next, previous, stop, volume, seek"));
+                  QStringLiteral("must be one of play-pause, next, previous, stop, shuffle, repeat, mute, raise, fullscreen, restart, volume, seek"));
         }
     }
 

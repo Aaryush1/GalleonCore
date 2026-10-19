@@ -77,6 +77,17 @@ public:
     // `seconds`: signed offset from the current position.
     virtual void seek(int seconds) = 0;
 
+    // More controls, for a player that supports them (a default that does nothing, so that a
+    // fake or a limited controller needs no change): shuffle on/off, repeat none/playlist/track,
+    // mute the system sound, bring the player's window to the front, full screen on/off (a video
+    // player), and back to the start of the track.
+    virtual void toggleShuffle() {}
+    virtual void cycleRepeat() {}
+    virtual void toggleMute() {}
+    virtual void raisePlayer() {}
+    virtual void toggleFullscreen() {}
+    virtual void restartTrack() {}
+
     // The name used by the icons of a key: "playing", "paused" or "stopped".
     [[nodiscard]] static QString stateName(State state)
     {

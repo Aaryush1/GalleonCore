@@ -25,6 +25,15 @@ class RootAdaptor : public QDBusAbstractAdaptor
     Q_CLASSINFO("D-Bus Interface", "org.mpris.MediaPlayer2")
     Q_PROPERTY(QString DesktopEntry READ desktopEntry)
     Q_PROPERTY(QString Identity READ identity)
+    Q_PROPERTY(bool Fullscreen READ fullscreen WRITE setFullscreen)
+
+public:
+    int raiseCount = 0;
+    [[nodiscard]] bool fullscreen() const { return m_fullscreen; }
+    void setFullscreen(bool on) { m_fullscreen = on; }
+
+public Q_SLOTS:
+    void Raise() { ++raiseCount; }
 
 public:
     RootAdaptor(QObject *parent, QString entry)
@@ -37,6 +46,7 @@ public:
 
 private:
     QString m_entry;
+    bool m_fullscreen = false;
 };
 
 // A music player as MPRIS describes it, on the session bus under a private name.
@@ -48,6 +58,8 @@ class FakePlayer : public QObject
     Q_PROPERTY(double Volume READ volume WRITE setVolume)
     Q_PROPERTY(QVariantMap Metadata READ metadata)
     Q_PROPERTY(qlonglong Position READ position)
+    Q_PROPERTY(bool Shuffle READ shuffle WRITE setShuffle)
+    Q_PROPERTY(QString LoopStatus READ loopStatus WRITE setLoopStatus)
 
 public:
     explicit FakePlayer(QString name, QString status = QStringLiteral("Paused"), QString desktopEntry = {})
@@ -81,6 +93,11 @@ public:
     void setStatus(const QString &status) { m_status = status; }
     [[nodiscard]] QVariantMap metadata() const { return m_metadata; }
     void setMetadata(const QVariantMap &metadata) { m_metadata = metadata; }
+    [[nodiscard]] bool shuffle() const { return m_shuffle; }
+    void setShuffle(bool on) { m_shuffle = on; }
+    [[nodiscard]] QString loopStatus() const { return m_loop; }
+    void setLoopStatus(const QString &status) { m_loop = status; }
+    [[nodiscard]] RootAdaptor *root() const { return findChild<RootAdaptor *>(); }
     [[nodiscard]] qlonglong position() const { return m_position; }
     void setPosition(qlonglong microseconds) { m_position = microseconds; }
 
@@ -123,6 +140,8 @@ private:
     double m_volume = 0.5;
     QVariantMap m_metadata;
     qlonglong m_position = 0;
+    bool m_shuffle = false;
+    QString m_loop = QStringLiteral("None");
     bool m_registered = false;
 };
 
@@ -152,6 +171,12 @@ private Q_SLOTS:
         controller.playPause(); // must not crash or wait
         controller.changeVolume(5);
         controller.seek(5);
+        controller.toggleShuffle(); // nor these, without any player
+        controller.cycleRepeat();
+        controller.toggleFullscreen();
+        controller.raisePlayer();
+        controller.restartTrack();
+        controller.toggleMute();
     }
 
     void withoutAPlayerTheDialSetsTheSystemVolumeThroughAFixedCommand()
@@ -188,6 +213,62 @@ private Q_SLOTS:
         QFile again(log);
         QVERIFY(again.open(QIODevice::ReadOnly));
         QVERIFY(QString::fromUtf8(again.readAll()).trimmed().endsWith(QStringLiteral("@DEFAULT_AUDIO_SINK@ 4%-")));
+    }
+
+    void shuffleRepeatFullscreenRaiseAndRestartReachThePlayer()
+    {
+        FakePlayer player(uniqueName("ctl"), QStringLiteral("Playing"), QStringLiteral("fake"));
+        QVERIFY(player.registered());
+        QVERIFY(player.root());
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("ctl"));
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
+
+        controller.toggleShuffle();
+        QTRY_VERIFY_WITH_TIMEOUT(player.shuffle(), 3000);
+        controller.toggleShuffle();
+        QTRY_VERIFY_WITH_TIMEOUT(!player.shuffle(), 3000);
+
+        // Repeat goes round: none, the playlist, the track, none.
+        controller.cycleRepeat();
+        QTRY_COMPARE_WITH_TIMEOUT(player.loopStatus(), QStringLiteral("Playlist"), 3000);
+        controller.cycleRepeat();
+        QTRY_COMPARE_WITH_TIMEOUT(player.loopStatus(), QStringLiteral("Track"), 3000);
+        controller.cycleRepeat();
+        QTRY_COMPARE_WITH_TIMEOUT(player.loopStatus(), QStringLiteral("None"), 3000);
+
+        controller.toggleFullscreen();
+        QTRY_VERIFY_WITH_TIMEOUT(player.root()->fullscreen(), 3000);
+        controller.toggleFullscreen();
+        QTRY_VERIFY_WITH_TIMEOUT(!player.root()->fullscreen(), 3000);
+
+        controller.raisePlayer();
+        QTRY_COMPARE_WITH_TIMEOUT(player.root()->raiseCount, 1, 3000);
+
+        // Back to the start: a seek further back than the start (MPRIS goes to 0).
+        controller.restartTrack();
+        QTRY_VERIFY_WITH_TIMEOUT(player.lastSeek < -3600LL * 1000000LL, 3000);
+    }
+
+    void muteSetsTheSystemSoundThroughAFixedCommand()
+    {
+        QTemporaryDir dir;
+        const QString log = dir.filePath("calls.log");
+        const QString script = dir.filePath("fake-wpctl");
+        QFile file(script);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("#!/bin/sh\necho \"$@\" >> '" + log.toUtf8() + "'\n");
+        file.setPermissions(file.permissions() | QFileDevice::ExeOwner | QFileDevice::ExeUser);
+        file.close();
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("mute"));
+        controller.toggleMute(); // a test controller never touches the sound of the machine by itself
+        QTest::qWait(200);
+        QVERIFY(!QFile::exists(log));
+        controller.setSystemVolumeProgram(script);
+        controller.toggleMute();
+        QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(log), 3000);
+        QFile calls(log);
+        QVERIFY(calls.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(calls.readAll()).trimmed(), QStringLiteral("set-mute @DEFAULT_AUDIO_SINK@ toggle"));
     }
 
     void aPlayerIsFoundWithItsState()

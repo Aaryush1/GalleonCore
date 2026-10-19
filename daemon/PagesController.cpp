@@ -392,6 +392,24 @@ void PagesController::perform(const Action &action, int times)
     case MediaCommand::Stop:
         m_media->stop();
         break;
+    case MediaCommand::Shuffle:
+        m_media->toggleShuffle();
+        break;
+    case MediaCommand::Repeat:
+        m_media->cycleRepeat();
+        break;
+    case MediaCommand::Mute:
+        m_media->toggleMute();
+        break;
+    case MediaCommand::Raise:
+        m_media->raisePlayer();
+        break;
+    case MediaCommand::Fullscreen:
+        m_media->toggleFullscreen();
+        break;
+    case MediaCommand::Restart:
+        m_media->restartTrack();
+        break;
     case MediaCommand::Volume:
         m_media->changeVolume(action.step * times);
         break;
