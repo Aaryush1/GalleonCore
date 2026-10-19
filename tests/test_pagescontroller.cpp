@@ -107,7 +107,7 @@ struct Fixture
 
     void turnDial(int dial, int signedSteps)
     {
-        QTest::qWait(200); // a step right after a press is the click's release: let it pass
+        QTest::qWait(350); // a step right after a press is the click's release: let it pass
         std::vector<std::uint8_t> report = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x00};
         report[5 + static_cast<std::size_t>(dial)] = static_cast<std::uint8_t>(signedSteps);
         transport->pendingReads.push_back(report);
@@ -118,7 +118,7 @@ struct Fixture
     void pressDial(int dial, bool pressed)
     {
         if (pressed)
-            QTest::qWait(200); // a step just before a press is the click's own wobble: let it settle
+            QTest::qWait(450); // a step just before a press is the click's own wobble: let it settle
         std::vector<std::uint8_t> report = {0x01, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00};
         report[5 + static_cast<std::size_t>(dial)] = pressed ? 1 : 0;
         transport->pendingReads.push_back(report);
@@ -848,7 +848,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
             {"version", 1},
             {"home", "main"},
-            {"screen", QJsonObject{{"wallpaper_validate_seconds", 1}}},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 2}}},
             {"pages", QJsonObject{{"main", page({})}}},
             {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
@@ -861,13 +861,13 @@ private Q_SLOTS:
         QVERIFY(f.controller->wallpaperMode());
         // Turning keeps the mode: the time starts again at each step.
         for (int i = 0; i < 3; ++i) {
-            QTest::qWait(600);
+            QTest::qWait(500);
             f.turnDial(1, 1);
             QVERIFY(f.controller->wallpaperMode());
         }
         QCOMPARE(steps.count(), 3);
-        // Left alone for a second: validated, the dial is the player control again.
-        QTRY_VERIFY_WITH_TIMEOUT(!f.controller->wallpaperMode(), 3000);
+        // Left alone for the time: validated, the dial is the player control again.
+        QTRY_VERIFY_WITH_TIMEOUT(!f.controller->wallpaperMode(), 5000);
     }
 };
 

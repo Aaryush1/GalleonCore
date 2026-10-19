@@ -125,7 +125,7 @@ struct Fixture
     void dial(int index, bool pressed)
     {
         if (pressed)
-            QTest::qWait(200); // a step just before a press is the click's own wobble: let it settle
+            QTest::qWait(450); // a step just before a press is the click's own wobble: let it settle
         std::vector<std::uint8_t> report = {0x01, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00};
         report[5 + static_cast<std::size_t>(index)] = pressed ? 1 : 0;
         transport->pendingReads.push_back(report);
@@ -139,7 +139,7 @@ struct Fixture
     }
     void turn(int index, int steps)
     {
-        QTest::qWait(200); // a step right after a press is the click's release: let it pass
+        QTest::qWait(350); // a step right after a press is the click's release: let it pass
         std::vector<std::uint8_t> report = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x00};
         report[5 + static_cast<std::size_t>(index)] = static_cast<std::uint8_t>(steps);
         transport->pendingReads.push_back(report);
@@ -257,7 +257,8 @@ private Q_SLOTS:
         QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
         QTest::qWait(60);
         QVERIFY(!f.pages->wallpaperMode());
-        // ...and one right after it (the release): the chosen wallpaper is still the blue.
+        // ...and one a little after the press, when letting go: the chosen wallpaper is still the blue.
+        QTest::qWait(100);
         turn[6] = 0xff; // -1
         f.transport->pendingReads.push_back(turn);
         QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);

@@ -41,7 +41,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     , m_launcher([](const DesktopApp &app) { return DesktopEntries::launch(app); })
 {
     m_clock.start();
-    m_lastPressAt.fill(-ClickWindowMs * 4);
+    m_lastPressAt.fill(-ClickAfterMs * 4);
     m_mediaPresent = isMediaPresent(m_media->state());
     // The built-in pages: always valid, so there is always something to show.
     if (const auto fallback = parsePagesConfig(defaultPagesJson()); fallback.config)
@@ -51,6 +51,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     connect(m_deck, &galleon::StreamDeck::keyReleased, this, &PagesController::onKeyReleased);
     connect(m_deck, &galleon::StreamDeck::dialRotated, this, &PagesController::onDialRotated);
     connect(m_deck, &galleon::StreamDeck::dialPressed, this, &PagesController::onDialPressed);
+    connect(m_deck, &galleon::StreamDeck::dialReleased, this, &PagesController::onDialReleased);
     connect(m_media, &MediaController::stateChanged, this, [this] {
         onMediaChanged();
         redraw();
@@ -507,8 +508,10 @@ void PagesController::onDialRotated(int dial, int steps)
         return;
     const qint64 now = m_clock.elapsed();
     const auto index = static_cast<std::size_t>(dial);
-    if (now - m_lastPressAt[index] < ClickWindowMs)
-        return; // the release of the click, not a turn
+    if (now - m_lastPressAt[index] < ClickAfterMs) {
+        qInfo() << "galleond: dial" << dial << "step" << steps << "ignored: it is the click";
+        return; // the click's own movement, not a turn
+    }
     // Choosing a theme or a wallpaper goes one place per turn event, whatever the dial
     // reports: it counts several steps when turned a little fast, and the choice must not skip.
     const bool choosing = dial == m_themeDial || dial == m_wallpaperDial;
@@ -529,6 +532,13 @@ void PagesController::onDialRotated(int dial, int steps)
     perform(m_config.dials[static_cast<std::size_t>(dial)].turn, steps);
 }
 
+void PagesController::onDialReleased(int dial)
+{
+    if (dial < 0 || dial >= galleon::protocol::DialCount)
+        return;
+    m_lastPressAt[static_cast<std::size_t>(dial)] = m_clock.elapsed(); // letting go moves it too
+}
+
 void PagesController::onDialPressed(int dial)
 {
     if (m_suspended)
@@ -540,11 +550,13 @@ void PagesController::onDialPressed(int dial)
     const auto index = static_cast<std::size_t>(dial);
     int wobble = 0;
     for (RecentTurn &turn : m_recentTurns[index]) {
-        if (turn.steps != 0 && now - turn.at < ClickWindowMs)
+        if (turn.steps != 0 && now - turn.at < ClickBeforeMs)
             wobble += turn.steps;
         turn = {};
     }
     m_lastPressAt[index] = now;
+    if (wobble != 0 && (dial == m_themeDial || dial == m_wallpaperDial))
+        qInfo() << "galleond: dial" << dial << "step" << wobble << "taken back: it came with the click";
     if (wobble != 0 && dial == m_themeDial)
         stepTheme(-wobble);
     else if (wobble != 0 && dial == m_wallpaperDial)

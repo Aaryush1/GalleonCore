@@ -138,10 +138,14 @@ private:
         qint64 at = 0; // ms on m_clock
         int steps = 0;
     };
-    static constexpr int ClickWindowMs = 150;
+    // A press moves the dial before the contact closes (pushing) and after it opens
+    // (letting go): steps up to this long before a press, or after a press or a release, are the click's.
+    static constexpr int ClickBeforeMs = 350;
+    static constexpr int ClickAfterMs = 250;
     QElapsedTimer m_clock;
     std::array<std::array<RecentTurn, 6>, galleon::protocol::DialCount> m_recentTurns{};
-    std::array<qint64, galleon::protocol::DialCount> m_lastPressAt{};
+    std::array<qint64, galleon::protocol::DialCount> m_lastPressAt{};   // a press or a release
+    void onDialReleased(int dial);
     KeyInjector *m_injector = nullptr;
     std::array<int, galleon::protocol::KeyCount> m_heldKey{}; // key code held for each key, 0 = none
     bool m_mediaPresent = false;
