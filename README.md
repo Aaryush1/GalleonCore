@@ -163,6 +163,12 @@ You never need to edit the JSON for this:
 ./build/daemon/galleond --clear-key 4
 ```
 
+**Galleon Bosun** (work in progress) is the settings window: one tab per theme with the 12 keys drawn as the module draws them, and tabs for the keyboard lighting, wallpapers and screensavers (not built yet). It only shows the keys for now; editing comes next.
+
+```sh
+./build/bosun/galleon-bosun
+```
+
 The edit is checked like any pages file, the previous version is kept as `pages.json.bak`, and a running `galleond` reads the change by itself.
 
 ### Themes

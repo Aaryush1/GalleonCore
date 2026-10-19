@@ -163,6 +163,12 @@ Tu n'as jamais besoin de modifier le JSON pour cela :
 ./build/daemon/galleond --clear-key 4
 ```
 
+**Galleon Bosun** (en cours de construction) est la fenêtre de réglage : un onglet par thème avec les 12 touches dessinées comme sur le module, et des onglets pour l'éclairage du clavier, les fonds d'écran et les écrans de veille (pas encore faits). Elle montre seulement les touches pour l'instant ; l'édition vient ensuite.
+
+```sh
+./build/bosun/galleon-bosun
+```
+
 La modification est vérifiée comme tout fichier de pages, l'ancienne version est gardée dans `pages.json.bak`, et un `galleond` en marche relit le changement tout seul.
 
 ### Thèmes
