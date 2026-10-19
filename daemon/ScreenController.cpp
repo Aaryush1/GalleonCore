@@ -186,7 +186,12 @@ bool ScreenController::draw()
     const WallpaperEntry *entry = m_catalog.find(m_wallpaper);
     if (!entry || !deckAvailable())
         return false;
-    if (wantsNowPlaying())
+    const bool nowPlaying = wantsNowPlaying();
+    if (nowPlaying != m_showedNowPlaying) {
+        m_showedNowPlaying = nowPlaying;
+        qInfo() << "galleond: the screen shows" << (nowPlaying ? "the track" : "the wallpaper");
+    }
+    if (nowPlaying)
         return drawNowPlaying();
 
     const QImage frame = m_renderer->render(entry->path,

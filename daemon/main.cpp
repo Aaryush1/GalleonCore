@@ -280,6 +280,11 @@ int main(int argc, char *argv[])
     galleond::ScreenController controller(&deck, &renderer, galleond::WallpaperCatalog(wallpaperDir), widgetFile,
                                           media.get(), nowPlayingRenderer.isValid() ? &nowPlayingRenderer : nullptr);
 
+    if (!usePages)
+        qInfo() << "galleond: no music player control (--no-pages or --test-keys): the screen keeps the wallpaper";
+    else if (!nowPlayingRenderer.isValid())
+        qWarning() << "galleond: NowPlaying.qml could not be loaded: the screen keeps the wallpaper";
+
     // The button pages: keys and dials drive the music player (MPRIS).
     std::unique_ptr<galleond::PagesController> pages;
     if (usePages) {

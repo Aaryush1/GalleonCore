@@ -92,6 +92,7 @@ private:
     ScreenConfig m_screenConfig;
     QString m_coverId; // changes with every cover, so the widget never reuses an old one
     int m_coverSerial = 0;
+    bool m_showedNowPlaying = false; // for the log: what the screen last showed
     QString m_wallpaper; // catalog name, empty when nothing is shown
     QTimer m_minuteTimer;
     QTimer m_deckTimer;

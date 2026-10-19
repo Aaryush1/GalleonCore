@@ -156,14 +156,18 @@ void MprisController::refreshNames()
                 found.append(name);
         }
         for (auto it = m_players.begin(); it != m_players.end();) {
-            if (found.contains(it.key()))
+            if (found.contains(it.key())) {
                 ++it;
-            else
+            } else {
+                qInfo() << "galleond: music player gone:" << it.key();
                 it = m_players.erase(it);
+            }
         }
         for (const QString &name : std::as_const(found)) {
-            if (!m_players.contains(name))
+            if (!m_players.contains(name)) {
+                qInfo() << "galleond: music player found:" << name;
                 m_players.insert(name, Player{});
+            }
         }
         setPlayers(); // reads the states, and reports a change
     });
@@ -196,6 +200,8 @@ void MprisController::refreshState(const QString &name)
             return;
         const QDBusPendingReply<QVariantMap> reply = *call;
         if (reply.isError()) {
+            if (player->state != State::Stopped || !player->track.isEmpty())
+                qWarning() << "galleond: cannot read the player" << name << reply.error().message();
             player->state = State::Stopped;
             player->track = {};
         } else {
@@ -210,6 +216,12 @@ void MprisController::refreshState(const QString &name)
         const NowPlaying track = nowPlaying();
         const bool stateChanged = now != m_reported;
         const bool trackChanged = !(track == m_reportedTrack);
+        if (stateChanged || track.title != m_reportedTrack.title || track.artist != m_reportedTrack.artist
+            || track.artUrl != m_reportedTrack.artUrl) {
+            static const char *names[] = {"no player", "stopped", "paused", "playing"};
+            qInfo().noquote() << "galleond: player" << names[static_cast<int>(now)] << "-" << track.artist << "-" << track.title
+                              << (track.artUrl.isEmpty() ? QStringLiteral("(no cover address)") : QStringLiteral("cover: ") + track.artUrl.left(100));
+        }
         m_reported = now;
         m_reportedTrack = track;
         if (stateChanged)
