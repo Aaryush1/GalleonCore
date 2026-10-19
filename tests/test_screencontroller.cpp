@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Bytes.h"
 #include "FakeTransport.h"
 
 #include <ScreenController.h>
@@ -24,13 +25,19 @@ namespace {
 
 // These tests write the saved wallpaper: keep it away from the user's real
 // ~/.config, even when the binary is run by hand and not through ctest.
-const bool IsolatedSettings = [] {
+// Before anything reads a setting: the tests keep to their own configuration folder.
+void isolateSettings()
+{
     qputenv("XDG_CONFIG_HOME", (QDir::tempPath() + QStringLiteral("/galleoncore-test-config")).toUtf8());
-    return true;
-}();
+}
+Q_CONSTRUCTOR_FUNCTION(isolateSettings)
 
 
-const QString WidgetsDir = QStringLiteral(GALLEON_SOURCE_WIDGETS);
+const QString &widgetsDir()
+{
+    static const QString dir = QStringLiteral(GALLEON_SOURCE_WIDGETS);
+    return dir;
+}
 
 class FakeMedia : public MediaController
 {
@@ -90,10 +97,10 @@ struct Fixture
         transport = fake.get();
         deck = std::make_unique<StreamDeck>(std::move(fake));
         QVERIFY(deck->open());
-        wallpaperRenderer = std::make_unique<ScreenRenderer>(WidgetsDir + "/WallpaperClock.qml");
-        nowPlayingRenderer = std::make_unique<ScreenRenderer>(WidgetsDir + "/NowPlaying.qml");
+        wallpaperRenderer = std::make_unique<ScreenRenderer>(widgetsDir() + "/WallpaperClock.qml");
+        nowPlayingRenderer = std::make_unique<ScreenRenderer>(widgetsDir() + "/NowPlaying.qml");
         controller = std::make_unique<ScreenController>(deck.get(), wallpaperRenderer.get(),
-                                                        WallpaperCatalog(dir.filePath("wall")), WidgetsDir + "/WallpaperClock.qml",
+                                                        WallpaperCatalog(dir.filePath("wall")), widgetsDir() + "/WallpaperClock.qml",
                                                         &media, nowPlayingRenderer.get());
     }
 
@@ -119,7 +126,7 @@ struct Fixture
             if (r.size() < 16 || r[1] != 0x0c)
                 break;
             const int length = r[13] | (r[14] << 8);
-            jpeg.prepend(reinterpret_cast<const char *>(r.data()) + 16, length);
+            jpeg.prepend(bytesOf(r, 16, static_cast<std::size_t>(length)));
             if ((r[11] | (r[12] << 8)) == 0)
                 break;
         }
@@ -154,8 +161,8 @@ struct Fixture
 
 constexpr int FarRightX = 705;
 constexpr int Row = 200;
-const QRgb Wallpaper = qRgb(30, 160, 60);
-const QRgb TrackScreen = qRgb(0x14, 0x17, 0x1c);
+constexpr QRgb Wallpaper = qRgb(30, 160, 60);
+constexpr QRgb TrackScreen = qRgb(0x14, 0x17, 0x1c);
 
 } // namespace
 
@@ -339,7 +346,7 @@ private Q_SLOTS:
         script.setPermissions(script.permissions() | QFileDevice::ExeOwner);
         VideoThumbnails thumbnails(f.dir.filePath("cache"), f.dir.filePath("fake-ffmpeg"));
         auto controller = std::make_unique<ScreenController>(f.deck.get(), f.wallpaperRenderer.get(),
-                                                             WallpaperCatalog(f.dir.filePath("wall")), WidgetsDir + "/WallpaperClock.qml",
+                                                             WallpaperCatalog(f.dir.filePath("wall")), widgetsDir() + "/WallpaperClock.qml",
                                                              &f.media, f.nowPlayingRenderer.get(), &thumbnails);
         QVERIFY(controller->SetWallpaper(f.wallpaper()));
 
@@ -370,7 +377,7 @@ private Q_SLOTS:
         script.setPermissions(script.permissions() | QFileDevice::ExeOwner);
         VideoThumbnails thumbnails(f.dir.filePath("cache"), f.dir.filePath("fake-ffmpeg"));
         ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(), WallpaperCatalog(f.dir.filePath("wall")),
-                                    WidgetsDir + "/WallpaperClock.qml", &f.media, f.nowPlayingRenderer.get(), &thumbnails);
+                                    widgetsDir() + "/WallpaperClock.qml", &f.media, f.nowPlayingRenderer.get(), &thumbnails);
         ScreenConfig config;
         config.videoThumbnails = false;
         controller.setScreenConfig(config);
@@ -432,7 +439,7 @@ private Q_SLOTS:
         red.fill(QColor(200, 30, 30));
         QVERIFY(red.save(f.dir.filePath("wall/style/red.png")));
         ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(), WallpaperCatalog(f.dir.filePath("wall")),
-                                    WidgetsDir + "/WallpaperClock.qml");
+                                    widgetsDir() + "/WallpaperClock.qml");
         QVERIFY(controller.SetWallpaper("style/green.png"));
         controller.stepWallpaper(1);
         QCOMPARE(controller.wallpaper(), QStringLiteral("style/red.png")); // the choice counts at once
@@ -502,7 +509,7 @@ private Q_SLOTS:
         red.fill(QColor(200, 30, 30));
         QVERIFY(red.save(f.dir.filePath("wall/style/red.png")));
         ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(), WallpaperCatalog(f.dir.filePath("wall")),
-                                    WidgetsDir + "/WallpaperClock.qml");
+                                    widgetsDir() + "/WallpaperClock.qml");
         QVERIFY(controller.SetWallpaper("style/green.png"));
         const std::size_t before = f.frames();
         controller.stepWallpaper(1); // the first one answers at once
@@ -554,7 +561,7 @@ private Q_SLOTS:
         red.fill(QColor(200, 30, 30));
         QVERIFY(red.save(f.dir.filePath("wall/style/red.png")));
         ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(), WallpaperCatalog(f.dir.filePath("wall")),
-                                    WidgetsDir + "/WallpaperClock.qml");
+                                    widgetsDir() + "/WallpaperClock.qml");
         QVERIFY(controller.SetWallpaper("style/green.png"));
         const auto magentaBand = [&f] {
             const QImage image = f.lastScreen();

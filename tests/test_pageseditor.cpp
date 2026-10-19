@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Required.h"
 #include <PagesConfig.h>
 #include <PagesEditor.h>
 
@@ -80,9 +81,9 @@ private Q_SLOTS:
         const Page main = config.pages.value("main");
         const auto &key = main.keys[4];
         QVERIFY(key.has_value());
-        QCOMPARE(int(key->action.type), int(ActionType::App));
-        QCOMPARE(key->action.desktop, QStringLiteral("tool.desktop"));
-        QVERIFY(key->label.isEmpty()); // the application's own label and icon are used
+        QCOMPARE(int(required(key).action.type), int(ActionType::App));
+        QCOMPARE(required(key).action.desktop, QStringLiteral("tool.desktop"));
+        QVERIFY(required(key).label.isEmpty()); // the application's own label and icon are used
         QVERIFY(config.pages.value("main").keys[0].has_value()); // the other keys are still there
         QVERIFY(config.dials[0].turn.type == ActionType::Media);
     }
@@ -94,10 +95,10 @@ private Q_SLOTS:
         const PagesConfig config = configOf(env.pages());
         const Page main = config.pages.value("main");
         const auto &key = main.keys[5];
-        QCOMPARE(int(key->action.type), int(ActionType::App));
-        QVERIFY(key->label.isEmpty());
-        QVERIFY(key->icon.name.isEmpty());
-        QCOMPARE(int(config.pages.value("main").keys[3]->action.command), int(MediaCommand::Volume)); // untouched
+        QCOMPARE(int(required(key).action.type), int(ActionType::App));
+        QVERIFY(required(key).label.isEmpty());
+        QVERIFY(required(key).icon.name.isEmpty());
+        QCOMPARE(int(required(config.pages.value("main").keys[3]).action.command), int(MediaCommand::Volume)); // untouched
     }
 
     void everyKeyKeepsItsPlaceAndTheListStaysSorted()
@@ -108,13 +109,13 @@ private Q_SLOTS:
         const QJsonObject root = QJsonDocument::fromJson(readFile(env.pages())).object();
         const QJsonArray keys = root.value("pages").toObject().value("main").toObject().value("keys").toArray();
         int previous = -1;
-        for (const QJsonValue &value : keys) {
+        for (const auto &value : keys) {
             const int number = value.toObject().value("key").toInt();
             QVERIFY(number > previous);
             previous = number;
         }
-        QCOMPARE(configOf(env.pages()).pages.value("main").keys[9]->action.desktop, QStringLiteral("tool.desktop"));
-        QCOMPARE(configOf(env.pages()).pages.value("main").keys[4]->action.desktop, QStringLiteral("other.desktop"));
+        QCOMPARE(required(configOf(env.pages()).pages.value("main").keys[9]).action.desktop, QStringLiteral("tool.desktop"));
+        QCOMPARE(required(configOf(env.pages()).pages.value("main").keys[4]).action.desktop, QStringLiteral("other.desktop"));
     }
 
     void clearingEmptiesTheKey()
@@ -191,7 +192,7 @@ private Q_SLOTS:
         Environment const env;
         const QString path = env.dir.filePath("system/applications/tool.desktop");
         QVERIFY(PagesEditor::assignApp(env.pages(), "main", 4, path).ok);
-        QCOMPARE(configOf(env.pages()).pages.value("main").keys[4]->action.desktop, path);
+        QCOMPARE(required(configOf(env.pages()).pages.value("main").keys[4]).action.desktop, path);
     }
 
     void aSecondPageCanBeEdited()

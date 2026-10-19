@@ -95,8 +95,8 @@ private Q_SLOTS:
     }
     void theAddressPolicy()
     {
-        QFETCH(QString, url);
-        QFETCH(bool, allowed);
+        QFETCH(const QString, url);
+        QFETCH(const bool, allowed);
         QCOMPARE(CoverLoader::isAllowedUrl(QUrl(url)), allowed);
     }
 

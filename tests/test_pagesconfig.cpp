@@ -1,12 +1,15 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Required.h"
 #include <PagesConfig.h>
 
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTest>
+
+#include <algorithm>
 
 using namespace galleond;
 
@@ -43,11 +46,7 @@ QJsonObject fileWithKeys(const QJsonArray &keys)
 
 bool mentions(const PagesParseResult &result, const QString &text)
 {
-    for (const QString &line : result.errors) {
-        if (line.contains(text))
-            return true;
-    }
-    return false;
+    return std::ranges::any_of(result.errors, [&](const QString &line) { return line.contains(text); });
 }
 
 } // namespace
@@ -62,28 +61,28 @@ private Q_SLOTS:
         const auto result = parsePagesConfig(defaultPagesJson());
         QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
         QVERIFY(result.config.has_value());
-        QCOMPARE(result.config->home, QStringLiteral("main"));
-        QCOMPARE(result.config->pages.size(), 1);
+        QCOMPARE(required(result.config).home, QStringLiteral("main"));
+        QCOMPARE(required(result.config).pages.size(), 1);
     }
 
     void theDefaultFileIsReadAsWritten()
     {
-        const PagesConfig config = *parsePagesConfig(defaultPagesJson()).config;
+        const PagesConfig config = required(parsePagesConfig(defaultPagesJson()).config);
         const Page &main = config.pages.value("main");
 
         QVERIFY(main.keys[0].has_value());
-        QCOMPARE(main.keys[0]->label, QStringLiteral("Previous"));
-        QCOMPARE(main.keys[0]->icon.name, QStringLiteral("media-skip-backward"));
-        QCOMPARE(int(main.keys[0]->action.command), int(MediaCommand::Previous));
+        QCOMPARE(required(main.keys[0]).label, QStringLiteral("Previous"));
+        QCOMPARE(required(main.keys[0]).icon.name, QStringLiteral("media-skip-backward"));
+        QCOMPARE(int(required(main.keys[0]).action.command), int(MediaCommand::Previous));
 
         QVERIFY(main.keys[1].has_value()); // the play key changes icon with the state
-        QCOMPARE(main.keys[1]->icon.forState("playing"), QStringLiteral("media-playback-pause"));
-        QCOMPARE(main.keys[1]->icon.forState("paused"), QStringLiteral("media-playback-start"));
-        QCOMPARE(int(main.keys[1]->action.command), int(MediaCommand::PlayPause));
+        QCOMPARE(required(main.keys[1]).icon.forState("playing"), QStringLiteral("media-playback-pause"));
+        QCOMPARE(required(main.keys[1]).icon.forState("paused"), QStringLiteral("media-playback-start"));
+        QCOMPARE(int(required(main.keys[1]).action.command), int(MediaCommand::PlayPause));
 
         QVERIFY(!main.keys[4].has_value()); // unused keys stay empty
-        QCOMPARE(main.keys[3]->action.step, -5);
-        QCOMPARE(main.keys[6]->action.seconds, -10);
+        QCOMPARE(required(main.keys[3]).action.step, -5);
+        QCOMPARE(required(main.keys[6]).action.seconds, -10);
         QVERIFY(main.keys[11].has_value());
 
         QCOMPARE(int(config.dials[0].turn.command), int(MediaCommand::Volume));
@@ -107,8 +106,8 @@ private Q_SLOTS:
 
         const auto result = parseObject(object);
         QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
-        QCOMPARE(result.config->pages.size(), 2);
-        QCOMPARE(int(result.config->pages.value("music").keys[11]->action.type), int(ActionType::Back));
+        QCOMPARE(required(result.config).pages.size(), 2);
+        QCOMPARE(int(required(required(result.config).pages.value("music").keys[11]).action.type), int(ActionType::Back));
     }
 
     void notJsonIsRefused()
@@ -256,8 +255,8 @@ private Q_SLOTS:
         };
         auto ok = withAction({{"type", "app"}, {"desktop", "firefox.desktop"}});
         QVERIFY2(ok.errors.isEmpty(), qPrintable(ok.errors.join('\n')));
-        QCOMPARE(int(ok.config->pages.value("p").keys[0]->action.type), int(ActionType::App));
-        QCOMPARE(ok.config->pages.value("p").keys[0]->action.desktop, QStringLiteral("firefox.desktop"));
+        QCOMPARE(int(required(required(ok.config).pages.value("p").keys[0]).action.type), int(ActionType::App));
+        QCOMPARE(required(required(ok.config).pages.value("p").keys[0]).action.desktop, QStringLiteral("firefox.desktop"));
         QVERIFY(withAction({{"type", "app"}, {"desktop", "/usr/share/applications/vlc.desktop"}}).config.has_value());
 
         // No command can be written here: only the name of a .desktop file.
@@ -309,7 +308,7 @@ private Q_SLOTS:
 
     void theScreenSectionIsOptionalAndChecked()
     {
-        const PagesConfig defaults = *parsePagesConfig(defaultPagesJson()).config;
+        const PagesConfig defaults = required(parsePagesConfig(defaultPagesJson()).config);
         QCOMPARE(int(defaults.screen.nowPlaying), int(NowPlayingMode::Playing));
         QVERIFY(defaults.screen.remoteCovers);
 
@@ -320,22 +319,22 @@ private Q_SLOTS:
         };
         auto result = withScreen(QJsonObject{{"now_playing", "playing-or-paused"}, {"remote_covers", false}});
         QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
-        QCOMPARE(int(result.config->screen.nowPlaying), int(NowPlayingMode::PlayingOrPaused));
-        QVERIFY(!result.config->screen.remoteCovers);
-        QCOMPARE(int(withScreen(QJsonObject{{"now_playing", "never"}}).config->screen.nowPlaying), int(NowPlayingMode::Never));
+        QCOMPARE(int(required(result.config).screen.nowPlaying), int(NowPlayingMode::PlayingOrPaused));
+        QVERIFY(!required(result.config).screen.remoteCovers);
+        QCOMPARE(int(required(withScreen(QJsonObject{{"now_playing", "never"}}).config).screen.nowPlaying), int(NowPlayingMode::Never));
         QVERIFY(withScreen(QJsonObject{}).config.has_value());
 
         QVERIFY(defaults.screen.videoThumbnails);
-        QVERIFY(!withScreen(QJsonObject{{"video_thumbnails", false}}).config->screen.videoThumbnails);
+        QVERIFY(!required(withScreen(QJsonObject{{"video_thumbnails", false}}).config).screen.videoThumbnails);
         QVERIFY(!withScreen(QJsonObject{{"video_thumbnails", "no"}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"now_playing", "sometimes"}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"now_playing", 1}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"remote_covers", "yes"}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"colour", "red"}}).config.has_value());
-        QCOMPARE(withScreen(QJsonObject{}).config->screen.wallpaperHoldSeconds, 4);
-        QCOMPARE(withScreen(QJsonObject{{"wallpaper_hold_seconds", 12}}).config->screen.wallpaperHoldSeconds, 12);
-        QCOMPARE(withScreen(QJsonObject{}).config->screen.wallpaperStepDelayMs, 150);
-        QCOMPARE(withScreen(QJsonObject{{"wallpaper_step_delay_ms", 0}}).config->screen.wallpaperStepDelayMs, 0);
+        QCOMPARE(required(withScreen(QJsonObject{}).config).screen.wallpaperHoldSeconds, 4);
+        QCOMPARE(required(withScreen(QJsonObject{{"wallpaper_hold_seconds", 12}}).config).screen.wallpaperHoldSeconds, 12);
+        QCOMPARE(required(withScreen(QJsonObject{}).config).screen.wallpaperStepDelayMs, 150);
+        QCOMPARE(required(withScreen(QJsonObject{{"wallpaper_step_delay_ms", 0}}).config).screen.wallpaperStepDelayMs, 0);
         QVERIFY(!withScreen(QJsonObject{{"wallpaper_step_delay_ms", -1}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"wallpaper_step_delay_ms", 5001}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"wallpaper_hold_seconds", 0}}).config.has_value());
@@ -352,13 +351,13 @@ private Q_SLOTS:
         const auto theme = [](const QString &name, const QString &page, const QString &color) {
             return QJsonObject{{"name", name}, {"page", page}, {"color", color}};
         };
-        QVERIFY(parseEdited([](QJsonObject &) {}).config->themes.empty());
+        QVERIFY(required(parseEdited([](QJsonObject &) {}).config).themes.empty());
 
         const auto good = withThemes(QJsonArray{theme("Control", "main", "#ffffff"), theme("Sound", "main", "#E53935")});
         QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
-        QCOMPARE(good.config->themes.size(), size_t(2));
-        QCOMPARE(good.config->themes[1].rgb, 0xE53935U);
-        QCOMPARE(good.config->themes[0].page, QStringLiteral("main"));
+        QCOMPARE(required(good.config).themes.size(), size_t(2));
+        QCOMPARE(required(good.config).themes[1].rgb, 0xE53935U);
+        QCOMPARE(required(good.config).themes[0].page, QStringLiteral("main"));
 
         QVERIFY(!withThemes(QJsonArray{theme("X", "nowhere", "#ffffff")}).config.has_value()); // unknown page
         QVERIFY(!withThemes(QJsonArray{theme("X", "main", "white")}).config.has_value());
@@ -386,7 +385,7 @@ private Q_SLOTS:
             object.insert("dials", dials);
         });
         QVERIFY2(press.config.has_value(), qPrintable(press.errors.join('\n')));
-        QVERIFY(press.config->dials[0].press.type == ActionType::Theme);
+        QVERIFY(required(press.config).dials[0].press.type == ActionType::Theme);
 
         const auto turn = parseEdited([](QJsonObject &object) {
             QJsonObject dials = object.value("dials").toObject();
@@ -418,7 +417,7 @@ private Q_SLOTS:
         };
         const auto press = edit(QJsonObject{{"type", "wallpaper-mode"}}, "press");
         QVERIFY2(press.config.has_value(), qPrintable(press.errors.join('\n')));
-        QVERIFY(press.config->dials[1].press.type == ActionType::WallpaperMode);
+        QVERIFY(required(press.config).dials[1].press.type == ActionType::WallpaperMode);
         QVERIFY(!edit(QJsonObject{{"type", "wallpaper-mode"}}, "turn").config.has_value());
         QVERIFY(!edit(QJsonObject{{"type", "wallpaper-mode"}, {"x", 1}}, "press").config.has_value());
     }
@@ -459,9 +458,9 @@ private Q_SLOTS:
         };
         const auto good = withThemes({theme("A", "media"), theme("B", "no-media"), theme("C", "")});
         QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
-        QVERIFY(good.config->themes[0].when == ThemeTrigger::Media);
-        QVERIFY(good.config->themes[1].when == ThemeTrigger::NoMedia);
-        QVERIFY(good.config->themes[2].when == ThemeTrigger::None);
+        QVERIFY(required(good.config).themes[0].when == ThemeTrigger::Media);
+        QVERIFY(required(good.config).themes[1].when == ThemeTrigger::NoMedia);
+        QVERIFY(required(good.config).themes[2].when == ThemeTrigger::None);
         QVERIFY(!withThemes({theme("A", "media"), theme("B", "media")}).config.has_value()); // one per trigger
         QVERIFY(!withThemes({theme("A", "sometimes")}).config.has_value());
     }
@@ -480,8 +479,8 @@ private Q_SLOTS:
         };
         const auto menu = withPage({{"menu", QJsonObject{{"category", "Game"}, {"max", 9}}}});
         QVERIFY2(menu.config.has_value(), qPrintable(menu.errors.join('\n')));
-        QCOMPARE(menu.config->pages.value("main").menuCategory, QStringLiteral("Game"));
-        QCOMPARE(menu.config->pages.value("main").menuMax, 9);
+        QCOMPARE(required(menu.config).pages.value("main").menuCategory, QStringLiteral("Game"));
+        QCOMPARE(required(menu.config).pages.value("main").menuMax, 9);
         QVERIFY(!withPage({{"menu", QJsonObject{{"category", "Game"}}}}).config.has_value());
         QVERIFY(!withPage({{"menu", QJsonObject{{"max", 3}}}}).config.has_value());
         QVERIFY(!withPage({{"menu", QJsonObject{{"category", "Ga me"}, {"max", 3}}}}).config.has_value());
@@ -490,7 +489,7 @@ private Q_SLOTS:
         QVERIFY(!withPage({{"menu", "Game"}}).config.has_value());
         const auto good = withPage({{"sort", "usage"}, {"steam", QJsonObject{{"max", 6}}}});
         QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
-        const Page &page = good.config->pages.value("main");
+        const Page &page = required(good.config).pages.value("main");
         QVERIFY(page.sort == PageSort::Usage);
         QCOMPARE(page.steamMax, 6);
         QVERIFY(!withPage({{"sort", "random"}}).config.has_value());

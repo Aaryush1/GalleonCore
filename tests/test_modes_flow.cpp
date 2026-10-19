@@ -4,6 +4,7 @@
 // The dials, the themes and the wallpaper choice through the same code as
 // galleond (connectPagesToScreen), with the real screen widgets and a fake module.
 
+#include "Bytes.h"
 #include "FakeTransport.h"
 
 #include <PagesController.h>
@@ -29,12 +30,18 @@ using galleon::StreamDeck;
 
 namespace {
 
-const bool IsolatedSettings = [] {
+// Before anything reads a setting: the tests keep to their own configuration folder.
+void isolateSettings()
+{
     qputenv("XDG_CONFIG_HOME", (QDir::tempPath() + QStringLiteral("/galleoncore-test-config")).toUtf8());
-    return true;
-}();
+}
+Q_CONSTRUCTOR_FUNCTION(isolateSettings)
 
-const QString WidgetsDir = QStringLiteral(GALLEON_SOURCE_WIDGETS);
+const QString &widgetsDir()
+{
+    static const QString dir = QStringLiteral(GALLEON_SOURCE_WIDGETS);
+    return dir;
+}
 
 class FakeMedia : public MediaController
 {
@@ -114,10 +121,10 @@ struct Fixture
         transport = fake.get();
         deck = std::make_unique<StreamDeck>(std::move(fake));
         QVERIFY(deck->open());
-        wallpaperRenderer = std::make_unique<ScreenRenderer>(WidgetsDir + "/WallpaperClock.qml");
-        nowPlayingRenderer = std::make_unique<ScreenRenderer>(WidgetsDir + "/NowPlaying.qml");
+        wallpaperRenderer = std::make_unique<ScreenRenderer>(widgetsDir() + "/WallpaperClock.qml");
+        nowPlayingRenderer = std::make_unique<ScreenRenderer>(widgetsDir() + "/NowPlaying.qml");
         screen = std::make_unique<ScreenController>(deck.get(), wallpaperRenderer.get(), WallpaperCatalog(dir.filePath("wall")),
-                                                    WidgetsDir + "/WallpaperClock.qml", &media, nowPlayingRenderer.get());
+                                                    widgetsDir() + "/WallpaperClock.qml", &media, nowPlayingRenderer.get());
         pages = std::make_unique<PagesController>(deck.get(), &media, TileRenderer());
         connectPagesToScreen(*pages, *screen);
         pages->setConfig(userLikeConfig(stepDelayMs, validateSeconds));
@@ -167,7 +174,7 @@ struct Fixture
             const auto &r = writes[static_cast<std::size_t>(i)];
             if (r.size() < 16 || r[1] != 0x0c)
                 break;
-            jpeg.prepend(reinterpret_cast<const char *>(r.data()) + 16, r[13] | (r[14] << 8));
+            jpeg.prepend(bytesOf(r, 16, static_cast<std::size_t>(r[13] | (r[14] << 8))));
             if ((r[11] | (r[12] << 8)) == 0)
                 break;
         }

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Bytes.h"
+#include "Required.h"
 #include "FakeTransport.h"
 
 #include <PagesController.h>
@@ -229,7 +231,7 @@ QByteArray lastKeyJpeg(const FakeTransport &transport, int key)
         const auto &r = writes[static_cast<std::size_t>(i)];
         if (r.size() < 8 || r[1] != 0x07 || std::cmp_not_equal(r[2], key))
             break;
-        jpeg.prepend(reinterpret_cast<const char *>(r.data()) + 8, r[4] | (r[5] << 8));
+        jpeg.prepend(bytesOf(r, 8, static_cast<std::size_t>(r[4] | (r[5] << 8))));
         if ((r[6] | (r[7] << 8)) == 0)
             break;
     }
@@ -613,7 +615,7 @@ private Q_SLOTS:
 
         Fixture f;
         QSignalSpy const changed(f.controller.get(), &PagesController::themeChanged);
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QVERIFY(f.controller->currentTheme());
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control"));
 
@@ -675,7 +677,7 @@ private Q_SLOTS:
                 .toJson());
         QVERIFY(parsed.config.has_value());
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QVERIFY(!f.controller->currentTheme());
         f.pressDial(0, true);
         f.pressDial(0, false);
@@ -696,7 +698,7 @@ private Q_SLOTS:
                                                     {"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
         QSignalSpy const modes(f.controller.get(), &PagesController::wallpaperModeChanged);
 
@@ -765,7 +767,7 @@ private Q_SLOTS:
         Fixture f;
         FakeInjector injector;
         f.controller->setKeyInjector(&injector);
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QCOMPARE(injector.prepared, 1); // the device is made when the file is applied
 
         f.pressKey(0, true);
@@ -788,7 +790,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(pagesFile({{"main", page({keyJson(0, "7", QJsonObject{{"type", "key"}, {"key", "kp7"}})})}}));
         QVERIFY(parsed.config.has_value());
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         f.pressKey(0, true);
         f.pressKey(0, false); // no crash, nothing to check but that
     }
@@ -805,7 +807,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(QJsonDocument(config).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
         Fixture f; // no player: stopped
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Keypad")); // by default without media
         QCOMPARE(f.controller->currentPage(), QStringLiteral("numpad"));
 
@@ -830,7 +832,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(QJsonDocument(config).toJson());
         QVERIFY(parsed.config.has_value());
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         f.media.setState(MediaController::State::Playing);
         f.pressDial(0, true); // theme mode
         f.pressDial(0, false);
@@ -856,7 +858,7 @@ private Q_SLOTS:
                                   {"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
 
         f.pressDial(1, true);
         f.pressDial(1, false);
@@ -879,7 +881,7 @@ private Q_SLOTS:
             {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QSignalSpy const steps(f.controller.get(), &PagesController::wallpaperStep);
 
         QSignalSpy countdown(f.controller.get(), &PagesController::wallpaperCountdown);
@@ -913,7 +915,7 @@ private Q_SLOTS:
             {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
@@ -953,7 +955,7 @@ private Q_SLOTS:
             {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY(parsed.config.has_value());
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QSignalSpy const steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
@@ -977,7 +979,7 @@ private Q_SLOTS:
             {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY(parsed.config.has_value());
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QSignalSpy const steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
@@ -999,7 +1001,7 @@ private Q_SLOTS:
             {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY(parsed.config.has_value());
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         QSignalSpy const steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
@@ -1131,7 +1133,7 @@ private Q_SLOTS:
                 sources.playedSteam.insert(g.appid, g);
             return sources;
         });
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         // Three free keys (0..2 and 3, with 5 taken): the three most played in recent time come first.
         f.pressKey(0, true);
         f.pressKey(0, false);
@@ -1154,7 +1156,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(pagesFile({{"main", page({key(0, "shuffle"), key(1, "repeat"), key(2, "mute"), key(3, "raise"),
                                                                        key(4, "fullscreen"), key(5, "restart")})}}));
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         for (int k = 0; k < 6; ++k) {
             f.pressKey(k, true);
             f.pressKey(k, false);
@@ -1177,10 +1179,10 @@ private Q_SLOTS:
         shuffleWords.insert("state_labels", QJsonArray{"NON", "OUI"});
         const auto parsed = parsePagesConfig(pagesFile({{"main", page({shuffleWords, withWords})}}));
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
-        QCOMPARE(parsed.config->pages.value("main").keys[0]->stateLabels, (QStringList{"NON", "OUI"}));
+        QCOMPARE(required(required(parsed.config).pages.value("main").keys[0]).stateLabels, (QStringList{"NON", "OUI"}));
 
         Fixture f;
-        f.controller->setConfig(*parsed.config);
+        f.controller->setConfig(required(parsed.config));
         const auto background = [&f](int key) {
             QImage image;
             image.loadFromData(lastKeyJpeg(*f.transport, key), "JPEG");

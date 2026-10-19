@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Bytes.h"
 #include "FakeTransport.h"
 
 #include <galleon/StreamDeck.h>
@@ -181,7 +182,7 @@ private Q_SLOTS:
             QCOMPARE(int(r[6] | (r[7] << 8)), galleon::protocol::ScreenWidth);
             QCOMPARE(int(r[8] | (r[9] << 8)), galleon::protocol::ScreenHeight);
             const int length = r[13] | (r[14] << 8);
-            joined.append(reinterpret_cast<const char *>(r.data()) + 16, length);
+            joined.append(bytesOf(r, 16, static_cast<std::size_t>(length)));
         }
         // A JPEG of the exact screen size.
         QVERIFY(joined.startsWith("\xff\xd8"));
@@ -207,7 +208,7 @@ private Q_SLOTS:
             QCOMPARE(int(r[0]), 0x02);
             QCOMPARE(int(r[1]), 0x07);
             QCOMPARE(int(r[2]), 7);
-            joined.append(reinterpret_cast<const char *>(r.data()) + 8, r[4] | (r[5] << 8));
+            joined.append(bytesOf(r, 8, static_cast<std::size_t>(r[4] | (r[5] << 8))));
         }
         QImage decoded;
         QVERIFY(decoded.loadFromData(joined, "JPEG"));

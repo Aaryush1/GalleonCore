@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Required.h"
 #include <SteamLibrary.h>
 #include <UsageStats.h>
 
@@ -24,9 +25,15 @@ bool writeFile(const QString &path, const QByteArray &bytes)
     return true;
 }
 
-const QDateTime T0 = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::utc());
+const QDateTime &t0()
+{
+    static const QDateTime moment = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::utc());
+    return moment;
+}
 
-const QByteArray LocalConfig = R"("UserLocalConfigStore"
+const QByteArray &localConfig()
+{
+    static const QByteArray text = R"("UserLocalConfigStore"
 {
 	"Software"
 	{
@@ -56,6 +63,8 @@ const QByteArray LocalConfig = R"("UserLocalConfigStore"
 	}
 }
 )";
+    return text;
+}
 
 QByteArray manifest(int appid, const QString &name)
 {
@@ -72,29 +81,29 @@ private Q_SLOTS:
     void aLaunchCountsOneAndFadesByHalfEveryThirtyDays()
     {
         UsageStats stats;
-        QCOMPARE(stats.score("a.desktop", T0), 0.0);
-        stats.record("a.desktop", T0);
-        QCOMPARE(stats.score("a.desktop", T0), 1.0);
-        QVERIFY(qAbs(stats.score("a.desktop", T0.addDays(30)) - 0.5) < 1e-9);
-        QVERIFY(qAbs(stats.score("a.desktop", T0.addDays(60)) - 0.25) < 1e-9);
-        stats.record("a.desktop", T0.addDays(30)); // 0.5 + 1
-        QVERIFY(qAbs(stats.score("a.desktop", T0.addDays(30)) - 1.5) < 1e-9);
+        QCOMPARE(stats.score("a.desktop", t0()), 0.0);
+        stats.record("a.desktop", t0());
+        QCOMPARE(stats.score("a.desktop", t0()), 1.0);
+        QVERIFY(qAbs(stats.score("a.desktop", t0().addDays(30)) - 0.5) < 1e-9);
+        QVERIFY(qAbs(stats.score("a.desktop", t0().addDays(60)) - 0.25) < 1e-9);
+        stats.record("a.desktop", t0().addDays(30)); // 0.5 + 1
+        QVERIFY(qAbs(stats.score("a.desktop", t0().addDays(30)) - 1.5) < 1e-9);
     }
 
     void aRecentLaunchBeatsAnOldHabit()
     {
         UsageStats stats;
         for (int i = 0; i < 5; ++i)
-            stats.record("old.desktop", T0.addDays(i - 400)); // five launches over a year ago
-        stats.record("new.desktop", T0.addDays(-1));
-        QVERIFY(stats.score("new.desktop", T0) > stats.score("old.desktop", T0));
+            stats.record("old.desktop", t0().addDays(i - 400)); // five launches over a year ago
+        stats.record("new.desktop", t0().addDays(-1));
+        QVERIFY(stats.score("new.desktop", t0()) > stats.score("old.desktop", t0()));
     }
 
     void aDateInTheFutureCountsAsNow()
     {
         UsageStats stats;
-        stats.record("a.desktop", T0.addDays(10));
-        QVERIFY(qAbs(stats.score("a.desktop", T0) - 1.0) < 1e-9);
+        stats.record("a.desktop", t0().addDays(10));
+        QVERIFY(qAbs(stats.score("a.desktop", t0()) - 1.0) < 1e-9);
     }
 
     void theScoresAreKeptInTheFile()
@@ -103,26 +112,26 @@ private Q_SLOTS:
         const QString file = dir.filePath("share/usage.json");
         {
             UsageStats stats(file);
-            stats.record("a.desktop", T0);
-            stats.record("a.desktop", T0);
-            stats.record("steam:730", T0);
+            stats.record("a.desktop", t0());
+            stats.record("a.desktop", t0());
+            stats.record("steam:730", t0());
         }
         QVERIFY(QFile::exists(file));
         const UsageStats again(file);
         QCOMPARE(again.size(), qsizetype(2));
-        QVERIFY(qAbs(again.score("a.desktop", T0) - 2.0) < 1e-9);
-        QVERIFY(qAbs(again.score("steam:730", T0) - 1.0) < 1e-9);
+        QVERIFY(qAbs(again.score("a.desktop", t0()) - 2.0) < 1e-9);
+        QVERIFY(qAbs(again.score("steam:730", t0()) - 1.0) < 1e-9);
     }
 
     void theNumberOfEntriesIsBoundedAndTheLeastUsedGoFirst()
     {
         UsageStats stats;
-        stats.record("keep.desktop", T0);
-        stats.record("keep.desktop", T0);
+        stats.record("keep.desktop", t0());
+        stats.record("keep.desktop", t0());
         for (int i = 0; i < UsageStats::MaxEntries + 20; ++i)
-            stats.record(QStringLiteral("app%1.desktop").arg(i), T0);
+            stats.record(QStringLiteral("app%1.desktop").arg(i), t0());
         QVERIFY(stats.size() <= UsageStats::MaxEntries);
-        QVERIFY(stats.score("keep.desktop", T0) > 1.5); // the most used one stayed
+        QVERIFY(stats.score("keep.desktop", t0()) > 1.5); // the most used one stayed
     }
 
     void aBadFileIsIgnoredEntryByEntry()
@@ -151,8 +160,8 @@ private Q_SLOTS:
     void aTooLongIdIsRefused()
     {
         UsageStats stats;
-        stats.record(QString(UsageStats::MaxIdLength + 1, 'x'), T0);
-        stats.record({}, T0);
+        stats.record(QString(UsageStats::MaxIdLength + 1, 'x'), t0());
+        stats.record({}, t0());
         QCOMPARE(stats.size(), qsizetype(0));
     }
 
@@ -160,9 +169,9 @@ private Q_SLOTS:
 
     void theVdfFormatIsReadWithAnyCaseOfKeys()
     {
-        const auto root = SteamLibrary::parseVdf(LocalConfig);
+        const auto root = SteamLibrary::parseVdf(localConfig());
         QVERIFY(root.has_value());
-        const VdfNode *apps = root->child("userlocalconfigstore")->child("SOFTWARE")->child("valve")->child("steam")->child("apps");
+        const VdfNode *apps = required(root).child("userlocalconfigstore")->child("SOFTWARE")->child("valve")->child("steam")->child("apps");
         QVERIFY(apps);
         QVERIFY(apps->child("730"));
         QCOMPARE(apps->child("730")->value("playtime"), QStringLiteral("600"));
@@ -188,7 +197,7 @@ private Q_SLOTS:
 
     void playTimeAndLastLaunchComeFromTheLocalConfig()
     {
-        const auto games = SteamLibrary::parseLocalConfig(LocalConfig);
+        const auto games = SteamLibrary::parseLocalConfig(localConfig());
         QCOMPARE(games.size(), 2); // "notanumber" is left out
         QCOMPARE(games.value(730).playtimeMinutes, qint64(600));
         QCOMPARE(games.value(730).lastPlayed, qint64(1700000000));
@@ -200,14 +209,14 @@ private Q_SLOTS:
     {
         const auto game = SteamLibrary::parseManifest(manifest(730, "Counter-Strike 2"));
         QVERIFY(game.has_value());
-        QCOMPARE(game->appid, 730);
-        QCOMPARE(game->name, QStringLiteral("Counter-Strike 2"));
+        QCOMPARE(required(game).appid, 730);
+        QCOMPARE(required(game).name, QStringLiteral("Counter-Strike 2"));
         QVERIFY(!SteamLibrary::parseManifest(manifest(0, "Zero")).has_value());
         QVERIFY(!SteamLibrary::parseManifest(manifest(-5, "Negative")).has_value());
         QVERIFY(!SteamLibrary::parseManifest(manifest(5, "")).has_value());
         QVERIFY(!SteamLibrary::parseManifest("\"AppState\" { \"appid\" \"x\" \"name\" \"y\" }").has_value());
         QVERIFY(!SteamLibrary::parseManifest("\"Other\" { }").has_value());
-        QCOMPARE(SteamLibrary::parseManifest(manifest(7, QString(300, 'n')))->name.size(), 80);
+        QCOMPARE(required(SteamLibrary::parseManifest(manifest(7, QString(300, 'n')))).name.size(), 80);
     }
 
     void toolsAreNotGames()
@@ -238,7 +247,7 @@ private Q_SLOTS:
         QTemporaryDir const dir;
         const QString root = dir.filePath("Steam");
         const QString second = dir.filePath("Library2");
-        QVERIFY(writeFile(root + "/userdata/12345/config/localconfig.vdf", LocalConfig));
+        QVERIFY(writeFile(root + "/userdata/12345/config/localconfig.vdf", localConfig()));
         QVERIFY(writeFile(root + "/steamapps/libraryfolders.vdf",
                           QStringLiteral("\"libraryfolders\" { \"0\" { \"path\" \"%1\" } \"1\" { \"path\" \"%2\" } }").arg(root, second).toUtf8()));
         QVERIFY(writeFile(root + "/steamapps/appmanifest_730.acf", manifest(730, "Counter-Strike 2")));
@@ -263,11 +272,11 @@ private Q_SLOTS:
     {
         SteamGame game;
         game.playtimeMinutes = 600; // 10 hours
-        game.lastPlayed = T0.toSecsSinceEpoch();
-        QVERIFY(qAbs(SteamLibrary::score(game, T0) - 10.0) < 1e-9);
-        QVERIFY(qAbs(SteamLibrary::score(game, T0.addDays(30)) - 5.0) < 1e-9);
+        game.lastPlayed = t0().toSecsSinceEpoch();
+        QVERIFY(qAbs(SteamLibrary::score(game, t0()) - 10.0) < 1e-9);
+        QVERIFY(qAbs(SteamLibrary::score(game, t0().addDays(30)) - 5.0) < 1e-9);
         game.lastPlayed = 0; // never launched: faded to nothing
-        QVERIFY(SteamLibrary::score(game, T0) < 1e-6);
+        QVERIFY(SteamLibrary::score(game, t0()) < 1e-6);
     }
 };
 

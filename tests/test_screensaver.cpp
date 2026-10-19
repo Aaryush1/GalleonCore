@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Bytes.h"
+#include "Required.h"
 #include "FakeTransport.h"
 
 #include <PagesConfig.h>
@@ -116,8 +118,10 @@ struct Fixture
         const QImage frame = paintedFrame(splitter);
         QFile raw(dir.filePath("frame.raw"));
         QVERIFY(raw.open(QIODevice::WriteOnly));
-        for (int y = 0; y < frame.height(); ++y)
-            raw.write(reinterpret_cast<const char *>(frame.constScanLine(y)), frame.width() * 3);
+        for (int y = 0; y < frame.height(); ++y) {
+            const std::span<const std::uint8_t> row(frame.constScanLine(y), static_cast<std::size_t>(frame.width()) * 3);
+            raw.write(bytesOf(row, 0, row.size()));
+        }
         raw.close();
         QFile script(dir.filePath("fake-ffmpeg"));
         QVERIFY(script.open(QIODevice::WriteOnly));
@@ -182,12 +186,12 @@ private Q_SLOTS:
         QVERIFY(near(parts.screen.pixel(360, 190), qRgb(220, 20, 20)));
         QVERIFY(near(parts.screen.pixel(2, 2), qRgb(220, 20, 20)));
         for (int key = 0; key < 12; ++key) {
-            QCOMPARE(parts.keys[static_cast<std::size_t>(key)].size(), QSize(160, 160));
+            QCOMPARE(parts.keys.at(static_cast<std::size_t>(key)).size(), QSize(160, 160));
             // The whole key is its colour: the gaps between keys are left out.
             const QRgb expected = qRgb(key * 20, 100, 200);
-            QVERIFY2(near(parts.keys[static_cast<std::size_t>(key)].pixel(3, 3), expected), qPrintable(QString::number(key)));
-            QVERIFY2(near(parts.keys[static_cast<std::size_t>(key)].pixel(80, 80), expected), qPrintable(QString::number(key)));
-            QVERIFY2(near(parts.keys[static_cast<std::size_t>(key)].pixel(156, 156), expected), qPrintable(QString::number(key)));
+            QVERIFY2(near(parts.keys.at(static_cast<std::size_t>(key)).pixel(3, 3), expected), qPrintable(QString::number(key)));
+            QVERIFY2(near(parts.keys.at(static_cast<std::size_t>(key)).pixel(80, 80), expected), qPrintable(QString::number(key)));
+            QVERIFY2(near(parts.keys.at(static_cast<std::size_t>(key)).pixel(156, 156), expected), qPrintable(QString::number(key)));
         }
     }
 
@@ -211,14 +215,14 @@ private Q_SLOTS:
                                    {"gap_mm", QJsonArray{4, 4}}, {"screen_to_keys_mm", 10}};
         const auto good = parse({{"video", "clip.mp4"}, {"idle_minutes", 3}, {"fps", 12}, {"geometry", geometry}});
         QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
-        QVERIFY(good.config->screensaver.enabled());
-        QCOMPARE(good.config->screensaver.idleMinutes, 3);
-        QCOMPARE(good.config->screensaver.fps, 12);
+        QVERIFY(required(good.config).screensaver.enabled());
+        QCOMPARE(required(good.config).screensaver.idleMinutes, 3);
+        QCOMPARE(required(good.config).screensaver.fps, 12);
 
         // A video without geometry parses, but the screensaver is not enabled.
         const auto noGeometry = parse({{"video", "clip.mp4"}});
         QVERIFY(noGeometry.config.has_value());
-        QVERIFY(!noGeometry.config->screensaver.enabled());
+        QVERIFY(!required(noGeometry.config).screensaver.enabled());
 
         QVERIFY(!parse({{"video", "clip.mp4"}, {"fps", 60}}).config.has_value());
         QVERIFY(!parse({{"video", "clip.mp4"}, {"idle_minutes", 0}}).config.has_value());
@@ -232,16 +236,16 @@ private Q_SLOTS:
         QVERIFY(!parse({{"video", many}}).config.has_value());
         const auto list = parse({{"video", QJsonArray{"a.mp4", "b.mp4"}}, {"geometry", geometry}});
         QVERIFY2(list.config.has_value(), qPrintable(list.errors.join('\n')));
-        QCOMPARE(list.config->screensaver.videos, (QStringList{"a.mp4", "b.mp4"}));
-        QCOMPARE(list.config->screensaver.titles, (QStringList{"", ""}));
+        QCOMPARE(required(list.config).screensaver.videos, (QStringList{"a.mp4", "b.mp4"}));
+        QCOMPARE(required(list.config).screensaver.titles, (QStringList{"", ""}));
 
         // A video can have a title (a display name); an object has only these two fields.
         const auto titled = parse({{"video", QJsonArray{QJsonObject{{"file", "a.mp4"}, {"title", "Nuit gaming sous la lune rose"}},
                                                         "b.mp4"}},
                                    {"geometry", geometry}});
         QVERIFY2(titled.config.has_value(), qPrintable(titled.errors.join('\n')));
-        QCOMPARE(titled.config->screensaver.videos, (QStringList{"a.mp4", "b.mp4"}));
-        QCOMPARE(titled.config->screensaver.titles, (QStringList{"Nuit gaming sous la lune rose", ""}));
+        QCOMPARE(required(titled.config).screensaver.videos, (QStringList{"a.mp4", "b.mp4"}));
+        QCOMPARE(required(titled.config).screensaver.titles, (QStringList{"Nuit gaming sous la lune rose", ""}));
         QVERIFY(!parse({{"video", QJsonArray{QJsonObject{{"file", "a.mp4"}, {"name", "x"}}}}}).config.has_value());
         QVERIFY(!parse({{"video", QJsonArray{QJsonObject{{"title", "x"}}}}}).config.has_value());
         QVERIFY(!parse({{"video", QJsonArray{QJsonObject{{"file", "a.mp4"}, {"title", QString(61, 'x')}}}}}).config.has_value());

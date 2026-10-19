@@ -12,8 +12,16 @@ using galleond::ScreenRenderer;
 
 namespace {
 
-const QString WidgetFile = QStringLiteral(GALLEON_SOURCE_WIDGETS "/WallpaperClock.qml");
-const QString NowPlayingFile = QStringLiteral(GALLEON_SOURCE_WIDGETS "/NowPlaying.qml");
+const QString &widgetFile()
+{
+    static const QString file = QStringLiteral(GALLEON_SOURCE_WIDGETS "/WallpaperClock.qml");
+    return file;
+}
+const QString &nowPlayingFile()
+{
+    static const QString file = QStringLiteral(GALLEON_SOURCE_WIDGETS "/NowPlaying.qml");
+    return file;
+}
 constexpr int Width = 720;
 constexpr int Height = 384;
 
@@ -44,7 +52,7 @@ class TestScreenRenderer : public QObject
 private Q_SLOTS:
     void framesHaveTheScreenSize()
     {
-        ScreenRenderer renderer(WidgetFile);
+        ScreenRenderer renderer(widgetFile());
         QVERIFY(renderer.isValid());
         const QImage frame = renderer.render({}, QDateTime::currentDateTime(), QSize(Width, Height));
         QCOMPARE(frame.size(), QSize(Width, Height));
@@ -52,7 +60,7 @@ private Q_SLOTS:
 
     void withoutWallpaperTheBackgroundIsBlackAndTheClockIsDrawn()
     {
-        ScreenRenderer renderer(WidgetFile);
+        ScreenRenderer renderer(widgetFile());
         const QImage frame = renderer.render({}, QDateTime(QDate(2026, 10, 18), QTime(12, 34)), QSize(Width, Height));
         QVERIFY(!frame.isNull());
         QVERIFY(similar(frame.pixel(Width - 5, Height - 5), qRgb(0, 0, 0), 8)); // far corner
@@ -68,7 +76,7 @@ private Q_SLOTS:
         const QString file = dir.filePath("red.png");
         QVERIFY(red.save(file));
 
-        ScreenRenderer renderer(WidgetFile);
+        ScreenRenderer renderer(widgetFile());
         const QImage frame = renderer.render(file, QDateTime(QDate(2026, 10, 18), QTime(8, 5)), QSize(Width, Height));
         QVERIFY(!frame.isNull());
         // The right edge is not darkened: the wallpaper colour shows through.
@@ -80,7 +88,7 @@ private Q_SLOTS:
 
     void theTimeChangesTheFrame()
     {
-        ScreenRenderer renderer(WidgetFile);
+        ScreenRenderer renderer(widgetFile());
         const QImage first = renderer.render({}, QDateTime(QDate(2026, 10, 18), QTime(10, 11)), QSize(Width, Height));
         const QImage second = renderer.render({}, QDateTime(QDate(2026, 10, 18), QTime(23, 59)), QSize(Width, Height));
         QVERIFY(first != second);
@@ -90,7 +98,7 @@ private Q_SLOTS:
 
     void theLanguageAndClockFormatFollowTheLocale()
     {
-        ScreenRenderer renderer(WidgetFile);
+        ScreenRenderer renderer(widgetFile());
         const QDateTime afternoon(QDate(2026, 10, 18), QTime(15, 7)); // "15:07" or "3:07 PM"
         const QImage french = renderer.render({}, afternoon, QSize(Width, Height), QLocale(QLocale::French, QLocale::France));
         const QImage american = renderer.render({}, afternoon, QSize(Width, Height), QLocale(QLocale::English, QLocale::UnitedStates));
@@ -103,7 +111,7 @@ private Q_SLOTS:
     void secondsAreShownOnlyWhenAsked()
     {
         // Same locale and instant: only the seconds setting may change the frame.
-        ScreenRenderer renderer(WidgetFile);
+        ScreenRenderer renderer(widgetFile());
         const QDateTime moment(QDate(2026, 10, 18), QTime(9, 41, 27));
         const QLocale locale(QLocale::French, QLocale::France);
         const QImage plain = renderer.render({}, moment, QSize(Width, Height), locale);
@@ -130,7 +138,7 @@ private Q_SLOTS:
 
     void theCoverAndTheTimelineAreDrawn()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         QVERIFY(renderer.isValid());
         QImage cover(300, 300, QImage::Format_RGB32);
         cover.fill(QColor(200, 30, 30));
@@ -147,14 +155,14 @@ private Q_SLOTS:
     void theThemeLineIsDrawnAlongTheTopOfBothScreens()
     {
         const QColor red(0xe5, 0x39, 0x35);
-        ScreenRenderer clock(WidgetFile);
+        ScreenRenderer clock(widgetFile());
         QImage frame = clock.render({{"themeName", "Son"}, {"themeColor", red}, {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}},
                                     QSize(Width, Height));
         QVERIFY(!frame.isNull());
         QVERIFY(similar(frame.pixel(5, 2), red.rgb(), 6));
         QVERIFY(similar(frame.pixel(Width - 5, 3), red.rgb(), 6));
 
-        ScreenRenderer nowPlaying(NowPlayingFile);
+        ScreenRenderer nowPlaying(nowPlayingFile());
         QVariantMap properties = track(50, 100, true, "");
         properties.insert("themeName", "Son");
         properties.insert("themeColor", red);
@@ -216,7 +224,7 @@ private Q_SLOTS:
 
     void anApplicationIconIsShownWholeWithRoomAroundIt()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         QImage icon(256, 256, QImage::Format_ARGB32);
         icon.fill(QColor(220, 120, 0)); // a full square: a crop would fill the whole cover area
         renderer.setProvidedImage("icon1", icon);
@@ -231,14 +239,14 @@ private Q_SLOTS:
 
     void aPausedTrackHasAGreyBar()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         const QImage frame = renderer.render(track(50, 100, false), QSize(Width, Height));
         QVERIFY(similar(frame.pixel(465, 317), qRgb(0x8a, 0x92, 0x9d), 14));
     }
 
     void withoutACoverThereIsAPlaceholder()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         const QImage frame = renderer.render(track(0, 100), QSize(Width, Height));
         QVERIFY(!frame.isNull());
         QVERIFY(similar(frame.pixel(40, 40), qRgb(0x23, 0x28, 0x30), 8)); // the placeholder square
@@ -246,7 +254,7 @@ private Q_SLOTS:
 
     void aStreamHasNoBar()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         const QImage frame = renderer.render(track(12, 0), QSize(Width, Height));
         QVERIFY(similar(frame.pixel(465, 317), qRgb(0x14, 0x17, 0x1c), 6));
         QVERIFY(similar(frame.pixel(619, 317), qRgb(0x14, 0x17, 0x1c), 6));
@@ -254,7 +262,7 @@ private Q_SLOTS:
 
     void theTimelineMovesTheBarAndTheTimes()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         const QImage early = renderer.render(track(10, 100), QSize(Width, Height));
         const QImage late = renderer.render(track(90, 100), QSize(Width, Height));
         QVERIFY(similar(early.pixel(619, 317), qRgb(0x33, 0x3a, 0x44), 14)); // 75 %: not reached at 10 %
@@ -266,7 +274,7 @@ private Q_SLOTS:
 
     void aPositionOutsideTheRangeStaysInsideTheBar()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         for (const double position : {-50.0, 1e9, 0.0}) {
             const QImage frame = renderer.render(track(position, 100), QSize(Width, Height));
             QVERIFY(!frame.isNull());
@@ -276,7 +284,7 @@ private Q_SLOTS:
 
     void aVeryLongTitleStaysInItsColumn()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         QVariantMap properties = track(10, 100);
         properties["title"] = QString(300, QLatin1Char('W')) + QStringLiteral(" and more words after");
         properties["artist"] = QString(300, QLatin1Char('M'));
@@ -287,7 +295,7 @@ private Q_SLOTS:
 
     void aCoverThatIsNotThereGivesNoFrame()
     {
-        ScreenRenderer renderer(NowPlayingFile);
+        ScreenRenderer renderer(nowPlayingFile());
         // An id that no image was provided for: no half-drawn screen.
         QVERIFY(renderer.render(track(10, 100, true, "never-provided"), QSize(Width, Height)).isNull());
         // And the renderer recovers.
@@ -302,7 +310,7 @@ private Q_SLOTS:
         broken.write("not an image");
         broken.close();
 
-        ScreenRenderer renderer(WidgetFile);
+        ScreenRenderer renderer(widgetFile());
         QVERIFY(renderer.render(dir.filePath("broken.jpg"), QDateTime::currentDateTime(), QSize(Width, Height)).isNull());
         // And the renderer still works afterwards.
         QVERIFY(!renderer.render({}, QDateTime::currentDateTime(), QSize(Width, Height)).isNull());
@@ -317,7 +325,7 @@ private Q_SLOTS:
 
     void invalidSizesAreRejected()
     {
-        ScreenRenderer renderer(WidgetFile);
+        ScreenRenderer renderer(widgetFile());
         QVERIFY(renderer.render({}, QDateTime::currentDateTime(), QSize()).isNull());
         QVERIFY(renderer.render({}, QDateTime::currentDateTime(), QSize(-1, 10)).isNull());
     }

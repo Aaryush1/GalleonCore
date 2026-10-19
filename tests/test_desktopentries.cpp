@@ -91,8 +91,8 @@ private Q_SLOTS:
     }
     void referencesAreChecked()
     {
-        QFETCH(QString, reference);
-        QFETCH(bool, valid);
+        QFETCH(const QString, reference);
+        QFETCH(const bool, valid);
         QCOMPARE(DesktopEntries::isValidReference(reference), valid);
     }
 
@@ -135,7 +135,7 @@ private Q_SLOTS:
         QVERIFY(writeFile(env.systemApp("noexec.desktop"), "[Desktop Entry]\nType=Application\nName=No Exec\n"));
         QVERIFY(writeFile(env.systemApp("empty.desktop"), ""));
         QVERIFY(writeFile(env.systemApp("junk.desktop"), "this is not a desktop file at all"));
-        QVERIFY(writeFile(env.systemApp("huge.desktop"), entry("Huge") + QByteArray(70 * 1024, '#')));
+        QVERIFY(writeFile(env.systemApp("huge.desktop"), entry("Huge") + QByteArray(qsizetype{70} * 1024, '#')));
         for (const QString &name : {QStringLiteral("link"), QStringLiteral("noexec"), QStringLiteral("empty"), QStringLiteral("junk"), QStringLiteral("huge")})
             QVERIFY2(!DesktopEntries::lookup(name + ".desktop").isValid(), qPrintable(name));
     }

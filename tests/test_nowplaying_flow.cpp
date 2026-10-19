@@ -4,6 +4,7 @@
 // The whole chain as galleond wires it: a player on D-Bus (MPRIS), the MPRIS
 // client, the screen controller, and a deck that records what it is sent.
 
+#include "Bytes.h"
 #include "FakeTransport.h"
 
 #include <MprisController.h>
@@ -26,13 +27,19 @@ namespace {
 
 // These tests write the saved wallpaper: keep it away from the user's real
 // ~/.config, even when the binary is run by hand and not through ctest.
-const bool IsolatedSettings = [] {
+// Before anything reads a setting: the tests keep to their own configuration folder.
+void isolateSettings()
+{
     qputenv("XDG_CONFIG_HOME", (QDir::tempPath() + QStringLiteral("/galleoncore-test-config")).toUtf8());
-    return true;
-}();
+}
+Q_CONSTRUCTOR_FUNCTION(isolateSettings)
 
 
-const QString WidgetsDir = QStringLiteral(GALLEON_SOURCE_WIDGETS);
+const QString &widgetsDir()
+{
+    static const QString dir = QStringLiteral(GALLEON_SOURCE_WIDGETS);
+    return dir;
+}
 
 class FakePlayer : public QObject
 {
@@ -103,7 +110,7 @@ QImage lastScreen(const FakeTransport &transport)
         const auto &r = writes[static_cast<std::size_t>(i)];
         if (r.size() < 16 || r[1] != 0x0c)
             break;
-        jpeg.prepend(reinterpret_cast<const char *>(r.data()) + 16, r[13] | (r[14] << 8));
+        jpeg.prepend(bytesOf(r, 16, static_cast<std::size_t>(r[13] | (r[14] << 8))));
         if ((r[11] | (r[12] << 8)) == 0)
             break;
     }
@@ -141,13 +148,13 @@ private Q_SLOTS:
         FakeTransport  const*transport = fake.get();
         galleon::StreamDeck deck(std::move(fake));
         QVERIFY(deck.open());
-        ScreenRenderer wallpaperRenderer(WidgetsDir + "/WallpaperClock.qml");
-        ScreenRenderer nowPlayingRenderer(WidgetsDir + "/NowPlaying.qml");
+        ScreenRenderer wallpaperRenderer(widgetsDir() + "/WallpaperClock.qml");
+        ScreenRenderer nowPlayingRenderer(widgetsDir() + "/NowPlaying.qml");
         QVERIFY(wallpaperRenderer.isValid() && nowPlayingRenderer.isValid());
 
         MprisController media(QDBusConnection::sessionBus(), name);
         ScreenController controller(&deck, &wallpaperRenderer, WallpaperCatalog(dir.filePath("wall")),
-                                    WidgetsDir + "/WallpaperClock.qml", &media, &nowPlayingRenderer);
+                                    widgetsDir() + "/WallpaperClock.qml", &media, &nowPlayingRenderer);
         ScreenConfig config;
         config.nowPlaying = NowPlayingMode::PlayingOrPaused; // what the user's file asks for
         controller.setScreenConfig(config);
