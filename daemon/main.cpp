@@ -9,6 +9,8 @@
 #include "KeyInjector.h"
 #include "PagesEditor.h"
 #include "ScreensaverController.h"
+#include "ScreensaverSplitter.h"
+#include "VideoThumbnails.h"
 #include "Wiring.h"
 #include "ScreenController.h"
 #include "ScreenRenderer.h"
@@ -35,6 +37,7 @@
 #include <QEventLoop>
 #include <QThread>
 #include <QFont>
+#include <QProcess>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -181,6 +184,76 @@ int measureDisplayLag(galleon::StreamDeck &deck)
         wait(HoldMs);
     }
     return 0;
+}
+
+// Draws one picture of a screensaver video cut for the screen and the 12 keys, laid out like the
+// module (screen on top, keys below), into a PNG. Does not touch the hardware.
+bool renderSaverTo(const QString &pagesFile, const QString &pngFile, int videoNumber, double atSeconds)
+{
+    QFile file(pagesFile);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qCritical() << "galleond: cannot read" << pagesFile;
+        return false;
+    }
+    const galleond::PagesParseResult parsed = galleond::parsePagesConfig(file.read(galleond::MaxPagesFileBytes + 1));
+    if (!parsed.config || !parsed.config->screensaver.enabled()) {
+        qCritical() << "galleond: the pages file is not valid or has no screensaver with its geometry";
+        return false;
+    }
+    const galleond::ScreensaverConfig &saver = parsed.config->screensaver;
+    if (videoNumber < 1 || videoNumber > saver.videos.size()) {
+        qCritical() << "galleond: the screensaver has" << saver.videos.size() << "videos";
+        return false;
+    }
+    QString path = saver.videos.at(videoNumber - 1);
+    if (path.startsWith(QLatin1String("~/")))
+        path = QDir::homePath() + path.mid(1);
+    if (QDir::isRelativePath(path))
+        path = QDir(QFileInfo(pagesFile).absolutePath()).absoluteFilePath(path);
+    if (!QFileInfo(path).isFile() || !galleond::VideoThumbnails::isVideoFile(path)) {
+        qCritical() << "galleond: not a video file:" << path;
+        return false;
+    }
+    const galleond::ScreensaverSplitter splitter(saver);
+    if (!splitter.isValid())
+        return false;
+    const QSize canvas = splitter.canvasSize();
+    QProcess ffmpeg;
+    ffmpeg.start(QStringLiteral("ffmpeg"),
+                 {QStringLiteral("-nostdin"), QStringLiteral("-v"), QStringLiteral("error"), QStringLiteral("-protocol_whitelist"),
+                  QStringLiteral("file"), QStringLiteral("-ss"), QString::number(atSeconds), QStringLiteral("-i"), path,
+                  QStringLiteral("-an"), QStringLiteral("-sn"), QStringLiteral("-dn"), QStringLiteral("-frames:v"), QStringLiteral("1"),
+                  QStringLiteral("-vf"),
+                  QStringLiteral("scale=%1:%2:force_original_aspect_ratio=increase,crop=%1:%2").arg(canvas.width()).arg(canvas.height()),
+                  QStringLiteral("-f"), QStringLiteral("rawvideo"), QStringLiteral("-pix_fmt"), QStringLiteral("rgb24"), QStringLiteral("-")});
+    if (!ffmpeg.waitForFinished(30000) || ffmpeg.exitCode() != 0) {
+        qCritical() << "galleond: FFmpeg could not read the picture";
+        return false;
+    }
+    const QByteArray raw = ffmpeg.readAllStandardOutput();
+    if (raw.size() != static_cast<qsizetype>(canvas.width()) * canvas.height() * 3) {
+        qCritical() << "galleond: FFmpeg gave an unexpected amount of data";
+        return false;
+    }
+    const QImage frame(reinterpret_cast<const uchar *>(raw.constData()), canvas.width(), canvas.height(), canvas.width() * 3,
+                       QImage::Format_RGB888);
+    const auto parts = splitter.split(frame);
+    if (!parts.isValid())
+        return false;
+
+    constexpr int tile = galleon::protocol::KeyImageSize;
+    constexpr int gap = 14;
+    const int gridWidth = 3 * tile + 2 * gap;
+    QImage sheet(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight + 24 + 4 * tile + 3 * gap, QImage::Format_RGB32);
+    sheet.fill(QColor(0x10, 0x10, 0x10));
+    QPainter painter(&sheet);
+    painter.drawImage(0, 0, parts.screen);
+    const int left = (sheet.width() - gridWidth) / 2;
+    for (int key = 0; key < galleon::protocol::KeyCount; ++key)
+        painter.drawImage(left + (key % 3) * (tile + gap), galleon::protocol::ScreenHeight + 24 + (key / 3) * (tile + gap),
+                          parts.keys[static_cast<std::size_t>(key)]);
+    painter.end();
+    return sheet.save(pngFile);
 }
 
 QImage keyTestImage(int index, bool lit)
@@ -330,6 +403,15 @@ int main(int argc, char *argv[])
                                            QStringLiteral("Send bursts of pictures to the screen and the keys, print the frame rates and exit. Stop the galleond service first."));
     const QCommandLineOption displayLagOption(QStringLiteral("measure-display-lag"),
                                               QStringLiteral("Flip the dial rings and the screen together 8 times, to film how late the screen shows a picture. Stop the galleond service first."));
+    const QCommandLineOption renderSaverOption(QStringLiteral("render-saver"),
+                                               QStringLiteral("Draw one picture of a screensaver video, cut for the screen and the keys, into this PNG file and exit. Does not touch the hardware."),
+                                               QStringLiteral("file"));
+    const QCommandLineOption saverVideoOption(QStringLiteral("saver-video"),
+                                              QStringLiteral("The video for --render-saver, 1 for the first (default 1)."),
+                                              QStringLiteral("number"), QStringLiteral("1"));
+    const QCommandLineOption saverAtOption(QStringLiteral("saver-at"),
+                                           QStringLiteral("The moment in seconds for --render-saver (default 2)."),
+                                           QStringLiteral("seconds"), QStringLiteral("2"));
     const QCommandLineOption pagesOption(QStringLiteral("pages"),
                                          QStringLiteral("Pages file (default: ~/.config/galleoncore/pages.json)."),
                                          QStringLiteral("file"));
@@ -362,7 +444,7 @@ int main(int argc, char *argv[])
                                             QStringLiteral("number"));
     parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption,
                        pagesOption, noPagesOption, renderKeysOption, stateOption, renderNowPlayingOption, appsOption,
-                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption, displayLagOption});
+                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption, displayLagOption, renderSaverOption, saverVideoOption, saverAtOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
@@ -424,6 +506,14 @@ int main(int argc, char *argv[])
     }
     if (wallpaperDir.isEmpty())
         qWarning() << "galleond: no wallpaper folder found (see --wallpapers)";
+
+    if (parser.isSet(renderSaverOption)) {
+        const bool ok = renderSaverTo(defaultPagesFile(parser.value(pagesOption)), parser.value(renderSaverOption),
+                                      parser.value(saverVideoOption).toInt(), parser.value(saverAtOption).toDouble());
+        if (ok)
+            qInfo() << "galleond: wrote" << parser.value(renderSaverOption);
+        return ok ? 0 : 1;
+    }
 
     if (parser.isSet(renderKeysOption)) {
         const bool ok = renderKeysTo(defaultPagesFile(parser.value(pagesOption)), parser.value(renderKeysOption),
