@@ -29,7 +29,7 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 | Stream Deck protocol (keys, screen, dials) | Keep-alive, brightness, key and screen images implemented from the module's own descriptor and community work; screen image, key images, key and dial input **confirmed on the hardware** |
 | Off-screen QML rendering to the deck | Wallpaper with the time (`WallpaperClock.qml`), software renderer |
 | Daemon + D-Bus interface | Wallpaper picker (`galleond --preview`) and `org.galleoncore.Deck` (`SetWallpaper`, `ClearWallpaper`, `Wallpapers`) |
-| Button pages (JSON) and music player (MPRIS) | Implemented, tests green; **keys, dials and the now-playing screen (title, timeline, placeholder cover) confirmed on the module with VLC** (hot reload and the choice between several players not reported yet) |
+| Button pages (JSON) and music player (MPRIS) | Implemented, tests green; **keys, dials, the now-playing screen (real cover, title, artist, timeline) and an application key with its icon confirmed on the module** (hot reload, double press, video thumbnails and the apps window not reported yet) |
 | KDE Plasma widgets | Skeleton |
 | RGB lighting | **Under investigation.** The protocol (Corsair "V2"/Bragi) is not supported anywhere yet. Support is meant to land upstream in OpenRGB. |
 | OpenRGB plugin | Planned |

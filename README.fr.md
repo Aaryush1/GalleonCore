@@ -29,7 +29,7 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 | Protocole Stream Deck (touches, écran, molettes) | Keep-alive, luminosité, images des touches et de l'écran implémentés d'après le descripteur du module et le travail communautaire ; image de l'écran, images des touches, touches et molettes **confirmées sur le matériel** |
 | Rendu QML hors écran vers le deck | Fond d'écran avec l'heure (`WallpaperClock.qml`), rendu logiciel |
 | Démon + interface D-Bus | Choix du fond (`galleond --preview`) et `org.galleoncore.Deck` (`SetWallpaper`, `ClearWallpaper`, `Wallpapers`) |
-| Pages de boutons (JSON) et lecteur de musique (MPRIS) | Implémentés, tests verts ; **touches, molettes et écran « en cours de lecture » (titre, durée, pochette de substitution) confirmés sur le module avec VLC** (rechargement à chaud et choix entre plusieurs lecteurs : pas encore rapportés) |
+| Pages de boutons (JSON) et lecteur de musique (MPRIS) | Implémentés, tests verts ; **touches, molettes, écran « en cours de lecture » (vraie pochette, titre, artiste, durée) et une touche d'application avec son icône confirmés sur le module** (rechargement à chaud, double appui, images de vidéos et fenêtre des applications : pas encore rapportés) |
 | Widgets KDE Plasma | Squelette |
 | Éclairage RVB | **En cours d'investigation.** Le protocole (Corsair « V2 »/Bragi) n'est encore supporté nulle part. Le support doit être intégré en amont dans OpenRGB. |
 | Plugin OpenRGB | Prévu |
