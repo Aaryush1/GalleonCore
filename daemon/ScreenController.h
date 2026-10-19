@@ -95,6 +95,8 @@ private:
     [[nodiscard]] QVariantMap themeProperties() const;
     void tick();
     bool draw();
+    bool sendScreen(const QImage &frame);
+    int m_failedSends = 0;
     std::uint32_t m_barRgb = 0xffffff;
     bool m_suspended = false;
     bool m_choosingWallpaper = false;

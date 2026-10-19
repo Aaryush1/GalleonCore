@@ -317,6 +317,14 @@ void ScreenController::onNowPlayingChanged()
         draw(); // the track, its timeline, or the return to the wallpaper
 }
 
+bool ScreenController::sendScreen(const QImage &frame)
+{
+    const bool sent = m_deck->setScreenImage(frame);
+    if (!sent && (m_failedSends++ % 20) == 0)
+        qWarning() << "galleond: the screen picture could not be sent to the module";
+    return sent;
+}
+
 bool ScreenController::drawNowPlaying()
 {
     const NowPlaying track = m_media->nowPlaying();
@@ -332,7 +340,7 @@ bool ScreenController::drawNowPlaying()
          {QStringLiteral("locale"), QVariant::fromValue(QLocale())}});
     const QImage frame = m_nowPlayingRenderer->render(
         properties, QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
-    return !frame.isNull() && m_deck->setScreenImage(frame);
+    return !frame.isNull() && sendScreen(frame);
 }
 
 bool ScreenController::draw()
@@ -356,7 +364,7 @@ bool ScreenController::draw()
         properties, QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
     if (frame.isNull())
         return false;
-    return m_deck->setScreenImage(frame);
+    return sendScreen(frame);
 }
 
 void ScreenController::checkDeck()

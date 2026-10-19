@@ -134,6 +134,7 @@ private:
     KeyInjector *m_injector = nullptr;
     std::array<int, galleon::protocol::KeyCount> m_heldKey{}; // key code held for each key, 0 = none
     bool m_mediaPresent = false;
+    int m_failedSends = 0;
     bool m_suspended = false;
     int m_themeDial = -1; // the dial that chooses the theme, -1 = none
     QTimer m_themeTimeout;

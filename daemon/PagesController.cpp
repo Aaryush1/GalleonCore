@@ -196,7 +196,10 @@ void PagesController::drawKey(int key, bool force)
     if (!force && image == m_sent[index])
         return;
     // A failed send is forgotten, so that the next redraw tries again.
-    m_sent[index] = m_deck->setKeyImage(key, image) ? image : QImage();
+    const bool sent = m_deck->setKeyImage(key, image);
+    if (!sent && (m_failedSends++ % 20) == 0) // said now and then, not at every key
+        qWarning() << "galleond: the picture of key" << key << "could not be sent to the module";
+    m_sent[index] = sent ? image : QImage();
 }
 
 void PagesController::setSuspended(bool suspended)
