@@ -571,6 +571,7 @@ void PagesController::onDialRotated(int dial, int steps)
         return; // the click's own movement, not a turn
     }
     int counted = steps; // as many places as the dial counts detents
+    bool countdownRestarted = false;
     if (dial == m_wallpaperDial && m_config.screen.wallpaperStepDelayMs > 0) {
         // One place at a time, and the next turn is listened to only once the wallpaper
         // of this one is really on the screen (the screen says so, see wallpaperLabelShown)
@@ -581,6 +582,7 @@ void PagesController::onDialRotated(int dial, int steps)
             return;
         }
         restartWallpaperCountdown(); // the dial is being touched: the choice is not validated yet
+        countdownRestarted = true;
         if (m_wallpaperBusy || now - m_lastWallpaperStepAt < m_config.screen.wallpaperStepDelayMs)
             return;
         counted = std::clamp(steps, -1, 1);
@@ -600,7 +602,8 @@ void PagesController::onDialRotated(int dial, int steps)
             qInfo() << "galleond: dial" << dial << "step" << steps << "ignored: the wallpaper name is not shown yet";
             return;
         }
-        restartWallpaperCountdown(); // in use: keep the mode
+        if (!countdownRestarted)
+            restartWallpaperCountdown(); // in use: keep the mode
         Q_EMIT wallpaperStep(counted);
         return;
     }
