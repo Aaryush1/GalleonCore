@@ -810,6 +810,30 @@ private Q_SLOTS:
         f.media.setState(MediaController::State::Stopped);
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Other"));
     }
+
+    void enteringOneChoiceModeLeavesTheOther()
+    {
+        const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
+            {"version", 1},
+            {"home", "main"},
+            {"pages", QJsonObject{{"main", page({})}}},
+            {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffd600"}}}},
+            {"dials", QJsonObject{{"0", QJsonObject{{"press", QJsonObject{{"type", "theme"}}}}},
+                                  {"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+
+        f.pressDial(1, true);
+        f.pressDial(1, false);
+        QVERIFY(f.controller->wallpaperMode() && !f.controller->themeMode());
+        f.pressDial(0, true); // the theme mode takes over
+        f.pressDial(0, false);
+        QVERIFY(f.controller->themeMode() && !f.controller->wallpaperMode());
+        f.pressDial(1, true); // and back
+        f.pressDial(1, false);
+        QVERIFY(f.controller->wallpaperMode() && !f.controller->themeMode());
+    }
 };
 
 QTEST_MAIN(TestPagesController)

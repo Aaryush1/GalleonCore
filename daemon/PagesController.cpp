@@ -354,6 +354,8 @@ void PagesController::setThemeMode(int dial)
     const int wanted = dial >= 0 && dial != m_themeDial && !m_config.themes.empty() ? dial : -1;
     if (wanted == m_themeDial)
         return;
+    if (wanted >= 0)
+        setWallpaperMode(-1); // one choice at a time: the screen shows one of them
     m_themeDial = wanted;
     qInfo() << "galleond: theme mode" << (themeMode() ? "on, dial" : "off") << (themeMode() ? m_themeDial : -1);
     if (themeMode())
@@ -397,6 +399,8 @@ void PagesController::setWallpaperMode(int dial)
     const int wanted = dial >= 0 && dial != m_wallpaperDial ? dial : -1;
     if (wanted == m_wallpaperDial)
         return;
+    if (wanted >= 0)
+        setThemeMode(-1); // one choice at a time: the screen shows one of them
     m_wallpaperDial = wanted;
     qInfo() << "galleond: wallpaper mode" << (wallpaperMode() ? "on, dial" : "off") << (wallpaperMode() ? m_wallpaperDial : -1);
     if (wallpaperMode())
