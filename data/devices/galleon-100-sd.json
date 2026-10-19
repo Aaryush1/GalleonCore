@@ -8,18 +8,24 @@
     "statusScreen": {
         "widthPx": 720,
         "heightPx": 384,
-        "source": "Feature report 8 of the Stream Deck module (read 2026-10-18) ends with d0 02 80 01 = 720 x 384 little-endian; galleon-deck docs/PROTOCOL.md and OpenActionAPI/rust-elgato-streamdeck PR #63 give the same size. Confirmed on the hardware: a 720 x 384 JPEG sent by galleond fills the whole screen (2026-10-18)."
+        "source": "Feature report 8 of the Stream Deck module (read 2026-10-18) ends with d0 02 80 01 = 720 x 384 little-endian; galleon-deck docs/PROTOCOL.md and OpenActionAPI/rust-elgato-streamdeck PR #63 give the same size. Confirmed on the hardware: a 720 x 384 JPEG sent by galleond fills the whole screen (2026-10-18).",
+        "widthMm": 62.6,
+        "heightMm": 33.0,
+        "mmSource": "Measured 2026-10-19 from a phone photo of the module lit in plain white (galleond --show-calibration): the 11 lit key areas and the screen were found by thresholding, the photo was straightened with a homography fitted on the key centres (residual 0.08 mm: the grid is regular; the straightened screen has an aspect of 1.91 against 1.875 for its 720 x 384 pixels), and the scale comes from the 32.3 mm between the two dial rings given by the module's own LampArray data (it gives a pitch of 19.15 mm, the 19.05 mm of a standard key). Accuracy about 0.5 mm (screen height about 0.7 mm). Replace with ruler measurements when available.",
+        "gapToKeysMm": 5.4
     },
     "keys": {
         "columns": 3,
         "rows": 4,
         "imageWidthPx": 160,
         "imageHeightPx": 160,
-        "keyWidthMm": null,
-        "keyHeightMm": null,
-        "gapXMm": null,
-        "gapYMm": null,
-        "source": "Pixel sizes: feature report 8 holds a0 00 a0 00 = 160 x 160 (read 2026-10-18); galleon-deck gives 160 x 160 JPEG. Grid: report 8 starts with 04 03 and galleon-deck says 3 keys wide and 4 high (rust-elgato-streamdeck PR #63 writes it as 4 x 3: only the orientation of the wording differs, 12 keys). Key and gap sizes in mm: to measure with a ruler."
+        "keyWidthMm": 13.7,
+        "keyHeightMm": 13.7,
+        "gapXMm": 5.4,
+        "gapYMm": 5.4,
+        "source": "Pixel sizes: feature report 8 holds a0 00 a0 00 = 160 x 160 (read 2026-10-18); galleon-deck gives 160 x 160 JPEG. Grid: report 8 starts with 04 03 and galleon-deck says 3 keys wide and 4 high (rust-elgato-streamdeck PR #63 writes it as 4 x 3: only the orientation of the wording differs, 12 keys). Key and gap sizes in mm: to measure with a ruler.",
+        "pitchMm": 19.1,
+        "mmSource": "Measured 2026-10-19 from a phone photo of the module lit in plain white (galleond --show-calibration): the 11 lit key areas and the screen were found by thresholding, the photo was straightened with a homography fitted on the key centres (residual 0.08 mm: the grid is regular; the straightened screen has an aspect of 1.91 against 1.875 for its 720 x 384 pixels), and the scale comes from the 32.3 mm between the two dial rings given by the module's own LampArray data (it gives a pitch of 19.15 mm, the 19.05 mm of a standard key). Accuracy about 0.5 mm (screen height about 0.7 mm). Replace with ruler measurements when available."
     },
     "throughput": {
         "statusScreenMaxFps": 44.7,
