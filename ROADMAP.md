@@ -37,6 +37,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 | Lecture des molettes : tous les rapports en attente sont lus à chaque tour (avant : un seul toutes les 10 ms, une file pouvait retarder un cran de plusieurs secondes) ; témoins de blocage du démon dans le journal | oui (`test_streamdeck`) | à confirmer (retard d'environ 2 s mesuré sur la vidéo du 19 octobre) |
 | Choix du fond : après un cran accepté, les rotations sont ignorées (pas mises en file) jusqu'à ce que l'écran ait réellement affiché le fond du cran, puis pendant un repos `screen.wallpaper_step_delay_ms` (150 par défaut, 0 = aucune règle) ; délai de secours 1,5 s ; images allégées pendant le choix | oui (`test_modes_flow`, `test_pagescontroller`) | à confirmer |
 | Choix du fond : au clic, les rotations sont ignorées jusqu'à l'affichage du nom et de la place (`NN/24`) ; le décompte de validation (`wallpaper_validate_seconds`, 4 s) s'affiche pendant que le choix reste possible (anneau magenta), l'anneau repasse en blanc à la fin ; puis le fond reste `wallpaper_hold_seconds` secondes avant la lecture | oui | à confirmer |
+| Affichage immédiat : le module n'affiche une image que si un second envoi la suit ; chaque image (écran et touches) est envoyée deux fois de suite, sauf les images de la vidéo de veille (`flush = false`) | oui | écran : oui (vidéo du 19 octobre, variante B) ; touches : à confirmer |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 
 ## 2. En cours

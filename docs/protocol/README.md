@@ -232,3 +232,13 @@ Image headers (galleon-deck, and the Stream Deck Plus conventions the Rust code 
 ## Captures
 
 Put raw captures under `captures/`, named `YYYY-MM-DD-<what>.pcapng`, with a short note on what was done during the capture.
+
+## The module shows a picture only when a second transfer follows it (measured 2026-10-19)
+
+Observed on the unit (firmware 3.06.005, Linux, hidapi), with two phone videos of the module filmed while `galleond --measure-display-lag` flipped the dial rings and the screen together (the ring command takes effect at once; the picture is what is late).
+
+- A picture sent **once** (the normal way) stays invisible until the **next** picture is sent: the screen is always one picture behind. With one picture every 2.5 s, the screen showed picture N when picture N + 1 was being sent, about 2.5 s late.
+- The same picture sent **twice in a row** is shown at once: its number appeared at the same moment as the ring changed colour (three flips, three times).
+- A keep-alive report (`03 27`) sent right after the picture does **not** flush it: same one-picture lag as sending once.
+
+What galleond does: `StreamDeck::setScreenImage` and `setKeyImage` send every picture twice (the same bytes), unless called with `flush = false` (pictures of a stream, such as the screensaver video: each one is shown when the next arrives). Why the module behaves this way is not known; the duplicate costs a second transfer (about 25 ms for the screen). Key images very probably behave the same (the key page of a theme only showed one press late); that is applied but not yet filmed.

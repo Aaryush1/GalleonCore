@@ -128,6 +128,8 @@ struct Fixture
         return image;
     }
 
+    // The pictures sent to the screen. Each one goes out twice in a row (the module shows a
+    // picture when a second transfer follows it), and counts once.
     [[nodiscard]] std::size_t frames() const
     {
         std::size_t count = 0;
@@ -135,7 +137,7 @@ struct Fixture
             if (r.size() > 10 && r[0] == 0x02 && r[1] == 0x0c && r[10] == 1)
                 ++count;
         }
-        return count;
+        return count / 2;
     }
 
     static NowPlaying track(double position = 10, double duration = 100, const QString &art = {})

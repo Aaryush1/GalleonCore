@@ -100,7 +100,7 @@ QString StreamDeck::serialNumber() const
     return m_transport->serialNumber();
 }
 
-bool StreamDeck::setKeyImage(int key, const QImage &image)
+bool StreamDeck::setKeyImage(int key, const QImage &image, bool flush)
 {
     if (!isOpen() || key < 0 || key >= protocol::KeyCount || image.isNull())
         return false;
@@ -109,10 +109,12 @@ bool StreamDeck::setKeyImage(int key, const QImage &image)
         return false;
     const auto bytes = std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(jpeg.constData()),
                                                      static_cast<std::size_t>(jpeg.size()));
-    return writeAll(*m_transport, protocol::keyImageReports(key, bytes));
+    const auto reports = protocol::keyImageReports(key, bytes);
+    // Twice: the module shows a picture when the next transfer follows it (measured, see StreamDeck.h).
+    return writeAll(*m_transport, reports) && (!flush || writeAll(*m_transport, reports));
 }
 
-bool StreamDeck::setScreenImage(const QImage &image, int quality)
+bool StreamDeck::setScreenImage(const QImage &image, int quality, bool flush)
 {
     if (!isOpen() || image.isNull() || quality < 1 || quality > 100)
         return false;
@@ -121,8 +123,9 @@ bool StreamDeck::setScreenImage(const QImage &image, int quality)
         return false;
     const auto bytes = std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(jpeg.constData()),
                                                      static_cast<std::size_t>(jpeg.size()));
-    return writeAll(*m_transport,
-                    protocol::screenImageReports(bytes, 0, 0, protocol::ScreenWidth, protocol::ScreenHeight));
+    const auto reports = protocol::screenImageReports(bytes, 0, 0, protocol::ScreenWidth, protocol::ScreenHeight);
+    // Twice: the module shows a picture when the next transfer follows it (measured, see StreamDeck.h).
+    return writeAll(*m_transport, reports) && (!flush || writeAll(*m_transport, reports));
 }
 
 bool StreamDeck::setBrightness(int percent)

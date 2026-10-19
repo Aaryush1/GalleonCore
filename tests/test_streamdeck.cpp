@@ -240,6 +240,43 @@ private Q_SLOTS:
         QCOMPARE(turns, 12);
     }
 
+    void everyPictureIsSentTwiceUnlessItStreams()
+    {
+        // The module shows a picture only when a second transfer follows it (measured on the
+        // unit, 2026-10-19): a picture is sent twice in a row, a streamed one (video) once.
+        Fixture f;
+        QVERIFY(f.deck->open());
+        QImage image(720, 384, QImage::Format_RGB32);
+        image.fill(Qt::darkMagenta);
+        const auto count = [&f](int command) {
+            std::size_t n = 0;
+            for (const auto &r : f.transport->writes) {
+                if (r.size() > 3 && r[0] == 0x02 && r[1] == command)
+                    ++n;
+            }
+            return n;
+        };
+        QVERIFY(f.deck->setScreenImage(image));
+        const std::size_t twice = count(0x0c);
+        QVERIFY(twice >= 2 && twice % 2 == 0);
+        const auto first = std::vector<std::uint8_t>(f.transport->writes[0]);
+        QCOMPARE(f.transport->writes[twice / 2], first); // the second copy is the same bytes
+
+        f.transport->writes.clear();
+        QVERIFY(f.deck->setScreenImage(image, 85, false));
+        QCOMPARE(count(0x0c), twice / 2); // once
+
+        f.transport->writes.clear();
+        QImage key(160, 160, QImage::Format_RGB32);
+        key.fill(Qt::red);
+        QVERIFY(f.deck->setKeyImage(3, key));
+        const std::size_t keyTwice = count(0x07);
+        QVERIFY(keyTwice >= 2 && keyTwice % 2 == 0);
+        f.transport->writes.clear();
+        QVERIFY(f.deck->setKeyImage(3, key, false));
+        QCOMPARE(count(0x07), keyTwice / 2);
+    }
+
     void aLowerQualityMakesASmallerScreenPicture()
     {
         Fixture f;
