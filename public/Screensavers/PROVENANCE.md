@@ -6,10 +6,58 @@ Record each video here when you add it: file name, tool, date and the exact prom
 
 | File | Tool | Date | Size and length |
 |---|---|---|---|
-| `Hackerne cyberpunk sous la pluie.mp4` | First picture: ChatGPT Images (its prompt was not kept). Animation: `prunaai/p-video` on replicate.com | 2026-10-19 | 704 x 1280, 24 fps, 9 s, H.264 |
-| `Refuge néon sous la lune rose.mp4` | First picture: ChatGPT Images (its prompt was not kept). Animation: `prunaai/p-video` on replicate.com | 2026-10-19 | 704 x 1280, 24 fps, 9 s, H.264 |
+| `Hackerne cyberpunk sous la pluie.mp4` | First picture: ChatGPT Images (prompt below). Animation: `prunaai/p-video` on replicate.com | 2026-10-19 | 704 x 1280, 24 fps, 9 s, H.264 |
+| `Refuge néon sous la lune rose.mp4` | First picture: ChatGPT Images (prompt below). Animation: `prunaai/p-video` on replicate.com | 2026-10-19 | 704 x 1280, 24 fps, 9 s, H.264 |
 
 The composition keeps the main subject in the upper third, where the screen of the module is. Both files carry an audio track (AAC), which `galleond` ignores.
+
+## Prompts of the first pictures (ChatGPT Images)
+
+The first picture of each video was made with ChatGPT Images at a vertical 9:16 ratio, with the main subject asked in the upper third (the screen of the module) and a calmer lower two thirds (the twelve keys). Both prompts forbid logos, brand names, text and bunny emblems.
+
+### First picture of `Hackerne cyberpunk sous la pluie.mp4` ("Golden Cyberpunk Hacker")
+
+> **Ultra-photorealistic cinematic cyberpunk wallpaper, vertical 9:16 aspect ratio, futuristic golden neon atmosphere, extremely detailed, realistic photography.**
+>
+> A beautiful adult cyberpunk woman with messy dark hair tied in a loose bun, realistic skin texture, subtle makeup and an intense, confident gaze relaxes in a futuristic gaming chair inside a luxurious high-tech apartment overlooking a massive cyberpunk metropolis at night.
+>
+> She wears a black sleeveless crop top and dark futuristic tactical trousers. Her left arm features a sophisticated metallic cybernetic prosthesis with intricate mechanical joints, exposed components and glowing amber energy circuits. Small golden cybernetic implants surround one ear and extend subtly toward her temple. Detailed black floral tattoos decorate her shoulder and upper arm.
+>
+> She rests her chin gently against one hand, looking directly toward the viewer with a calm, slightly mysterious expression.
+>
+> **CRITICAL COMPOSITION REQUIREMENT:** Position the woman's face, shoulders and cybernetic implants in the UPPER THIRD of the vertical image, preferably toward the upper-left side. Her face must be the primary focal point, clearly visible near the top of the composition. Do not center the character vertically. Keep her head entirely within the upper third, with her mechanical arm and reclining body naturally extending toward the middle section.
+>
+> **FUTURISTIC CITY BACKGROUND:** Behind her, a gigantic panoramic window reveals an immense futuristic megacity at night. Towering skyscrapers covered in golden and amber lights rise into the rainy atmosphere. Multiple flying vehicles travel between buildings, leaving subtle luminous trails. Elevated highways connect enormous futuristic structures. Giant holographic advertisements display abstract golden imagery without any text, symbols or branding. Heavy rain covers the panoramic window, creating beautiful reflections and atmospheric depth. The entire city glows with rich golden-yellow neon against deep black and charcoal shadows.
+>
+> **GAMING WORKSTATION:** The apartment contains multiple computer monitors displaying abstract futuristic interfaces, a premium mechanical keyboard illuminated by warm golden RGB lighting, a plain black gaming mouse, headphones with subtle amber light rings, an unbranded dark coffee mug, electronic equipment, books and small decorative plants. All accessories must have completely plain surfaces without logos, emblems or recognizable branding.
+>
+> **LOWER TWO-THIRDS COMPOSITION:** The lower portion of the image extends naturally into a beautiful cinematic gaming desk. Show the illuminated mechanical keyboard, reflective black desk surface, scattered technological accessories, warm amber reflections and softly blurred foreground objects. The lower half gradually becomes darker and less detailed, with atmospheric golden highlights. This area must remain visually attractive but secondary to the character, suitable for being divided across twelve programmable LCD keyboard buttons. Avoid important faces, text, logos or essential visual elements in the lower two-thirds.
+>
+> **CINEMATIC PHOTOGRAPHY:** Hyperrealistic skin pores, realistic hair strands, physically accurate metallic reflections, sophisticated cybernetic engineering, volumetric golden lighting, cinematic depth of field, ray-traced reflections, high dynamic range, dramatic contrast, atmospheric rain and haze. Professional science-fiction movie still, premium production design, natural human anatomy, realistic mechanical details, cinematic color grading. Dominant colors: golden yellow, amber, warm orange, deep black and charcoal gray.
+>
+> **STRICT RESTRICTIONS:** Absolutely no logos, no brand names, no trademarks, no commercial symbols, no rabbit or bunny emblems, no recognizable corporate designs, no readable text, no typography, no watermarks, no signatures. No extra limbs, no malformed hands, no distorted anatomy, no duplicated fingers. Single continuous image, no split-screen, no panels, no borders.
+>
+> **Final output: vertical 9:16, high-resolution, photorealistic cyberpunk wallpaper optimized for a programmable LCD keyboard display.**
+
+### First picture of `Refuge néon sous la lune rose.mp4` ("Cyberpunk Sakura Gaming Room")
+
+> **Vertical 9:16 cinematic Japanese anime cyberpunk wallpaper, ultra-detailed, premium anime illustration.**
+>
+> A beautiful young adult Japanese woman with expressive pink eyes and messy dark hair tied in a loose bun, wearing an oversized black hoodie and futuristic glowing magenta headphones, rests her cheek on one hand at her gaming desk. A sleepy black cat with half-open pink eyes lies beside her on the desk.
+>
+> **CRITICAL COMPOSITION REQUIREMENT:** Position the young woman's face, headphones and the black cat in the UPPER THIRD of the vertical image. Their faces must be clearly visible near the top of the composition. The main visual subject must not be centered vertically.
+>
+> Behind them, a spectacular futuristic Japanese metropolis stretches into the night, illuminated by thousands of pink, violet and electric-blue neon lights. A gigantic luminous pink moon dominates the upper-right sky. Delicate cherry blossom branches frame the window, with glowing sakura petals floating through the atmosphere.
+>
+> The gaming room features illuminated computer monitors, a magenta RGB mechanical keyboard, a plain gaming mouse, books, plants, and subtle futuristic equipment.
+>
+> **LOWER TWO-THIRDS:** Extend the desk naturally downward, showing a cinematic foreground of softly blurred books, reflections, dark furniture, subtle neon lighting and atmospheric shadows. This lower area should remain visually attractive but relatively uncluttered, allowing the image to be distributed across the programmable LCD keys of a gaming keyboard without losing the main subject.
+>
+> **LIGHTING AND STYLE:** Rich magenta and hot-pink neon, deep violet shadows, electric-blue highlights, detailed anime character design, beautiful cinematic lighting, subtle depth of field, glossy reflections, intricate cyberpunk city architecture, atmospheric perspective, premium Japanese animation background quality.
+>
+> **STRICT RESTRICTIONS:** Absolutely no logos, no brand names, no trademarks, no recognizable commercial symbols, no bunny or rabbit symbols, no text, no typography, no watermarks, no signatures. All computer equipment and accessories must have completely plain, unbranded surfaces. Single continuous illustration, no panels, no split-screen, no borders.
+>
+> Vertical portrait aspect ratio, 9:16, high resolution, wallpaper-ready.
 
 ## Prompts of the animation (`prunaai/p-video`)
 
