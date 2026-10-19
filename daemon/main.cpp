@@ -31,6 +31,10 @@
 #include <QElapsedTimer>
 #include <QRandomGenerator>
 #include <QTimer>
+#include <QCoreApplication>
+#include <QEventLoop>
+#include <QThread>
+#include <QFont>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -115,6 +119,57 @@ int measureThroughput(galleon::StreamDeck &deck)
                              .arg(BothRounds).arg(bothMs).arg(fps(BothRounds, bothMs), 0, 'f', 1);
     qInfo().noquote() << QStringLiteral("JPEG encoding of the screen picture alone: %1 ms each")
                              .arg(static_cast<double>(encodeMs) / ScreenFrames, 0, 'f', 1);
+    return 0;
+}
+
+// Flips the dial rings and the screen together, back and forth, to film: the gap between
+// the two on the video is how late the screen shows what it was sent. Sends only pictures
+// and ring colours (what the daemon sends all the time). Stop the galleond service first.
+int measureDisplayLag(galleon::StreamDeck &deck)
+{
+    constexpr int Flips = 8;
+    constexpr int HoldMs = 2500;
+    const QSize screen(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight);
+    const auto frame = [&screen](const QColor &colour, const QString &text) {
+        QImage image(screen, QImage::Format_RGB32);
+        image.fill(colour);
+        QPainter painter(&image);
+        painter.setPen(Qt::white);
+        QFont font = painter.font();
+        font.setPixelSize(150);
+        font.setBold(true);
+        painter.setFont(font);
+        painter.drawText(image.rect(), Qt::AlignCenter, text);
+        return image;
+    };
+    const auto wait = [](int ms) {
+        QElapsedTimer t;
+        t.start();
+        while (t.elapsed() < ms) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 20); // keeps the keep-alive going
+            QThread::msleep(5);
+        }
+    };
+
+    qInfo() << "galleond: film the module now: 3 s, then" << Flips << "flips of the rings and the screen, together";
+    deck.setDialRing(0, 0, 0, 255);
+    deck.setDialRing(1, 0, 0, 255);
+    deck.setScreenImage(frame(QColor(0, 0, 200), QStringLiteral("0")));
+    wait(3000);
+    QElapsedTimer clock;
+    clock.start();
+    for (int i = 1; i <= Flips; ++i) {
+        const bool red = i % 2 == 1;
+        // The rings first, then the screen: the two calls are a few milliseconds apart.
+        deck.setDialRing(0, red ? 255 : 0, 0, red ? 0 : 255);
+        deck.setDialRing(1, red ? 255 : 0, 0, red ? 0 : 255);
+        const qint64 ringsAt = clock.elapsed();
+        deck.setScreenImage(frame(red ? QColor(200, 0, 0) : QColor(0, 0, 200), QString::number(i)));
+        const qint64 screenAt = clock.elapsed();
+        qInfo().noquote() << QStringLiteral("flip %1 (%2): rings sent at %3 ms, screen picture sent at %4 ms (took %5 ms)")
+                                 .arg(i).arg(red ? "red" : "blue").arg(ringsAt).arg(screenAt).arg(screenAt - ringsAt);
+        wait(HoldMs);
+    }
     return 0;
 }
 
@@ -263,6 +318,8 @@ int main(int argc, char *argv[])
                                             QStringLiteral("Draw the key numbers on the 12 keys; a key turns white while pressed."));
     const QCommandLineOption measureOption(QStringLiteral("measure-throughput"),
                                            QStringLiteral("Send bursts of pictures to the screen and the keys, print the frame rates and exit. Stop the galleond service first."));
+    const QCommandLineOption displayLagOption(QStringLiteral("measure-display-lag"),
+                                              QStringLiteral("Flip the dial rings and the screen together 8 times, to film how late the screen shows a picture. Stop the galleond service first."));
     const QCommandLineOption pagesOption(QStringLiteral("pages"),
                                          QStringLiteral("Pages file (default: ~/.config/galleoncore/pages.json)."),
                                          QStringLiteral("file"));
@@ -295,7 +352,7 @@ int main(int argc, char *argv[])
                                             QStringLiteral("number"));
     parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption,
                        pagesOption, noPagesOption, renderKeysOption, stateOption, renderNowPlayingOption, appsOption,
-                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption});
+                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption, displayLagOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
@@ -428,6 +485,14 @@ int main(int argc, char *argv[])
         qWarning() << "galleond: no Galleon 100 SD found, waiting";
     else
         qInfo() << "galleond: Stream Deck module opened, serial" << deck.serialNumber();
+
+    if (parser.isSet(displayLagOption)) {
+        if (!deck.isOpen()) {
+            qCritical() << "galleond: no Galleon 100 SD found";
+            return 1;
+        }
+        return measureDisplayLag(deck);
+    }
 
     if (parser.isSet(measureOption)) {
         if (!deck.isOpen()) {
