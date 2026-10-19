@@ -210,7 +210,7 @@ Toute donnée externe est non fiable jusqu'à sa validation complète : rapports
 Fait : fond d'écran avec l'heure sur l'écran du Galleon, validé sur le matériel (`galleond --wallpaper …`, `--preview`).
 
 À faire, dans cet ordre :
-1. **Touches et molettes** : analyser les rapports d'entrée (`01 00 0c 00` + 12 octets pour les touches, `01 03 03 00 …` pour les molettes, d'après galleon-deck) et émettre les signaux de `StreamDeck`. Puis envoyer des **images de touches** (rapports `02 07`, pas encore essayés sur le module).
+1. ~~**Touches et molettes**~~ **fait le 19 octobre** (appuis, rotations et images de touches validés sur le matériel) : analyser les rapports d'entrée (`01 00 0c 00` + 12 octets pour les touches, `01 03 03 00 …` pour les molettes, d'après galleon-deck) et émettre les signaux de `StreamDeck`. Puis envoyer des **images de touches** (rapports `02 07`, pas encore essayés sur le module).
 2. **Pages de boutons et menus** : chaque touche a une icône et une action ; une touche peut ouvrir une page (menu). Exemples voulus : Discord, lecteur de musique (sous Linux via MPRIS), Ableton (surtout côté Windows), raccourcis clavier via uinput. Les actions et les pages sont décrites dans un fichier de configuration validé comme toute donnée externe.
 3. **Écran de veille animé** : fond animé extrait en JPEG une fois pour toutes (voir §8, « Fonds animés »). Piste : une image générée animée avec le modèle `prunaai/p-video`. À vérifier avant : conditions d'utilisation et licence du modèle et du service, aucune œuvre, marque ou personne réelle (`ASSETS.md`), provenance consignée dans un `PROVENANCE.md`.
 4. Service systemd utilisateur pour lancer `galleond` à la connexion.
