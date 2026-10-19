@@ -28,7 +28,7 @@ if(GALLEON_SANITIZE)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick DBus)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick DBus Network)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(HIDAPI REQUIRED IMPORTED_TARGET hidapi-hidraw)
 
