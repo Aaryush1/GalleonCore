@@ -222,6 +222,13 @@ Image headers (galleon-deck, and the Stream Deck Plus conventions the Rust code 
 
 **Confirmed on the hardware, 2026-10-18 (firmware module 3.06.005):** `galleond` drew a 720 x 384 JPEG on the top screen with this screen header (little-endian fields, `last` = 1 on the final report, `part` counting from 0, 1008 bytes of JPEG per report, report ID 2, 1024 bytes written through hidapi) and the module displayed it correctly (photo of the unit). The keep-alive `03 27` every 500 ms kept it in host mode. After `galleond` was stopped, the screen went back to the module's default image in less than a minute (observed by the user, not timed), so nothing stays latched: the firmware leaves host mode by itself when the keep-alive stops. Key images (`02 07`) are built the same way but have not been drawn on the unit yet.
 
+**Input reports confirmed on the hardware, 2026-10-19** (`galleond --trace-input`, keep-alive running):
+
+- Keys: `01 00 0c 00` then 12 bytes (1 = pressed). Key 0 is the top left key, then row by row to key 11 at the bottom right (a grid of 3 columns by 4 rows); each key gave one press and one release in order.
+- Dial buttons: `01 03 03 00 00 <dial 0> <dial 1>` with 1 = pressed. Pressing the left dial gave `... 00 01 00`, the right dial `... 00 00 01`, so the left dial is dial 0.
+- Dial rotation: `01 03 03 00 01 <dial 0> <dial 1>`, a signed byte per dial: one click clockwise gave `01` (+1), one click anticlockwise `ff` (-1).
+- The reports are 512 bytes long on hidraw with the ID, zero-padded; only the first 7 (dials) or 16 (keys) bytes matter.
+
 ## Captures
 
 Put raw captures under `captures/`, named `YYYY-MM-DD-<what>.pcapng`, with a short note on what was done during the capture.
