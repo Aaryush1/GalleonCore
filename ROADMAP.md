@@ -113,7 +113,7 @@ Décisions à ne pas perdre :
 1. (fait) Reprise du module après une veille de l'ordinateur : confirmée. Le réglage NVIDIA de l'utilisateur est un sujet système, hors du projet.
 2. (fait) Branche `galleond-wallpaper-clock` fusionnée dans `main` (pull request 5, 19 octobre) ; la CI passe (GCC, Clang + sanitizers, lint).
 3. Confirmer sur le module les pages remplies, le classement par usage, les nouvelles touches média et le lancement de BIT SCRIPTS Musique.
-4. **Galleon Bosun** : maquette QML (onglets, grille des 12 touches rendue par le moteur existant, détail d'une touche), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
+4. **Galleon Bosun** : (fait : maquette en lecture seule, PR 7) édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
 5. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
 
 ## Règle de mise à jour
