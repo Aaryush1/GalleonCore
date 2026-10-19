@@ -46,6 +46,26 @@ bool DesktopEntries::isValidReference(const QString &desktop)
     return std::none_of(desktop.begin(), desktop.end(), [](QChar c) { return c.unicode() < 0x20; });
 }
 
+// The text after `key=` on the first such line of the [Desktop Entry] group, as written.
+static QString rawValue(const QString &path, const QString &key)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    const QByteArray text = file.read(MaxDesktopFileBytes + 1);
+    bool inEntry = false;
+    const QByteArray prefix = key.toUtf8() + '=';
+    for (const QByteArray &rawLine : text.split('\n')) {
+        const QByteArray line = rawLine.trimmed();
+        if (line.startsWith('[')) {
+            inEntry = line == "[Desktop Entry]";
+        } else if (inEntry && line.startsWith(prefix)) {
+            return QString::fromUtf8(line.mid(prefix.size())).left(2000);
+        }
+    }
+    return {};
+}
+
 DesktopApp DesktopEntries::read(const QString &file, const QString &id)
 {
     const QFileInfo info(file);
@@ -61,6 +81,18 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
     DesktopApp app;
     app.file = info.absoluteFilePath();
     app.id = id.isEmpty() ? info.fileName() : id;
+    // Categories and Exec are read from the file itself: QSettings cuts a value at its first semicolon.
+    for (const QString &category : rawValue(info.absoluteFilePath(), QStringLiteral("Categories")).split(QLatin1Char(';'), Qt::SkipEmptyParts)) {
+        if (app.categories.size() < 16 && category.trimmed().size() <= 40)
+            app.categories.append(category.trimmed());
+    }
+    static const QRegularExpression steamGame(QStringLiteral("steam://rungameid/(\\d{1,10})"));
+    const QRegularExpressionMatch steamMatch = steamGame.match(rawValue(info.absoluteFilePath(), QStringLiteral("Exec")));
+    if (steamMatch.hasMatch()) {
+        const qint64 appid = steamMatch.captured(1).toLongLong();
+        if (appid > 0 && appid <= 2'000'000'000)
+            app.steamAppId = static_cast<int>(appid);
+    }
 
     // The name in the user's language, as the desktop would show it.
     const QLocale locale;
@@ -146,6 +178,13 @@ QList<DesktopApp> DesktopEntries::list()
     std::sort(apps.begin(), apps.end(), [](const DesktopApp &a, const DesktopApp &b) {
         return a.name.compare(b.name, Qt::CaseInsensitive) < 0;
     });
+    return apps;
+}
+
+QList<DesktopApp> DesktopEntries::listCategory(const QString &category)
+{
+    QList<DesktopApp> apps = list();
+    apps.removeIf([&category](const DesktopApp &app) { return !app.categories.contains(category); });
     return apps;
 }
 

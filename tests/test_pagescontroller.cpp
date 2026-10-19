@@ -1097,11 +1097,15 @@ private Q_SLOTS:
             started << appid;
             return true;
         });
-        f.controller->setSteamGames([&] {
-            return QList<SteamGame>{game(11, "Old Favourite", 6000, 700),  // 100 h, but two years ago
-                                    game(22, "Played Yesterday", 300, 1),    // 5 h, recently
-                                    game(33, "Never Touched", 0, 0),
-                                    game(44, "Fourth", 60, 5)};
+        f.controller->setSources([&](const QString &) {
+            ArrangeSources sources;
+            sources.installedSteam = QList<SteamGame>{game(11, "Old Favourite", 6000, 700),  // 100 h, but two years ago
+                                                      game(22, "Played Yesterday", 300, 1),    // 5 h, recently
+                                                      game(33, "Never Touched", 0, 0),
+                                                      game(44, "Fourth", 60, 5)};
+            for (const SteamGame &g : std::as_const(sources.installedSteam))
+                sources.playedSteam.insert(g.appid, g);
+            return sources;
         });
         f.controller->setConfig(*parsed.config);
         // Three free keys (0..2 and 3, with 5 taken): the three most played in recent time come first.

@@ -205,6 +205,8 @@ A page can ask for its application keys to be put in order of use with `"sort": 
 }
 ```
 
+`"menu": { "category": "Game", "max": N }` fills the free keys of the page with up to N applications of that category of the desktop menu (the freedesktop `Categories` of each `.desktop` file; `Game` for the games of the KDE menu, whatever launched them: KDE games, Lutris, Heroic, Wine, Steam shortcuts...), most used first. A menu shortcut that starts a Steam game (`steam steam://rungameid/<n>`) is scored by that game's play time and last launch from Steam's local data, even when the game is not installed here. Tools (Proton, the Steam runtimes) and anything already on the page are left out, and a Steam game shortcut and the same game from Steam's own list are shown once.
+
 `"steam": { "max": N }` fills the free keys of the page with up to N installed Steam games, most played first. It reads Steam's own files on this machine, read-only and without network, account or key: the play time and the date of the last launch of each game (`userdata/<id>/config/localconfig.vdf`), and the name of each installed game (`appmanifest_*.acf` in the library folders). Tools such as Proton and the Steam runtimes are left out. A Steam game scores its hours played, faded by the time since its last launch, plus its launches from the module. A single game can also be a key of its own: `{ "type": "steam", "appid": 730 }` starts it through `steam steam://rungameid/730`.
 
 ### Animated screensaver

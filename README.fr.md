@@ -205,6 +205,8 @@ Une page peut demander que ses touches d'application soient classées par usage 
 }
 ```
 
+`"menu": { "category": "Game", "max": N }` remplit les touches libres de la page avec jusqu'à N applications de cette catégorie du menu du bureau (le champ `Categories` de chaque fichier `.desktop` ; `Game` pour les jeux du menu KDE, quel que soit leur lanceur : jeux KDE, Lutris, Heroic, Wine, raccourcis Steam...), les plus utilisées d'abord. Un raccourci du menu qui lance un jeu Steam (`steam steam://rungameid/<n>`) est classé d'après le temps de jeu et le dernier lancement de ce jeu dans les données locales de Steam, même si le jeu n'est pas installé ici. Les outils (Proton, les runtimes Steam) et ce qui est déjà sur la page sont écartés, et un raccourci de jeu Steam et le même jeu de la liste de Steam ne sont montrés qu'une fois.
+
 `"steam": { "max": N }` remplit les touches libres de la page avec jusqu'à N jeux Steam installés, les plus joués d'abord. Il lit les fichiers de Steam sur cette machine, en lecture seule, sans réseau, sans compte ni clé : le temps de jeu et la date du dernier lancement de chaque jeu (`userdata/<id>/config/localconfig.vdf`) et le nom de chaque jeu installé (`appmanifest_*.acf` dans les dossiers de bibliothèque). Les outils comme Proton et les runtimes Steam sont écartés. Un jeu Steam a pour score ses heures de jeu, réduites selon le temps écoulé depuis son dernier lancement, plus ses lancements depuis le module. Un jeu peut aussi avoir sa propre touche : `{ "type": "steam", "appid": 730 }` le lance par `steam steam://rungameid/730`.
 
 ### Écran de veille animé

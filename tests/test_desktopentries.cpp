@@ -186,6 +186,33 @@ private Q_SLOTS:
         QCOMPARE(names, (QStringList{"apple", "Cherry"}));
     }
 
+    void theMenuCategoriesAndTheSteamGameOfAShortcutAreRead()
+    {
+        Environment env;
+        QVERIFY(writeFile(env.userApp("Cyberpunk 2077.desktop"),
+                          entry("Cyberpunk 2077", {}, "steam steam://rungameid/1091500", "Categories=Game;\n")));
+        QVERIFY(writeFile(env.systemApp("kmines.desktop"), entry("KMines", {}, "kmines %U", "Categories=Qt;KDE;Game;StrategyGame;\n")));
+        QVERIFY(writeFile(env.systemApp("editor.desktop"), entry("Editor", {}, "/usr/bin/true", "Categories=Utility;TextEditor;\n")));
+        QVERIFY(writeFile(env.systemApp("plain.desktop"), entry("Plain")));
+        QVERIFY(writeFile(env.systemApp("weird.desktop"),
+                          entry("Weird", {}, "steam steam://rungameid/99999999999999", "Categories=Game;\n"))); // not a plausible number
+
+        const QList<DesktopApp> games = DesktopEntries::listCategory("Game");
+        QStringList names;
+        for (const DesktopApp &app : games)
+            names << app.name;
+        QCOMPARE(names, (QStringList{"Cyberpunk 2077", "KMines", "Weird"}));
+        const auto cyber = std::find_if(games.begin(), games.end(), [](const DesktopApp &a) { return a.name == "Cyberpunk 2077"; });
+        QVERIFY(cyber != games.end());
+        QCOMPARE(cyber->steamAppId, 1091500);
+        QVERIFY(cyber->categories.contains("Game"));
+        const auto weird = std::find_if(games.begin(), games.end(), [](const DesktopApp &a) { return a.name == "Weird"; });
+        QCOMPARE(weird->steamAppId, 0);
+        const auto kmines = std::find_if(games.begin(), games.end(), [](const DesktopApp &a) { return a.name == "KMines"; });
+        QCOMPARE(kmines->steamAppId, 0);
+        QVERIFY(DesktopEntries::listCategory("Education").isEmpty());
+    }
+
     void anApplicationWithAnOddIdIsListedByItsPath()
     {
         Environment env;

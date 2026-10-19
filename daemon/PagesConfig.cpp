@@ -280,13 +280,30 @@ struct Parser
                 continue;
             }
             const QJsonObject pageObject = it.value().toObject();
-            rejectUnknown(pageObject, {QStringLiteral("keys"), QStringLiteral("sort"), QStringLiteral("steam")}, path);
+            rejectUnknown(pageObject, {QStringLiteral("keys"), QStringLiteral("sort"), QStringLiteral("steam"), QStringLiteral("menu")}, path);
             Page page;
             if (pageObject.contains(QStringLiteral("sort"))) {
                 if (pageObject.value(QStringLiteral("sort")).toString() != QLatin1String("usage"))
                     error(path + QStringLiteral(".sort"), QStringLiteral("must be usage"));
                 else
                     page.sort = PageSort::Usage;
+            }
+            if (pageObject.contains(QStringLiteral("menu"))) {
+                const QJsonValue menu = pageObject.value(QStringLiteral("menu"));
+                if (!menu.isObject()) {
+                    error(path + QStringLiteral(".menu"), QStringLiteral("must be an object such as { \"category\": \"Game\", \"max\": 6 }"));
+                } else {
+                    const QJsonObject menuObject = menu.toObject();
+                    rejectUnknown(menuObject, {QStringLiteral("category"), QStringLiteral("max")}, path + QStringLiteral(".menu"));
+                    static const QRegularExpression categoryPattern(QStringLiteral("^[A-Za-z]{1,32}$"));
+                    QString category;
+                    if (text(menuObject.value(QStringLiteral("category")), path + QStringLiteral(".menu.category"), 32, category)
+                        && !categoryPattern.match(category).hasMatch())
+                        error(path + QStringLiteral(".menu.category"), QStringLiteral("must be a menu category such as Game (letters only)"));
+                    else
+                        page.menuCategory = category;
+                    integer(menuObject.value(QStringLiteral("max")), 1, MaxSteamKeys, path + QStringLiteral(".menu.max"), page.menuMax);
+                }
             }
             if (pageObject.contains(QStringLiteral("steam"))) {
                 const QJsonValue steam = pageObject.value(QStringLiteral("steam"));

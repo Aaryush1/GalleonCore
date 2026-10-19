@@ -93,6 +93,8 @@ struct Page
     std::array<std::optional<KeyConfig>, galleon::protocol::KeyCount> keys;
     PageSort sort = PageSort::None;
     int steamMax = 0; // up to this many installed Steam games fill the free keys, most played first (0: none)
+    QString menuCategory; // the desktop menu category ("Game") whose applications fill the free keys...
+    int menuMax = 0;      // ...up to this many, most used first (0: none)
 
     friend bool operator==(const Page &, const Page &) = default;
 };

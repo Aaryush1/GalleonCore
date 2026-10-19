@@ -238,6 +238,24 @@ QString SteamLibrary::defaultRoot()
     return {};
 }
 
+QMap<int, SteamGame> SteamLibrary::playedGames(const QString &root)
+{
+    QMap<int, SteamGame> played;
+    if (root.isEmpty() || !QFileInfo(root).isDir())
+        return played;
+    const QDir userdata(root + QStringLiteral("/userdata"));
+    for (const QString &user : userdata.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+        bool numeric = false;
+        user.toLongLong(&numeric);
+        if (!numeric)
+            continue;
+        played = parseLocalConfig(readSmallFile(userdata.filePath(user + QStringLiteral("/config/localconfig.vdf")), MaxVdfBytes));
+        if (!played.isEmpty())
+            break;
+    }
+    return played;
+}
+
 QList<SteamGame> SteamLibrary::installedGames(const QString &root)
 {
     QList<SteamGame> games;

@@ -51,7 +51,20 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
         return !steam.isEmpty()
                && QProcess::startDetached(steam, {QStringLiteral("steam://rungameid/%1").arg(appid)});
     })
-    , m_steamGames([] { return SteamLibrary::installedGames(); })
+    , m_sourceProvider([](const QString &menuCategory) {
+        ArrangeSources sources;
+        sources.installedSteam = SteamLibrary::installedGames();
+        sources.playedSteam = SteamLibrary::playedGames();
+        if (!menuCategory.isEmpty()) {
+            sources.menu = DesktopEntries::listCategory(menuCategory);
+            // The Steam game behind each shortcut of the whole menu, to score it by play time.
+            for (const DesktopApp &app : DesktopEntries::list()) {
+                if (app.steamAppId > 0)
+                    sources.steamOfApp.insert(app.id, app.steamAppId);
+            }
+        }
+        return sources;
+    })
 {
     m_clock.start();
     m_lastPressAt.fill(-ClickAfterMs * 4);
@@ -119,7 +132,7 @@ void PagesController::setConfig(const PagesConfig &config)
     releaseHeldKeys();
     m_stack = {config.home};
     m_theme = -1;
-    m_steamCacheValid = false;
+    m_sourcesAge.invalidate();
     for (std::size_t i = 0; i < config.themes.size(); ++i) {
         if (config.themes[i].page == config.home) {
             m_theme = static_cast<int>(i);
@@ -242,16 +255,18 @@ void PagesController::rebuildPage()
     m_dynamic.reset();
     m_highlightKey = -1;
     const auto found = m_config.pages.constFind(currentPage());
-    if (found == m_config.pages.constEnd() || (found->sort == PageSort::None && found->steamMax == 0))
+    if (found == m_config.pages.constEnd()
+        || (found->sort == PageSort::None && found->steamMax == 0 && found->menuMax == 0))
         return;
 
-    // The installed Steam games, read from the user's Steam folder at most once a minute.
-    if (found->steamMax > 0 && (!m_steamCacheValid || !m_steamCacheAge.isValid() || m_steamCacheAge.elapsed() > 60000)) {
-        m_steamCache = m_steamGames ? m_steamGames() : QList<SteamGame>{};
-        m_steamCacheValid = true;
-        m_steamCacheAge.start();
+    // Steam's files and the desktop menu are read when a page needs them, then kept for five minutes.
+    const bool needsSources = found->steamMax > 0 || found->menuMax > 0 || found->sort == PageSort::Usage;
+    if (needsSources && (!m_sourcesAge.isValid() || m_sourcesAge.elapsed() > 300000 || m_sourcesFor != found->menuCategory)) {
+        m_sources = m_sourceProvider ? m_sourceProvider(found->menuMax > 0 ? found->menuCategory : QString()) : ArrangeSources{};
+        m_sourcesFor = found->menuCategory;
+        m_sourcesAge.start();
     }
-    const ArrangedPage arranged = arrangePage(*found, *m_usage, m_steamCache);
+    const ArrangedPage arranged = arrangePage(*found, *m_usage, m_sources);
     m_dynamic = arranged.page;
     m_highlightKey = arranged.highlightKey;
     m_dynamicFor = currentPage();

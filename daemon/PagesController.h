@@ -5,6 +5,7 @@
 
 #include "DesktopEntries.h"
 #include "KeyInjector.h"
+#include "PageOrder.h"
 #include "MediaController.h"
 #include "PagesConfig.h"
 #include "SteamLibrary.h"
@@ -66,11 +67,13 @@ public:
     void setUsageFile(const QString &file);
     using SteamLauncher = std::function<bool(int appid)>;
     void setSteamLauncher(SteamLauncher launcher) { m_steamLauncher = std::move(launcher); }
-    using SteamGames = std::function<QList<SteamGame>()>;
-    void setSteamGames(SteamGames provider)
+    // Where the pages are filled from: the installed Steam games, the play data of all games, and the
+    // menu applications of a category (the tests replace it; the default reads this machine).
+    using Sources = std::function<ArrangeSources(const QString &menuCategory)>;
+    void setSources(Sources provider)
     {
-        m_steamGames = std::move(provider);
-        m_steamCacheValid = false;
+        m_sourceProvider = std::move(provider);
+        m_sourcesAge.invalidate();
         rebuildPage();
     }
 
@@ -178,9 +181,9 @@ private:
     std::array<qint64, galleon::protocol::DialCount> m_lastPressAt{};   // a press or a release
     void onDialReleased(int dial);
     std::unique_ptr<UsageStats> m_usage = std::make_unique<UsageStats>();
-    QList<SteamGame> m_steamCache;
-    bool m_steamCacheValid = false;
-    QElapsedTimer m_steamCacheAge;
+    ArrangeSources m_sources; // what pages are filled from, read at most every few minutes
+    QString m_sourcesFor;     // the menu category they were read for
+    QElapsedTimer m_sourcesAge;
     std::optional<Page> m_dynamic; // the page as shown, when it differs from the file's
     QString m_dynamicFor;
     int m_highlightKey = -1;
@@ -210,7 +213,7 @@ private:
 
     AppLauncher m_launcher;
     SteamLauncher m_steamLauncher;
-    SteamGames m_steamGames;
+    Sources m_sourceProvider;
     QHash<QString, DesktopApp> m_apps; // looked-up references, a handful: cleared on every reload
     QHash<QString, bool> m_warned;     // what was already said once in the log
     bool m_appsAllowed = true;

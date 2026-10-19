@@ -65,6 +65,8 @@ public:
 
     // The installed games of the Steam folder `root` (default: the user's), with their play data.
     [[nodiscard]] static QList<SteamGame> installedGames(const QString &root = defaultRoot());
+    // Every game the user has played, installed or not, with its play time and last launch (no name).
+    [[nodiscard]] static QMap<int, SteamGame> playedGames(const QString &root = defaultRoot());
     [[nodiscard]] static QString defaultRoot();
 
     // The cover picture of a game that Steam keeps in its cache (a regular file, not a link), or empty.

@@ -343,12 +343,21 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
     sheet.fill(QColor(0x10, 0x10, 0x10));
     QPainter painter(&sheet);
     const QString shown = pageName.isEmpty() ? parsed.config->home : pageName;
-    // The page as the module shows it: in order of use, with the Steam games, from the real usage file.
+    // The page as the module shows it: in order of use, with the menu applications and the Steam games.
     const galleond::UsageStats usage(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
                                      + QStringLiteral("/galleoncore/usage.json"));
-    const galleond::ArrangedPage arranged = galleond::arrangePage(
-        parsed.config->pages.value(shown), usage,
-        parsed.config->pages.value(shown).steamMax > 0 ? galleond::SteamLibrary::installedGames() : QList<galleond::SteamGame>{});
+    const galleond::Page &fromFile = parsed.config->pages.value(shown);
+    galleond::ArrangeSources sources;
+    sources.installedSteam = galleond::SteamLibrary::installedGames();
+    sources.playedSteam = galleond::SteamLibrary::playedGames();
+    if (fromFile.menuMax > 0) {
+        sources.menu = galleond::DesktopEntries::listCategory(fromFile.menuCategory);
+        for (const galleond::DesktopApp &app : galleond::DesktopEntries::list()) {
+            if (app.steamAppId > 0)
+                sources.steamOfApp.insert(app.id, app.steamAppId);
+        }
+    }
+    const galleond::ArrangedPage arranged = galleond::arrangePage(fromFile, usage, sources);
     const galleond::Page &page = arranged.page;
     // The theme of that page tints the keys, as on the module.
     qint64 tint = -1;

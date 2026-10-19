@@ -478,6 +478,16 @@ private Q_SLOTS:
                 object.insert("pages", pages);
             });
         };
+        const auto menu = withPage({{"menu", QJsonObject{{"category", "Game"}, {"max", 9}}}});
+        QVERIFY2(menu.config.has_value(), qPrintable(menu.errors.join('\n')));
+        QCOMPARE(menu.config->pages.value("main").menuCategory, QStringLiteral("Game"));
+        QCOMPARE(menu.config->pages.value("main").menuMax, 9);
+        QVERIFY(!withPage({{"menu", QJsonObject{{"category", "Game"}}}}).config.has_value());
+        QVERIFY(!withPage({{"menu", QJsonObject{{"max", 3}}}}).config.has_value());
+        QVERIFY(!withPage({{"menu", QJsonObject{{"category", "Ga me"}, {"max", 3}}}}).config.has_value());
+        QVERIFY(!withPage({{"menu", QJsonObject{{"category", "../x"}, {"max", 3}}}}).config.has_value());
+        QVERIFY(!withPage({{"menu", QJsonObject{{"category", "Game"}, {"max", 13}}}}).config.has_value());
+        QVERIFY(!withPage({{"menu", "Game"}}).config.has_value());
         const auto good = withPage({{"sort", "usage"}, {"steam", QJsonObject{{"max", 6}}}});
         QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
         const Page &page = good.config->pages.value("main");

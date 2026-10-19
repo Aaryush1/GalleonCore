@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QList>
+#include <QStringList>
 #include <QString>
 
 namespace galleond {
@@ -16,6 +17,8 @@ struct DesktopApp
     QString name; // in the user's language when the file has it
     QString icon;     // icon theme name; empty if the file has none or gives a path
     QString iconPath; // absolute path of an image, when the file gives a path (Snap packages do)
+    QStringList categories; // the menu categories (Game, Utility, ...) of the file
+    int steamAppId = 0;     // the Steam game that an Exec of steam://rungameid/<n> starts, else 0
 
     [[nodiscard]] bool isValid() const { return !file.isEmpty(); }
 };
@@ -36,6 +39,9 @@ public:
     // Every application that wants to be listed (no Hidden, no NoDisplay), by
     // name, for a picker. A file counts only if it is an Application with an Exec.
     [[nodiscard]] static QList<DesktopApp> list();
+
+    // The listed applications of one menu category ("Game"): the same as list(), filtered.
+    [[nodiscard]] static QList<DesktopApp> listCategory(const QString &category);
 
     // The names accepted in a pages file.
     [[nodiscard]] static bool isValidReference(const QString &desktop);
