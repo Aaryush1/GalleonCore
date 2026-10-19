@@ -68,6 +68,10 @@ public:
     // draws the screen again.
     void setSuspended(bool suspended);
 
+    // How long the chosen wallpaper stays on the screen, before a playing track
+    // takes it back: after choosing a wallpaper, and at start. For the tests.
+    void setWallpaperHoldMs(int ms) { m_holdTimer.setInterval(ms); }
+
     // When to show the track, and whether covers may be downloaded.
     void setScreenConfig(const ScreenConfig &config);
 
@@ -135,6 +139,9 @@ private:
     bool m_showedNowPlaying = false; // for the log: what the screen last showed
     QString m_wallpaper; // catalog name, empty when nothing is shown
     QTimer m_minuteTimer;
+    QTimer m_holdTimer;   // the wallpaper is kept for a moment, then the track returns
+    bool m_holding = false;
+    void startHold();
     QTimer m_previewTimer; // groups the wallpaper steps of a turning dial into few pictures
     void showStepped();
     QTimer m_deckTimer;

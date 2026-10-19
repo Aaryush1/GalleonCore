@@ -451,7 +451,11 @@ private Q_SLOTS:
         f.controller->setBottomBar(0xff00ff, true);
         QTRY_VERIFY_WITH_TIMEOUT(near(f.lastScreen().pixel(690, 200), qRgb(30, 160, 60)), 3000); // the wallpaper
         QVERIFY(near(f.lastScreen().pixel(360, 382), qRgb(255, 0, 255), 50));                       // the magenta line
+        f.controller->setWallpaperHoldMs(700);
         f.controller->setBottomBar(0xffffff, false);
+        // The choice is shown first, then the track comes back.
+        QTest::qWait(300);
+        QVERIFY(near(f.lastScreen().pixel(690, 200), qRgb(30, 160, 60)));
         QTRY_VERIFY_WITH_TIMEOUT(f.lastScreen().pixelColor(690, 200) != QColor(30, 160, 60), 3000);
     }
 
@@ -462,14 +466,17 @@ private Q_SLOTS:
 
         // A new start: nothing drawn yet, then restore() puts the wallpaper on the screen.
         Fixture g;
+        g.controller->setWallpaperHoldMs(700);
         QCOMPARE(g.frames(), size_t(0));
         g.controller->restore();
         QCOMPARE(g.controller->wallpaper(), f.wallpaper());
         QVERIFY(g.frames() >= 1);
         QVERIFY(near(g.lastScreen().pixel(690, 200), qRgb(30, 160, 60)));
 
-        // The player answers a moment later: the track screen replaces it.
+        // The player answers a moment later: the wallpaper is kept for the hold time, then the track takes over.
         g.media.set(MediaController::State::Playing, Fixture::track());
+        QTest::qWait(300);
+        QVERIFY(near(g.lastScreen().pixel(690, 200), qRgb(30, 160, 60))); // still the wallpaper
         QTRY_VERIFY_WITH_TIMEOUT(!near(g.lastScreen().pixel(690, 200), qRgb(30, 160, 60)), 3000);
     }
 

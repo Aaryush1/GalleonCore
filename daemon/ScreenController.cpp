@@ -21,6 +21,7 @@ namespace {
 
 constexpr int DeckCheckIntervalMs = 5000;
 constexpr int MinuteMs = 60 * 1000;
+constexpr int WallpaperHoldMs = 4000; // a chosen wallpaper is shown this long before a playing track takes the screen
 constexpr int PreviewIntervalMs = 60; // at most one picture per this time while a dial turns
 // Wake up just after the minute changes.
 constexpr int MinuteMarginMs = 50;
@@ -70,6 +71,13 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
                 draw();
         });
     }
+    m_holdTimer.setSingleShot(true);
+    m_holdTimer.setInterval(WallpaperHoldMs);
+    connect(&m_holdTimer, &QTimer::timeout, this, [this] {
+        m_holding = false;
+        if (!m_wallpaper.isEmpty())
+            draw(); // a playing track takes the screen now
+    });
     m_previewTimer.setSingleShot(true);
     m_previewTimer.setInterval(PreviewIntervalMs);
     connect(&m_previewTimer, &QTimer::timeout, this, &ScreenController::showStepped);
@@ -119,7 +127,10 @@ void ScreenController::restore()
         qWarning() << "galleond: the saved wallpaper" << name << "is not in the catalog: the screen is left as it is";
         return;
     }
-    SetWallpaper(name); // drawn at once; a track already playing takes the screen when the player reports it
+    // Shown at once and kept for a moment: a track that is already playing (the
+    // player answers a little later) takes the screen when that time is over.
+    if (SetWallpaper(name))
+        startHold();
 }
 
 bool ScreenController::SetWallpaper(const QString &name)
@@ -189,10 +200,20 @@ void ScreenController::setSuspended(bool suspended)
         draw();
 }
 
+void ScreenController::startHold()
+{
+    m_holding = true;
+    m_holdTimer.start();
+}
+
 void ScreenController::setBottomBar(std::uint32_t rgb, bool choosingWallpaper)
 {
     if (rgb == m_barRgb && choosingWallpaper == m_choosingWallpaper)
         return;
+    if (m_choosingWallpaper && !choosingWallpaper)
+        startHold(); // the choice is made: show it, then back to the track
+    else if (choosingWallpaper)
+        m_holdTimer.stop();
     m_barRgb = rgb;
     m_choosingWallpaper = choosingWallpaper;
     if (!m_wallpaper.isEmpty())
@@ -240,7 +261,7 @@ QVariantMap ScreenController::themeProperties() const
 
 bool ScreenController::wantsNowPlaying() const
 {
-    if (m_choosingWallpaper || !m_media || !m_nowPlayingRenderer || m_wallpaper.isEmpty() || m_screenConfig.nowPlaying == NowPlayingMode::Never)
+    if (m_choosingWallpaper || m_holding || !m_media || !m_nowPlayingRenderer || m_wallpaper.isEmpty() || m_screenConfig.nowPlaying == NowPlayingMode::Never)
         return false;
     if (m_media->nowPlaying().isEmpty())
         return false;

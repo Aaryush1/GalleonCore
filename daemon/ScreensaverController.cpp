@@ -170,6 +170,8 @@ void ScreensaverController::start()
     }
 
     m_buffer.clear();
+    m_sinceShown.invalidate();
+    m_lastCostMs = 0;
     m_sendFailures = 0;
     m_process = new QProcess(this);
     m_process->setProcessChannelMode(QProcess::SeparateChannels);
@@ -233,7 +235,16 @@ void ScreensaverController::onReadyRead()
     m_buffer.remove(0, complete);
     if (m_buffer.size() > MaxBufferedFrames * m_frameBytes)
         m_buffer.clear(); // cannot happen with the line above; a bound all the same
+    // Cutting and sending a frame takes this thread for a while, and the dials and
+    // keys are read by it too: never use more than half of the time. A frame that
+    // arrives sooner than the last one took to send is dropped.
+    if (m_sinceShown.isValid() && m_sinceShown.elapsed() < m_lastCostMs)
+        return;
+    QElapsedTimer cost;
+    cost.start();
     showFrame(latest);
+    m_lastCostMs = cost.elapsed();
+    m_sinceShown.start();
 }
 
 void ScreensaverController::showFrame(const QByteArray &rgb)

@@ -8,6 +8,7 @@
 #include "ScreensaverSplitter.h"
 
 #include <QByteArray>
+#include <QElapsedTimer>
 #include <QObject>
 #include <QProcess>
 #include <QString>
@@ -83,6 +84,8 @@ private:
     QByteArray m_buffer;
     qint64 m_frameBytes = 0;
     bool m_active = false;
+    QElapsedTimer m_sinceShown; // since the last frame was sent
+    qint64 m_lastCostMs = 0;    // what sending it took
     int m_next = 0; // the video shown at the next start: they take turns
     QString m_playing;
     int m_restarts = 0;
