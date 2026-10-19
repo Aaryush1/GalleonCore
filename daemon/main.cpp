@@ -24,6 +24,9 @@
 #include <QFile>
 #include <QDir>
 #include <QFileInfo>
+#include <QBuffer>
+#include <QElapsedTimer>
+#include <QRandomGenerator>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -35,6 +38,82 @@ namespace {
 
 // A key picture for the hardware test: the key number on a colour that depends
 // on it; `lit` is the white version shown while the key is held down.
+// A picture that changes with `frame` and has some detail, so that its JPEG is
+// about the size of a video frame's.
+QImage throughputImage(const QSize &size, int frame)
+{
+    QImage image(size, QImage::Format_RGB32);
+    for (int y = 0; y < size.height(); ++y) {
+        auto *line = reinterpret_cast<QRgb *>(image.scanLine(y));
+        for (int x = 0; x < size.width(); ++x) {
+            const int noise = static_cast<int>(QRandomGenerator::global()->bounded(24U));
+            line[x] = qRgb((x + frame * 7) % 256, (y * 2 + frame * 3) % 256, ((x ^ y) + frame * 5 + noise) % 256);
+        }
+    }
+    return image;
+}
+
+// Sends bursts of pictures and times them, for data/devices/*.json. Prints
+// frames per second; the JPEG encoding is part of the time, as it is in use.
+// Stop galleond first: two writers would disturb the figures.
+int measureThroughput(galleon::StreamDeck &deck)
+{
+    constexpr int ScreenFrames = 40;
+    constexpr int KeyRounds = 10;
+    constexpr int BothRounds = 10;
+    const QSize screen(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight);
+    const QSize key(galleon::protocol::KeyImageSize, galleon::protocol::KeyImageSize);
+
+    QElapsedTimer timer;
+    timer.start();
+    for (int i = 0; i < ScreenFrames; ++i) {
+        if (!deck.setScreenImage(throughputImage(screen, i)))
+            return 1;
+    }
+    const qint64 screenMs = timer.elapsed();
+
+    timer.restart();
+    for (int i = 0; i < KeyRounds; ++i) {
+        for (int k = 0; k < galleon::protocol::KeyCount; ++k) {
+            if (!deck.setKeyImage(k, throughputImage(key, i * 12 + k)))
+                return 1;
+        }
+    }
+    const qint64 keysMs = timer.elapsed();
+
+    timer.restart();
+    for (int i = 0; i < BothRounds; ++i) {
+        if (!deck.setScreenImage(throughputImage(screen, i)))
+            return 1;
+        for (int k = 0; k < galleon::protocol::KeyCount; ++k) {
+            if (!deck.setKeyImage(k, throughputImage(key, i * 12 + k)))
+                return 1;
+        }
+    }
+    const qint64 bothMs = timer.elapsed();
+
+    // The encoding alone, to tell the module's limit from this machine's.
+    timer.restart();
+    for (int i = 0; i < ScreenFrames; ++i) {
+        QByteArray jpeg;
+        QBuffer buffer(&jpeg);
+        buffer.open(QIODevice::WriteOnly);
+        throughputImage(screen, i).save(&buffer, "JPEG", 90);
+    }
+    const qint64 encodeMs = timer.elapsed();
+
+    const auto fps = [](int frames, qint64 ms) { return ms > 0 ? 1000.0 * frames / static_cast<double>(ms) : 0.0; };
+    qInfo().noquote() << QStringLiteral("screen only      : %1 frames in %2 ms = %3 fps")
+                             .arg(ScreenFrames).arg(screenMs).arg(fps(ScreenFrames, screenMs), 0, 'f', 1);
+    qInfo().noquote() << QStringLiteral("12 keys          : %1 rounds in %2 ms = %3 rounds/s")
+                             .arg(KeyRounds).arg(keysMs).arg(fps(KeyRounds, keysMs), 0, 'f', 1);
+    qInfo().noquote() << QStringLiteral("screen + 12 keys : %1 rounds in %2 ms = %3 rounds/s")
+                             .arg(BothRounds).arg(bothMs).arg(fps(BothRounds, bothMs), 0, 'f', 1);
+    qInfo().noquote() << QStringLiteral("JPEG encoding of the screen picture alone: %1 ms each")
+                             .arg(static_cast<double>(encodeMs) / ScreenFrames, 0, 'f', 1);
+    return 0;
+}
+
 QImage keyTestImage(int index, bool lit)
 {
     constexpr int size = galleon::protocol::KeyImageSize;
@@ -169,6 +248,8 @@ int main(int argc, char *argv[])
                                          QStringLiteral("Print the first bytes of every key and dial report the module sends."));
     const QCommandLineOption testKeysOption(QStringLiteral("test-keys"),
                                             QStringLiteral("Draw the key numbers on the 12 keys; a key turns white while pressed."));
+    const QCommandLineOption measureOption(QStringLiteral("measure-throughput"),
+                                           QStringLiteral("Send bursts of pictures to the screen and the keys, print the frame rates and exit. Stop the galleond service first."));
     const QCommandLineOption pagesOption(QStringLiteral("pages"),
                                          QStringLiteral("Pages file (default: ~/.config/galleoncore/pages.json)."),
                                          QStringLiteral("file"));
@@ -201,7 +282,7 @@ int main(int argc, char *argv[])
                                             QStringLiteral("number"));
     parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption,
                        pagesOption, noPagesOption, renderKeysOption, stateOption, renderNowPlayingOption, appsOption,
-                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption});
+                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
@@ -334,6 +415,17 @@ int main(int argc, char *argv[])
         qWarning() << "galleond: no Galleon 100 SD found, waiting";
     else
         qInfo() << "galleond: Stream Deck module opened, serial" << deck.serialNumber();
+
+    if (parser.isSet(measureOption)) {
+        if (!deck.isOpen()) {
+            qCritical() << "galleond: no Galleon 100 SD found";
+            return 1;
+        }
+        const int result = measureThroughput(deck);
+        if (result != 0)
+            qCritical() << "galleond: a picture could not be sent";
+        return result;
+    }
 
     // Until keys and dials do something, say what they send: this is also how
     // the key numbering and the dial numbering are checked on the hardware.
