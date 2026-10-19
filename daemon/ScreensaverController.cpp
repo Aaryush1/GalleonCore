@@ -1,0 +1,273 @@
+// SPDX-FileCopyrightText: 2026 Paul Woisard
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "ScreensaverController.h"
+
+#include "VideoThumbnails.h"
+
+#include <galleon/StreamDeck.h>
+
+#include <QDebug>
+#include <QDir>
+#include <QFileInfo>
+#include <QStandardPaths>
+
+namespace galleond {
+
+namespace {
+
+constexpr qint64 MaxVideoBytes = 8LL * 1024 * 1024 * 1024;
+constexpr int MaxRestarts = 3;      // a video that ends on its own (a failed loop) is restarted this many times
+constexpr int MaxSendFailures = 30; // consecutive frames the module did not take
+constexpr int MaxBufferedFrames = 4;
+constexpr int StopWaitMs = 1500;
+
+} // namespace
+
+ScreensaverController::ScreensaverController(galleon::StreamDeck *deck, MediaController *media, QObject *parent)
+    : QObject(parent)
+    , m_deck(deck)
+    , m_media(media)
+{
+    m_idle.setSingleShot(true);
+    connect(&m_idle, &QTimer::timeout, this, &ScreensaverController::onIdle);
+
+    connect(m_deck, &galleon::StreamDeck::keyPressed, this, [this] { notifyActivity(); });
+    connect(m_deck, &galleon::StreamDeck::keyReleased, this, [this] { notifyActivity(); });
+    connect(m_deck, &galleon::StreamDeck::dialPressed, this, [this] { notifyActivity(); });
+    connect(m_deck, &galleon::StreamDeck::dialReleased, this, [this] { notifyActivity(); });
+    connect(m_deck, &galleon::StreamDeck::dialRotated, this, [this] { notifyActivity(); });
+    if (m_media) {
+        // A track starting is a reason to leave the screensaver, unless it is allowed over one.
+        connect(m_media, &MediaController::stateChanged, this, [this] {
+            if (m_active && !m_config.whilePlaying && m_media->state() == MediaController::State::Playing)
+                wake();
+        });
+    }
+}
+
+ScreensaverController::~ScreensaverController()
+{
+    stop();
+}
+
+void ScreensaverController::setConfig(const ScreensaverConfig &config, const QString &baseFolder)
+{
+    if (config == m_config && baseFolder == m_baseFolder)
+        return;
+    const bool wasActive = m_active;
+    stop();
+    m_config = config;
+    m_baseFolder = baseFolder;
+    m_giveUp = false;
+    m_splitter = config.enabled() ? std::make_unique<ScreensaverSplitter>(config) : nullptr;
+    if (config.enabled() && !m_splitter->isValid()) {
+        qWarning() << "galleond: the screensaver geometry gives an unusable picture size: the screensaver stays off";
+        m_splitter.reset();
+    } else if (!config.video.isEmpty() && !config.hasGeometry) {
+        qWarning() << "galleond: the screensaver has a video but no geometry (screensaver.geometry, measured in mm): it stays off";
+    }
+    if (wasActive)
+        Q_EMIT activeChanged(false);
+    restartIdleTimer();
+}
+
+void ScreensaverController::restartIdleTimer()
+{
+    m_idle.stop();
+    if (!m_splitter)
+        return;
+    m_idle.start(m_idleOverrideMs > 0 ? m_idleOverrideMs : m_config.idleMinutes * 60 * 1000);
+}
+
+void ScreensaverController::notifyActivity()
+{
+    m_giveUp = false;
+    if (m_active) {
+        // Deferred, so that the other handlers of this same input (which run
+        // after this one) still see the screensaver and ignore it: the press
+        // that wakes the module does not also act.
+        QMetaObject::invokeMethod(this, [this] { wake(); }, Qt::QueuedConnection);
+        return;
+    }
+    restartIdleTimer();
+}
+
+void ScreensaverController::onIdle()
+{
+    if (m_active || !m_splitter || m_giveUp || !m_deck->isOpen())
+        return;
+    if (!m_config.whilePlaying && m_media && m_media->state() == MediaController::State::Playing) {
+        restartIdleTimer(); // look again later
+        return;
+    }
+    start();
+}
+
+QString ScreensaverController::resolveVideo() const
+{
+    QString path = m_config.video;
+    if (path.startsWith(QLatin1String("~/")))
+        path = QDir::homePath() + path.mid(1);
+    if (QDir::isRelativePath(path))
+        path = QDir(m_baseFolder).absoluteFilePath(path);
+    const QFileInfo info(path);
+    if (!info.isFile() || info.size() <= 0 || info.size() > MaxVideoBytes || !VideoThumbnails::isVideoFile(path))
+        return {};
+    return info.absoluteFilePath();
+}
+
+void ScreensaverController::start()
+{
+    const QString video = resolveVideo();
+    if (video.isEmpty()) {
+        qWarning() << "galleond: the screensaver video" << m_config.video
+                   << "is not a readable video file (mp4, mkv, webm, avi, mov...): the screensaver stays off";
+        m_giveUp = true;
+        return;
+    }
+    const QString program = QStandardPaths::findExecutable(m_program);
+    if (program.isEmpty() && !QFileInfo(m_program).isExecutable()) {
+        qWarning() << "galleond: FFmpeg not found: the screensaver stays off";
+        m_giveUp = true;
+        return;
+    }
+
+    const QSize canvas = m_splitter->canvasSize();
+    m_frameBytes = static_cast<qint64>(canvas.width()) * canvas.height() * 3;
+    const QString filter = QStringLiteral("scale=%1:%2:force_original_aspect_ratio=increase,crop=%1:%2,fps=%3")
+                               .arg(canvas.width())
+                               .arg(canvas.height())
+                               .arg(m_config.fps);
+    QStringList arguments{QStringLiteral("-nostdin"), QStringLiteral("-v"), QStringLiteral("error"),
+                          QStringLiteral("-protocol_whitelist"), QStringLiteral("file"),
+                          QStringLiteral("-re"), QStringLiteral("-stream_loop"), QStringLiteral("-1"),
+                          QStringLiteral("-i"), video,
+                          QStringLiteral("-an"), QStringLiteral("-sn"), QStringLiteral("-dn"),
+                          QStringLiteral("-vf"), filter,
+                          QStringLiteral("-f"), QStringLiteral("rawvideo"), QStringLiteral("-pix_fmt"), QStringLiteral("rgb24"),
+                          QStringLiteral("-")};
+    QString executable = program.isEmpty() ? m_program : program;
+    const QString nice = QStandardPaths::findExecutable(QStringLiteral("nice"));
+    if (!nice.isEmpty()) {
+        arguments.prepend(executable);
+        arguments.prepend(QStringLiteral("19"));
+        arguments.prepend(QStringLiteral("-n"));
+        executable = nice;
+    }
+
+    m_buffer.clear();
+    m_sendFailures = 0;
+    m_process = new QProcess(this);
+    m_process->setProcessChannelMode(QProcess::SeparateChannels);
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &ScreensaverController::onReadyRead);
+    connect(m_process, &QProcess::finished, this, &ScreensaverController::onFinished);
+    // Nothing to say on stderr but errors (-v error): they go to the log.
+    connect(m_process, &QProcess::readyReadStandardError, this, [this] {
+        qWarning().noquote() << "ffmpeg:" << QString::fromUtf8(m_process->readAllStandardError()).trimmed().left(300);
+    });
+    m_process->start(executable, arguments, QIODevice::ReadOnly);
+    if (!m_process->waitForStarted(3000)) {
+        qWarning() << "galleond: FFmpeg did not start: the screensaver stays off";
+        m_process->deleteLater();
+        m_process = nullptr;
+        m_giveUp = true;
+        return;
+    }
+    m_active = true;
+    qInfo() << "galleond: screensaver on";
+    Q_EMIT activeChanged(true);
+}
+
+void ScreensaverController::stop()
+{
+    if (!m_process)
+        return;
+    QProcess *process = m_process;
+    m_process = nullptr;
+    process->disconnect(this);
+    process->terminate();
+    if (!process->waitForFinished(StopWaitMs)) {
+        process->kill();
+        process->waitForFinished(StopWaitMs);
+    }
+    delete process;
+    m_buffer.clear();
+}
+
+void ScreensaverController::wake()
+{
+    if (!m_active)
+        return;
+    stop();
+    m_active = false;
+    m_restarts = 0;
+    qInfo() << "galleond: screensaver off";
+    Q_EMIT activeChanged(false);
+    restartIdleTimer();
+}
+
+void ScreensaverController::onReadyRead()
+{
+    if (!m_process || m_frameBytes <= 0)
+        return;
+    m_buffer.append(m_process->readAllStandardOutput());
+    // Only the newest whole frame is shown: older ones are late.
+    if (m_buffer.size() < m_frameBytes)
+        return;
+    const qint64 complete = (m_buffer.size() / m_frameBytes) * m_frameBytes;
+    const QByteArray latest = m_buffer.mid(complete - m_frameBytes, m_frameBytes);
+    m_buffer.remove(0, complete);
+    if (m_buffer.size() > MaxBufferedFrames * m_frameBytes)
+        m_buffer.clear(); // cannot happen with the line above; a bound all the same
+    showFrame(latest);
+}
+
+void ScreensaverController::showFrame(const QByteArray &rgb)
+{
+    if (!m_active || !m_splitter)
+        return;
+    const QSize canvas = m_splitter->canvasSize();
+    const QImage frame(reinterpret_cast<const uchar *>(rgb.constData()), canvas.width(), canvas.height(),
+                       canvas.width() * 3, QImage::Format_RGB888);
+    const ScreensaverSplitter::Frames parts = m_splitter->split(frame);
+    if (!parts.isValid())
+        return;
+    bool ok = m_deck->setScreenImage(parts.screen);
+    for (int key = 0; key < galleon::protocol::KeyCount; ++key)
+        ok = m_deck->setKeyImage(key, parts.keys[static_cast<std::size_t>(key)]) && ok;
+    if (ok) {
+        m_sendFailures = 0;
+    } else if (++m_sendFailures >= MaxSendFailures) {
+        qWarning() << "galleond: the module does not take the screensaver pictures: back to the normal screen";
+        m_giveUp = true;
+        wake();
+    }
+}
+
+void ScreensaverController::onFinished(int exitCode, QProcess::ExitStatus status)
+{
+    if (!m_process)
+        return;
+    qWarning() << "galleond: FFmpeg stopped (" << exitCode << (status == QProcess::CrashExit ? "crash" : "") << ")";
+    QProcess *process = m_process;
+    m_process = nullptr;
+    process->disconnect(this);
+    process->deleteLater();
+    // With -stream_loop the video does not end: a stop is a failure. Try a few
+    // times, then give up until the next use.
+    if (m_active && ++m_restarts <= MaxRestarts && resolveVideo().size() > 0) {
+        m_active = false; // start() sets it and announces it again
+        start();
+        if (m_active)
+            return;
+    }
+    const bool wasActive = m_active;
+    m_active = false;
+    m_giveUp = true;
+    if (wasActive || m_restarts > 0)
+        Q_EMIT activeChanged(false);
+    restartIdleTimer();
+}
+
+} // namespace galleond

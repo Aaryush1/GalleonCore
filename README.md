@@ -183,6 +183,29 @@ The ring colours use the Stream Deck protocol's per-LED feature report (`03 24 <
 
 A dial press with `{ "type": "wallpaper-mode" }` switches that dial from the player control to choosing the wallpaper: turning it steps through the wallpapers of the catalog (remembered, shown even while a track plays), and a second press goes back. After 30 seconds without a turn, it goes back by itself. A thin line along the bottom of the screen and the right dial's ring show the mode: white for the player control, magenta for choosing the wallpaper.
 
+### Animated screensaver
+
+After a time without use, a vertical video can play over the screen and the 12 keys together, cut as if the picture were seen through them (the gaps between keys are left out). Any key or dial, or a track starting (unless `while_playing` is true), brings the normal screen back; the press that wakes the module does nothing else.
+
+```json
+"screensaver": {
+  "video": "screensaver.mp4",
+  "idle_minutes": 5,
+  "fps": 15,
+  "while_playing": false,
+  "geometry": {
+    "screen_mm": [W, H],
+    "key_mm": [W, H],
+    "gap_mm": [X, Y],
+    "screen_to_keys_mm": D
+  }
+}
+```
+
+The sizes are the module's, in millimetres, measured with a ruler on the visible glass (the screen, one key, the gaps between keys, and the distance from the bottom of the screen to the top of the first row of keys). They are never guessed: without `geometry` the screensaver stays off. The module is taken as centred: the screen and the key grid share one vertical axis. The video is scaled to cover the picture (`720` pixels wide, as high as the module in proportion) and looped; make it that shape, for example `720 x 1100`, so nothing is cropped. For a seamless loop, end it on its first frame. The video path is absolute, `~/...`, or relative to the pages file. FFmpeg decodes it in its own process (no shell, lowest priority, no audio, `file` protocol only); the module takes about 20 rounds of screen plus keys per second (measured), so `fps` goes up to 20 and 15 is comfortable.
+
+Videos you put on your own keyboard stay on your computer. A video added to this repository follows [ASSETS.md](ASSETS.md).
+
 ### Now playing on the screen
 
 While a player is playing, the screen shows the track (cover, title, artist, time and a progress bar) instead of the wallpaper, and goes back to the wallpaper when the music stops. This is set by an optional `screen` section of the pages file:

@@ -312,6 +312,85 @@ struct Parser
         }
     }
 
+    // [a, b] with both numbers in [min, max].
+    bool pair(const QJsonValue &value, const QString &path, double min, double max, double &first, double &second)
+    {
+        if (!value.isArray() || value.toArray().size() != 2 || !value.toArray().at(0).isDouble()
+            || !value.toArray().at(1).isDouble()) {
+            error(path, QStringLiteral("must be two numbers [width, height] in millimetres"));
+            return false;
+        }
+        first = value.toArray().at(0).toDouble();
+        second = value.toArray().at(1).toDouble();
+        if (!(first >= min && first <= max && second >= min && second <= max)) {
+            error(path, QStringLiteral("numbers must be from %1 to %2 mm").arg(min).arg(max));
+            return false;
+        }
+        return true;
+    }
+
+    void screensaver(const QJsonValue &value, PagesConfig &config)
+    {
+        if (value.isUndefined())
+            return;
+        if (!value.isObject()) {
+            error(QStringLiteral("screensaver"), QStringLiteral("must be an object"));
+            return;
+        }
+        const QJsonObject object = value.toObject();
+        const QString path = QStringLiteral("screensaver");
+        rejectUnknown(object,
+                      {QStringLiteral("video"), QStringLiteral("idle_minutes"), QStringLiteral("fps"),
+                       QStringLiteral("while_playing"), QStringLiteral("geometry")},
+                      path);
+        ScreensaverConfig &target = config.screensaver;
+        if (object.contains(QStringLiteral("video"))) {
+            QString video;
+            if (text(object.value(QStringLiteral("video")), path + QStringLiteral(".video"), MaxVideoPathLength, video)) {
+                if (video.contains(QLatin1Char('\0')) || video.contains(QLatin1Char('\n')))
+                    error(path + QStringLiteral(".video"), QStringLiteral("is not a file path"));
+                else
+                    target.video = video;
+            }
+        }
+        if (object.contains(QStringLiteral("idle_minutes")))
+            integer(object.value(QStringLiteral("idle_minutes")), 1, 720, path + QStringLiteral(".idle_minutes"), target.idleMinutes);
+        if (object.contains(QStringLiteral("fps")))
+            integer(object.value(QStringLiteral("fps")), 1, 20, path + QStringLiteral(".fps"), target.fps);
+        if (object.contains(QStringLiteral("while_playing"))) {
+            if (!object.value(QStringLiteral("while_playing")).isBool())
+                error(path + QStringLiteral(".while_playing"), QStringLiteral("must be true or false"));
+            else
+                target.whilePlaying = object.value(QStringLiteral("while_playing")).toBool();
+        }
+        if (!object.contains(QStringLiteral("geometry")))
+            return;
+        const QString gpath = path + QStringLiteral(".geometry");
+        if (!object.value(QStringLiteral("geometry")).isObject()) {
+            error(gpath, QStringLiteral("must be an object"));
+            return;
+        }
+        const QJsonObject geometry = object.value(QStringLiteral("geometry")).toObject();
+        rejectUnknown(geometry,
+                      {QStringLiteral("screen_mm"), QStringLiteral("key_mm"), QStringLiteral("gap_mm"),
+                       QStringLiteral("screen_to_keys_mm")},
+                      gpath);
+        bool ok = pair(geometry.value(QStringLiteral("screen_mm")), gpath + QStringLiteral(".screen_mm"), 1, 500,
+                       target.screenWidthMm, target.screenHeightMm);
+        ok = pair(geometry.value(QStringLiteral("key_mm")), gpath + QStringLiteral(".key_mm"), 1, 100, target.keyWidthMm,
+                  target.keyHeightMm) && ok;
+        ok = pair(geometry.value(QStringLiteral("gap_mm")), gpath + QStringLiteral(".gap_mm"), 0, 100, target.gapXMm,
+                  target.gapYMm) && ok;
+        const QJsonValue toKeys = geometry.value(QStringLiteral("screen_to_keys_mm"));
+        if (!toKeys.isDouble() || toKeys.toDouble() < 0 || toKeys.toDouble() > 200) {
+            error(gpath + QStringLiteral(".screen_to_keys_mm"), QStringLiteral("must be a number from 0 to 200 mm"));
+            ok = false;
+        } else {
+            target.screenToKeysMm = toKeys.toDouble();
+        }
+        target.hasGeometry = ok;
+    }
+
     void screen(const QJsonValue &value, PagesConfig &config)
     {
         if (value.isUndefined())
@@ -405,7 +484,7 @@ PagesParseResult parsePagesConfig(const QByteArray &json)
     Parser parser;
     parser.rejectUnknown(root,
                          {QStringLiteral("version"), QStringLiteral("home"), QStringLiteral("pages"), QStringLiteral("dials"),
-                          QStringLiteral("screen"), QStringLiteral("themes")},
+                          QStringLiteral("screen"), QStringLiteral("themes"), QStringLiteral("screensaver")},
                          QStringLiteral("file"));
     int version = 0;
     if (parser.integer(root.value(QStringLiteral("version")), 1, 1, QStringLiteral("version"), version) && version != 1)
@@ -416,6 +495,7 @@ PagesParseResult parsePagesConfig(const QByteArray &json)
     parser.dials(root.value(QStringLiteral("dials")), config);
     parser.screen(root.value(QStringLiteral("screen")), config);
     parser.themes(root.value(QStringLiteral("themes")), config);
+    parser.screensaver(root.value(QStringLiteral("screensaver")), config);
 
     parser.text(root.value(QStringLiteral("home")), QStringLiteral("home"), MaxNameLength, config.home);
     if (!config.home.isEmpty() && !config.pages.contains(config.home))

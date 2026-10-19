@@ -26,11 +26,14 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 | Choix du fond par la molette droite : clic = mode fond (anneau et barre du bas magenta), rotation = fond suivant/précédent, second clic ou 30 s = retour ; le fond s'affiche même si une piste joue | oui | oui (validé par l'utilisateur) |
 | Un seul `galleond` à la fois : le nom D-Bus est pris avant d'ouvrir le module, un second démarrage s'arrête (code 1) sans toucher au module | manuel | à confirmer |
 | Service systemd utilisateur (`tools/systemd/galleond.service`, variante `galleond-dev.service` pour l'arbre de compilation) | `systemd-analyze verify` | démarre et pilote le module (journal du 19 octobre) ; démarrage à l'ouverture de session et reprise après veille à confirmer |
+| Écran de veille animé : vidéo verticale (FFmpeg → images brutes) découpée pour l'écran 720×384 et les 12 touches 160×160, boucle, délai d'inactivité, réveil par touche/molette/début de piste, suspension des autres contrôleurs ; section `screensaver` du JSON (géométrie en mm exigée) | oui (découpage, FFmpeg réel, réveil, médias) | non : en attente des mesures en mm et d'une vidéo |
+| Débit du module mesuré (`--measure-throughput`) : écran 44,7 i/s, touches 35 tours/s, écran + touches 20 tours/s | — | oui (mesuré le 19 octobre) |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 
 ## 2. En cours
 
 - **Aperçu fluide** du choix du fond : chaque cran renvoie un JPEG de l'écran. À mesurer sur le module : latence par cran, et si une rotation rapide s'accumule. Piste si trop lent : ne dessiner que le dernier fond demandé (regrouper les crans) et réduire la qualité JPEG pendant la rotation.
+- **Écran de veille : mesures et vidéo à fournir** — mesures à la règle (écran, touche, espaces, distance écran → touches) à mettre dans `screensaver.geometry`, puis une vidéo verticale (piste : image générée par ChatGPT puis animée par un outil IA, en boucle ; vérifier les conditions du service et `ASSETS.md`). À confirmer sur le module : fluidité à 15 i/s, continuité de l'image entre l'écran et les touches, réveil.
 - **Pages remplies** : les thèmes Multimédia / Son / Jeux / Système de `~/.config/galleoncore/pages-themes.json` sont à adopter dans `pages.json` (aujourd'hui fichier séparé, lancé avec `--pages`).
 - **Jeux les plus joués** (thème Jeux vidéo) : classement des jeux Steam par temps de jeu. Source à étudier en lecture seule (`~/.steam/steam/userdata/<id>/config/localconfig.vdf`, `appmanifest_*.acf`) ; NeuroHell est un `.desktop` personnel (`neurohell.desktop`).
 

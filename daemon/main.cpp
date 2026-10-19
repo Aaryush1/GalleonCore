@@ -7,6 +7,7 @@
 #include "PagesConfig.h"
 #include "PagesController.h"
 #include "PagesEditor.h"
+#include "ScreensaverController.h"
 #include "ScreenController.h"
 #include "ScreenRenderer.h"
 #include "TileRenderer.h"
@@ -503,6 +504,23 @@ int main(int argc, char *argv[])
                              pages->redraw(true);
                              pages->applyRings();
                          });
+    }
+
+    // The animated screensaver: after a time without use, a video over the screen and the keys.
+    std::unique_ptr<galleond::ScreensaverController> screensaver;
+    if (pages) {
+        screensaver = std::make_unique<galleond::ScreensaverController>(&deck, media.get());
+        const QString pagesFolder = QFileInfo(defaultPagesFile(parser.value(pagesOption))).absolutePath();
+        QObject::connect(screensaver.get(), &galleond::ScreensaverController::activeChanged, pages.get(),
+                         [&pages, &controller](bool active) {
+                             pages->setSuspended(active);
+                             controller.setSuspended(active);
+                         });
+        const auto applySaver = [&screensaver, &pages, pagesFolder] {
+            screensaver->setConfig(pages->screensaverConfig(), pagesFolder);
+        };
+        QObject::connect(pages.get(), &galleond::PagesController::screensaverConfigChanged, screensaver.get(), applySaver);
+        applySaver();
     }
 
     // org.galleoncore.Deck on the session bus (the name was claimed at the start):

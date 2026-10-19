@@ -61,6 +61,7 @@ void PagesController::setConfig(const PagesConfig &config)
 {
     m_apps.clear();
     const bool screenChanged = !(config.screen == m_config.screen);
+    const bool saverChanged = !(config.screensaver == m_config.screensaver);
     m_config = config;
     m_stack = {config.home};
     m_theme = -1;
@@ -82,6 +83,8 @@ void PagesController::setConfig(const PagesConfig &config)
     Q_EMIT themeModeChanged();
     if (screenChanged)
         Q_EMIT screenConfigChanged();
+    if (saverChanged)
+        Q_EMIT screensaverConfigChanged();
 }
 
 void PagesController::loadFile(const QString &path)
@@ -171,8 +174,25 @@ void PagesController::drawKey(int key, bool force)
     m_sent[index] = m_deck->setKeyImage(key, image) ? image : QImage();
 }
 
+void PagesController::setSuspended(bool suspended)
+{
+    if (suspended == m_suspended)
+        return;
+    m_suspended = suspended;
+    m_pressed.fill(false);
+    if (suspended) {
+        for (int dial = 0; dial < galleon::protocol::DialCount; ++dial)
+            m_deck->setDialRing(dial, 0, 0, 0);
+        return;
+    }
+    redraw(true);
+    applyRings();
+}
+
 void PagesController::redraw(bool force)
 {
+    if (m_suspended)
+        return;
     for (int key = 0; key < galleon::protocol::KeyCount; ++key)
         drawKey(key, force);
 }
@@ -278,7 +298,7 @@ void PagesController::selectTheme(int index)
 
 void PagesController::applyRings()
 {
-    if (!m_deck->isOpen())
+    if (!m_deck->isOpen() || m_suspended)
         return;
     // The left ring shows the theme (dark without one); the right ring stays
     // white, for the music player control.
@@ -340,6 +360,8 @@ void PagesController::launchApp(const QString &desktop)
 
 void PagesController::onKeyPressed(int key)
 {
+    if (m_suspended)
+        return;
     if (key < 0 || key >= galleon::protocol::KeyCount)
         return;
     const KeyConfig *configured = keyConfig(key);
@@ -353,6 +375,8 @@ void PagesController::onKeyPressed(int key)
 
 void PagesController::onKeyReleased(int key)
 {
+    if (m_suspended)
+        return;
     if (key < 0 || key >= galleon::protocol::KeyCount || !m_pressed[static_cast<std::size_t>(key)])
         return;
     m_pressed[static_cast<std::size_t>(key)] = false;
@@ -361,6 +385,8 @@ void PagesController::onKeyReleased(int key)
 
 void PagesController::onDialRotated(int dial, int steps)
 {
+    if (m_suspended)
+        return;
     if (dial < 0 || dial >= galleon::protocol::DialCount || steps == 0)
         return;
     if (dial == m_themeDial) {
@@ -378,6 +404,8 @@ void PagesController::onDialRotated(int dial, int steps)
 
 void PagesController::onDialPressed(int dial)
 {
+    if (m_suspended)
+        return;
     if (dial < 0 || dial >= galleon::protocol::DialCount)
         return;
     m_pressedDial = dial;

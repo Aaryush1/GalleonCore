@@ -30,6 +30,10 @@ Wallpapers go in [`public/wallpaper/`](public/wallpaper/), one folder per style,
 - Record the provenance next to the license: the tool, the date, and the prompt.
 - Review the result with the rules above: a generated image can still resemble an existing character.
 
+## Screensaver videos
+
+The animated screensaver plays one vertical video over the screen and the keys (see the README). The same rules apply to any clip added to the repository: no existing characters, trademarks, real people or footage, provenance recorded (tool, date, prompt), CC-BY-SA-4.0. A clip generated or animated with an AI service is added only if that service's terms allow publishing it under this license. Your own clip for your own keyboard stays on your computer.
+
 ## Your own wallpapers
 
 The settings application lets you import any image or video for your own keyboard. Those files stay on your computer, in `~/.local/share/galleoncore/`, and never go into this repository. What you put on your own keyboard is your responsibility.

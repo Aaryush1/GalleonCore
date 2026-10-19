@@ -183,6 +183,29 @@ La couleur des anneaux utilise le rapport de fonctionnalité par LED du protocol
 
 Un appui de molette avec `{ "type": "wallpaper-mode" }` fait passer cette molette du contrôle du lecteur au choix du fond d'écran : la tourner parcourt les fonds du catalogue (le choix est retenu, et le fond s'affiche même pendant qu'une piste joue), un second appui revient en arrière. Après 30 secondes sans rotation, le retour se fait tout seul. Une fine ligne en bas de l'écran et l'anneau de la molette droite indiquent le mode : blanc pour le contrôle du lecteur, magenta pour le choix du fond.
 
+### Écran de veille animé
+
+Après un temps sans utilisation, une vidéo verticale peut défiler sur l'écran et les 12 touches ensemble, découpée comme si l'image était vue à travers elles (les espaces entre les touches sont laissés de côté). Une touche, une molette, ou le début d'une piste (sauf si `while_playing` vaut true) ramène l'écran normal ; l'appui qui réveille le module ne fait rien d'autre.
+
+```json
+"screensaver": {
+  "video": "veille.mp4",
+  "idle_minutes": 5,
+  "fps": 15,
+  "while_playing": false,
+  "geometry": {
+    "screen_mm": [L, H],
+    "key_mm": [L, H],
+    "gap_mm": [X, Y],
+    "screen_to_keys_mm": D
+  }
+}
+```
+
+Les tailles sont celles du module, en millimètres, mesurées à la règle sur le verre visible (l'écran, une touche, les espaces entre touches, et la distance du bas de l'écran au haut de la première rangée de touches). Elles ne sont jamais devinées : sans `geometry`, la veille reste éteinte. Le module est supposé centré : l'écran et la grille de touches partagent le même axe vertical. La vidéo est mise à l'échelle pour couvrir l'image (`720` pixels de large, aussi haute que le module en proportion) et jouée en boucle ; donnez-lui cette forme, par exemple `720 x 1100`, pour que rien ne soit rogné. Pour une boucle sans coupure, finissez-la sur sa première image. Le chemin de la vidéo est absolu, `~/...`, ou relatif au fichier de pages. FFmpeg la décode dans son propre processus (sans shell, priorité minimale, sans audio, protocole `file` seulement) ; le module accepte environ 20 tours écran + touches par seconde (mesuré), donc `fps` va jusqu'à 20 et 15 est confortable.
+
+Les vidéos que vous mettez sur votre propre clavier restent sur votre ordinateur. Une vidéo ajoutée à ce dépôt suit [ASSETS.md](ASSETS.md).
+
 ### En cours de lecture sur l'écran
 
 Quand un lecteur joue, l'écran affiche le morceau (pochette, titre, artiste, temps et barre de progression) à la place du fond d'écran, et revient au fond quand la musique s'arrête. Une section `screen` facultative du fichier de pages le règle :

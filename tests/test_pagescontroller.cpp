@@ -686,6 +686,29 @@ private Q_SLOTS:
         QCOMPARE(rightRing(), (std::array<int, 3>{255, 255, 255}));
         QVERIFY(modes.count() >= 2);
     }
+
+    void whileSuspendedKeysAndDialsAreIgnoredAndTheRingsAreDark()
+    {
+        Fixture f;
+        f.controller->setSuspended(true);
+        const auto writes = f.transport->writes.size();
+        f.media.setState(MediaController::State::Playing); // would redraw a key
+        QCOMPARE(f.transport->writes.size(), writes);
+
+        f.pressKey(1, true);
+        f.pressKey(1, false);
+        f.pressDial(0, true);
+        f.pressDial(0, false);
+        QCOMPARE(f.media.playPauseCount, 0);
+
+        // Leaving it draws all the keys again.
+        const auto before = f.transport->writes.size();
+        f.controller->setSuspended(false);
+        QCOMPARE(f.keysDrawnSince(before).size(), 12);
+        f.pressKey(1, true);
+        f.pressKey(1, false);
+        QVERIFY(f.media.playPauseCount > 0);
+    }
 };
 
 QTEST_MAIN(TestPagesController)

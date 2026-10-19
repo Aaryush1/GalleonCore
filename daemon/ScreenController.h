@@ -64,6 +64,10 @@ public:
     // back), wrapping around. Remembered like any choice.
     void stepWallpaper(int steps);
 
+    // While suspended (the screensaver runs) nothing is drawn; leaving it
+    // draws the screen again.
+    void setSuspended(bool suspended);
+
     // When to show the track, and whether covers may be downloaded.
     void setScreenConfig(const ScreenConfig &config);
 
@@ -92,6 +96,7 @@ private:
     void tick();
     bool draw();
     std::uint32_t m_barRgb = 0xffffff;
+    bool m_suspended = false;
     bool m_choosingWallpaper = false;
     bool m_themeChoosing = false;
     QString m_themeName;

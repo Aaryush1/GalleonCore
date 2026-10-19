@@ -176,6 +176,15 @@ void ScreenController::setTheme(const QString &name, std::uint32_t rgb, bool cho
         draw();
 }
 
+void ScreenController::setSuspended(bool suspended)
+{
+    if (suspended == m_suspended)
+        return;
+    m_suspended = suspended;
+    if (!suspended && !m_wallpaper.isEmpty())
+        draw();
+}
+
 void ScreenController::setBottomBar(std::uint32_t rgb, bool choosingWallpaper)
 {
     if (rgb == m_barRgb && choosingWallpaper == m_choosingWallpaper)
@@ -310,7 +319,7 @@ bool ScreenController::drawNowPlaying()
 bool ScreenController::draw()
 {
     const WallpaperEntry *entry = m_catalog.find(m_wallpaper);
-    if (!entry || !deckAvailable())
+    if (!entry || !deckAvailable() || m_suspended)
         return false;
     const bool nowPlaying = wantsNowPlaying();
     if (nowPlaying != m_showedNowPlaying) {

@@ -22,8 +22,9 @@
         "source": "Pixel sizes: feature report 8 holds a0 00 a0 00 = 160 x 160 (read 2026-10-18); galleon-deck gives 160 x 160 JPEG. Grid: report 8 starts with 04 03 and galleon-deck says 3 keys wide and 4 high (rust-elgato-streamdeck PR #63 writes it as 4 x 3: only the orientation of the wording differs, 12 keys). Key and gap sizes in mm: to measure with a ruler."
     },
     "throughput": {
-        "statusScreenMaxFps": null,
-        "allKeysMaxFps": null,
-        "source": "To measure by sending a burst of images and timing it."
+        "statusScreenMaxFps": 44.7,
+        "allKeysMaxFps": 35.1,
+        "screenAndAllKeysMaxFps": 20.1,
+        "source": "Measured 2026-10-19 with `galleond --measure-throughput` on the module (firmware 3.06.005), hidapi on Linux: 40 screen frames of 720 x 384 in 895 ms, 10 rounds of 12 keys of 160 x 160 in 285 ms, 10 rounds of screen + 12 keys in 497 ms. JPEG encoding included (8.9 ms for the screen picture alone). Noisy gradient pictures, about the size of video frames."
     }
 }

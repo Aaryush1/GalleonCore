@@ -27,6 +27,11 @@ inline constexpr std::uint16_t KeyboardProductId = 0x2b0c;
 inline constexpr int ControlInterface = 0;
 
 inline constexpr int KeyCount = 12;
+// The grid, row by row from the top left: 3 keys wide and 4 high (feature report 8
+// starts with 04 03, read 2026-10-18; galleon-deck; see data/devices/).
+inline constexpr int KeyColumns = 3;
+inline constexpr int KeyRows = 4;
+static_assert(KeyColumns * KeyRows == KeyCount);
 inline constexpr int DialCount = 2;
 
 // The deck stays in host mode only while a keep-alive feature report is sent

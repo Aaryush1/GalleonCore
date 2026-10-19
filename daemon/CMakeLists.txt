@@ -16,6 +16,8 @@ add_library(galleond_core STATIC
     TileRenderer.h TileRenderer.cpp
     VideoThumbnails.h VideoThumbnails.cpp
     ScreenController.h ScreenController.cpp
+    ScreensaverSplitter.h ScreensaverSplitter.cpp
+    ScreensaverController.h ScreensaverController.cpp
 )
 target_include_directories(galleond_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(galleond_core PUBLIC galleon Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus Qt6::Network PRIVATE galleon_warnings)

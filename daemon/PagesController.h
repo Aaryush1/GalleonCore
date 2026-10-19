@@ -53,6 +53,7 @@ public:
     void setAppLauncher(AppLauncher launcher) { m_launcher = std::move(launcher); }
 
     [[nodiscard]] const ScreenConfig &screenConfig() const { return m_config.screen; }
+    [[nodiscard]] const ScreensaverConfig &screensaverConfig() const { return m_config.screensaver; }
     [[nodiscard]] QString currentPage() const { return m_stack.isEmpty() ? QString() : m_stack.last(); }
     [[nodiscard]] QStringList pageStack() const { return m_stack; }
 
@@ -63,6 +64,11 @@ public:
     // The theme shown now (an entry of `themes`), or nullptr when the file has
     // none or the current page belongs to no theme. Valid until the config changes.
     [[nodiscard]] const Theme *currentTheme() const;
+
+    // While suspended (the screensaver runs) the keys are not drawn, the rings
+    // are dark, and keys and dials do nothing. Leaving it redraws everything.
+    void setSuspended(bool suspended);
+    [[nodiscard]] bool isSuspended() const { return m_suspended; }
 
     // True while a dial is set to choosing the theme (its press toggles it;
     // turning it steps through the themes).
@@ -87,6 +93,8 @@ Q_SIGNALS:
     void themeChanged();
     // The `screen` section of the configuration in use changed.
     void screenConfigChanged();
+    // The `screensaver` section changed.
+    void screensaverConfigChanged();
 
 private:
     // The configuration of the key on the current page, or nullptr. Points
@@ -114,6 +122,7 @@ private:
     void setWallpaperMode(int dial); // -1 leaves the mode
     void setThemeMode(int dial);     // -1 leaves the mode
 
+    bool m_suspended = false;
     int m_themeDial = -1; // the dial that chooses the theme, -1 = none
     QTimer m_themeTimeout;
 
