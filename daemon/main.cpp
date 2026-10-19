@@ -320,6 +320,14 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    // One galleond at a time: two would both write the module. The name is
+    // claimed before the module is touched, so a second start leaves it alone.
+    auto bus = QDBusConnection::sessionBus();
+    if (bus.isConnected() && !bus.registerService(QStringLiteral("org.galleoncore.Deck"))) {
+        qCritical() << "galleond: another galleond is already running (org.galleoncore.Deck is taken), exiting";
+        return 1;
+    }
+
     galleon::StreamDeck deck;
     deck.setTraceInput(parser.isSet(traceOption));
     if (!deck.open())
@@ -405,12 +413,10 @@ int main(int argc, char *argv[])
                          });
     }
 
-    // org.galleoncore.Deck on the session bus: SetWallpaper, ClearWallpaper, Wallpapers.
-    auto bus = QDBusConnection::sessionBus();
-    if (!bus.registerService(QStringLiteral("org.galleoncore.Deck"))
-        || !bus.registerObject(QStringLiteral("/org/galleoncore/Deck"), &controller, QDBusConnection::ExportAllSlots)) {
-        qWarning() << "galleond: cannot register on D-Bus (another galleond running?)";
-    }
+    // org.galleoncore.Deck on the session bus (the name was claimed at the start):
+    // SetWallpaper, ClearWallpaper, Wallpapers.
+    if (!bus.registerObject(QStringLiteral("/org/galleoncore/Deck"), &controller, QDBusConnection::ExportAllSlots))
+        qWarning() << "galleond: cannot export the D-Bus object";
 
     if (parser.isSet(wallpaperOption)) {
         if (!controller.SetWallpaper(parser.value(wallpaperOption)))

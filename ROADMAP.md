@@ -23,12 +23,14 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 | Thèmes : pages colorées (Contrôle blanc, Multimédia cyan, Son rouge, Jeux bleu marine, Système vert) ; clic molette gauche = mode choix du thème, rotation = thème suivant/précédent, second clic ou 30 s = retour au contrôle | oui | oui |
 | Ligne de couleur et nom du thème en haut de l'écran ; bandeau `◀ Nom ▶` pendant le choix | oui | oui |
 | Anneaux des molettes indépendants : gauche = couleur du thème, droite = blanc (contrôle) ou magenta (choix du fond) ; rapport `03 24` par LED | oui | oui (couleurs vues) |
+| Choix du fond par la molette droite : clic = mode fond (anneau et barre du bas magenta), rotation = fond suivant/précédent, second clic ou 30 s = retour ; le fond s'affiche même si une piste joue | oui | oui (validé par l'utilisateur) |
+| Un seul `galleond` à la fois : le nom D-Bus est pris avant d'ouvrir le module, un second démarrage s'arrête (code 1) sans toucher au module | manuel | à confirmer |
+| Service systemd utilisateur (`tools/systemd/galleond.service`, variante `galleond-dev.service` pour l'arbre de compilation) | `systemd-analyze verify` | à confirmer après installation |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 
 ## 2. En cours
 
-- **Choix du fond par la molette droite** : clic = mode fond (anneau et barre du bas magenta), rotation = fond suivant/précédent, second clic ou 30 s = retour au contrôle ; le fond s'affiche même si une piste joue. Codé et testé (`wallpaper-mode`), mais pas encore confirmé en usage réel.
-- **Aperçu fluide** : chaque cran renvoie un JPEG de l'écran. À mesurer sur le module : latence par cran, et si une rotation rapide s'accumule. Piste si trop lent : ne dessiner que le dernier fond demandé (regrouper les crans) et réduire la qualité JPEG pendant la rotation.
+- **Aperçu fluide** du choix du fond : chaque cran renvoie un JPEG de l'écran. À mesurer sur le module : latence par cran, et si une rotation rapide s'accumule. Piste si trop lent : ne dessiner que le dernier fond demandé (regrouper les crans) et réduire la qualité JPEG pendant la rotation.
 - **Pages remplies** : les thèmes Multimédia / Son / Jeux / Système de `~/.config/galleoncore/pages-themes.json` sont à adopter dans `pages.json` (aujourd'hui fichier séparé, lancé avec `--pages`).
 - **Jeux les plus joués** (thème Jeux vidéo) : classement des jeux Steam par temps de jeu. Source à étudier en lecture seule (`~/.steam/steam/userdata/<id>/config/localconfig.vdf`, `appmanifest_*.acf`) ; NeuroHell est un `.desktop` personnel (`neurohell.desktop`).
 
@@ -36,7 +38,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 
 - **Stabilité du démon** : exécution longue (heures), reprise après veille, débranchement/rebranchement du module (le redessin complet est déjà prévu sur `deckAvailableChanged`), fuites : caches bornés (images, icônes, applications) mais pas mesurés sur la durée.
 - **Rechargement à chaud** : confirmé pour un déplacement de touche ; à vérifier : fichier remplacé par un éditeur (écriture en plusieurs étapes), fichier invalide pendant l'exécution (les anciennes pages doivent rester), changement de thèmes pendant qu'un mode est actif (le mode est remis à zéro, voulu).
-- **Conflits entre instances** : un second `galleond` échoue à s'enregistrer sur D-Bus mais continue de piloter le module (message « another galleond running? » seulement). Décider : refuser de démarrer, ou prendre le relais. OpenRGB (plugin) et `galleond` écrivent tous deux les anneaux : à ne pas lancer ensemble sans règle.
+- **Conflits entre instances** : deux `galleond` sont maintenant exclus (le second quitte). OpenRGB (plugin) et `galleond` écrivent tous deux les anneaux : à ne pas lancer ensemble sans règle (non résolu).
 - **Fond de test** : `galleond.conf` était écrasé par les tests (corrigé : les tests utilisent `XDG_CONFIG_HOME` dans `build/`). Vérifier qu'aucun autre test n'écrit dans le vrai `~/.config` ou `~/.cache`.
 - Ligne fantôme sous les étiquettes des touches sur les photos : probablement optique, jamais confirmé.
 - Vignette vidéo FFmpeg, anti-rebond et lancement Kdenlive/Steam : construits et testés, pas rapportés sur le module.
@@ -46,13 +48,12 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 ## 4. À développer
 
 1. **Interface graphique de réglage** (demandée : PyQt6) pour configurer touches, molettes, profils, thèmes et fonds d'écran. Décision à prendre avant de coder : PyQt6 (nouvelle dépendance Python, licence GPL compatible) ou QML dans `galleond` (le sélecteur `--apps` existe déjà en QML : `daemon/qml/Apps.qml`, `PagesEditor`, `AppsBackend`). Dans les deux cas : la GUI ne parle au démon que par D-Bus (`org.galleoncore.Deck`) ou par le fichier JSON validé, jamais directement au matériel ; écriture atomique avec sauvegarde `.bak` (déjà fait par `PagesEditor`).
-2. **Service systemd utilisateur** pour que `galleond` démarre avec la session.
-3. **Profils** : plusieurs fichiers de pages et bascule (changement de profil selon l'application active ou au choix) ; le fichier JSON unique actuel est le profil de base.
-4. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, raccourcis clavier (uinput, avec validation).
-5. **Windows** : backend SMTC derrière `MediaController` (MPRIS est Linux seulement) ; portage hidapi déjà couvert par `Transport`.
-6. **Économiseur d'écran animé** : à n'envisager qu'après vérification des conditions du modèle de génération et de `ASSETS.md` (pas de personnages, marques ni personnes réelles ; CC-BY-SA-4.0 par défaut, provenance notée).
-7. **Plasmoids KDE** réutilisant `widgets/` (aperçu de l'écran du clavier sur le bureau).
-8. **RVB du clavier** : reste côté fork d'OpenRGB, bloqué tant que le protocole d'écriture non persistant n'est pas trouvé.
+2. **Profils** : plusieurs fichiers de pages et bascule (changement de profil selon l'application active ou au choix) ; le fichier JSON unique actuel est le profil de base.
+3. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, raccourcis clavier (uinput, avec validation).
+4. **Windows** : backend SMTC derrière `MediaController` (MPRIS est Linux seulement) ; portage hidapi déjà couvert par `Transport`.
+5. **Économiseur d'écran animé** : à n'envisager qu'après vérification des conditions du modèle de génération et de `ASSETS.md` (pas de personnages, marques ni personnes réelles ; CC-BY-SA-4.0 par défaut, provenance notée).
+6. **Plasmoids KDE** réutilisant `widgets/` (aperçu de l'écran du clavier sur le bureau).
+7. **RVB du clavier** : reste côté fork d'OpenRGB, bloqué tant que le protocole d'écriture non persistant n'est pas trouvé.
 
 ## 5. Architecture
 
@@ -88,9 +89,9 @@ Décisions à ne pas perdre :
 
 ## 6. Prochaines étapes prioritaires
 
-1. Confirmer sur le module le choix du fond (molette droite) et mesurer la latence ; regrouper les crans si nécessaire.
-2. Adopter les thèmes dans le vrai `pages.json` (après sauvegarde), puis remplir les pages avec les applications voulues.
-3. Service systemd utilisateur (démarrage avec la session) et règle de conflit entre instances.
+1. Installer et confirmer le service systemd (démarrage avec la session, redémarrage après arrêt, reprise après veille).
+2. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
+3. Adopter les thèmes dans le vrai `pages.json` (après sauvegarde), puis remplir les pages avec les applications voulues.
 4. Classement des jeux Steam les plus joués (lecture seule des fichiers Steam).
 5. Décider PyQt6 ou QML pour l'interface de réglage, puis la construire par-dessus `PagesEditor` / D-Bus.
 6. Fusionner la branche `galleond-wallpaper-clock` après relecture (ne rien pousser sans accord).

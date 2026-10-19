@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# User service: galleond starts with the graphical session and is restarted
+# if it stops. Installed by `cmake --install` in lib/systemd/user/; enable it with
+#   systemctl --user enable --now galleond.service
+# To run from the build tree instead, see tools/systemd/galleond-dev.service.
+
+[Unit]
+Description=GalleonCore daemon (Corsair Galleon 100 SD Stream Deck module)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/galleond
+# The module may be unplugged or the player absent: galleond waits for them by
+# itself. A real failure (another galleond running exits with 1) is retried slowly.
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
