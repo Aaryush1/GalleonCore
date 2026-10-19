@@ -256,6 +256,30 @@ bool renderSaverTo(const QString &pagesFile, const QString &pngFile, int videoNu
     return sheet.save(pngFile);
 }
 
+// Lights the screen and the 12 keys in plain white, the dial rings in white too, and keeps them for
+// a minute: the lit areas of a photo taken from above show the exact shapes and the gaps, to measure
+// the module with a known object next to it (a bank card is 85.6 x 54 mm). Stop the service first.
+int showCalibration(galleon::StreamDeck &deck)
+{
+    QImage white(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight, QImage::Format_RGB32);
+    white.fill(Qt::white);
+    QImage keyWhite(galleon::protocol::KeyImageSize, galleon::protocol::KeyImageSize, QImage::Format_RGB32);
+    keyWhite.fill(Qt::white);
+    deck.setDialRing(0, 255, 255, 255);
+    deck.setDialRing(1, 255, 255, 255);
+    deck.setScreenImage(white);
+    for (int key = 0; key < galleon::protocol::KeyCount; ++key)
+        deck.setKeyImage(key, keyWhite);
+    qInfo() << "galleond: calibration pattern shown for 90 s: take the photo from straight above, with a bank card laid flat next to the keys";
+    QElapsedTimer clock;
+    clock.start();
+    while (clock.elapsed() < 90000) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 20); // keeps the keep-alive going
+        QThread::msleep(10);
+    }
+    return 0;
+}
+
 QImage keyTestImage(int index, bool lit)
 {
     constexpr int size = galleon::protocol::KeyImageSize;
@@ -412,6 +436,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption saverAtOption(QStringLiteral("saver-at"),
                                            QStringLiteral("The moment in seconds for --render-saver (default 2)."),
                                            QStringLiteral("seconds"), QStringLiteral("2"));
+    const QCommandLineOption calibrationOption(QStringLiteral("show-calibration"),
+                                               QStringLiteral("Light the screen, the 12 keys and the rings in plain white for 90 s, to photograph and measure the module. Stop the galleond service first."));
     const QCommandLineOption pagesOption(QStringLiteral("pages"),
                                          QStringLiteral("Pages file (default: ~/.config/galleoncore/pages.json)."),
                                          QStringLiteral("file"));
@@ -444,7 +470,7 @@ int main(int argc, char *argv[])
                                             QStringLiteral("number"));
     parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption,
                        pagesOption, noPagesOption, renderKeysOption, stateOption, renderNowPlayingOption, appsOption,
-                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption, displayLagOption, renderSaverOption, saverVideoOption, saverAtOption});
+                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption, displayLagOption, renderSaverOption, saverVideoOption, saverAtOption, calibrationOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
@@ -585,6 +611,14 @@ int main(int argc, char *argv[])
         qWarning() << "galleond: no Galleon 100 SD found, waiting";
     else
         qInfo() << "galleond: Stream Deck module opened, serial" << deck.serialNumber();
+
+    if (parser.isSet(calibrationOption)) {
+        if (!deck.isOpen()) {
+            qCritical() << "galleond: no Galleon 100 SD found";
+            return 1;
+        }
+        return showCalibration(deck);
+    }
 
     if (parser.isSet(displayLagOption)) {
         if (!deck.isOpen()) {
