@@ -6,6 +6,7 @@ add_library(galleond_core STATIC
     MediaController.h
     MprisController.h MprisController.cpp
     PagesConfig.h PagesConfig.cpp
+    PagesController.h PagesController.cpp
     WallpaperCatalog.h WallpaperCatalog.cpp
     ScreenRenderer.h ScreenRenderer.cpp
     TileRenderer.h TileRenderer.cpp
