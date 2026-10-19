@@ -257,6 +257,7 @@ void PagesController::setThemeMode(int dial)
     if (wanted == m_themeDial)
         return;
     m_themeDial = wanted;
+    qInfo() << "galleond: theme mode" << (themeMode() ? "on, dial" : "off") << (themeMode() ? m_themeDial : -1);
     if (themeMode())
         m_themeTimeout.start();
     else
@@ -267,6 +268,7 @@ void PagesController::setThemeMode(int dial)
 void PagesController::selectTheme(int index)
 {
     m_theme = index;
+    qInfo() << "galleond: theme" << m_config.themes[static_cast<std::size_t>(index)].name;
     m_stack = {m_config.themes[static_cast<std::size_t>(index)].page};
     m_pressed.fill(false);
     redraw();
@@ -297,6 +299,7 @@ void PagesController::setWallpaperMode(int dial)
     if (wanted == m_wallpaperDial)
         return;
     m_wallpaperDial = wanted;
+    qInfo() << "galleond: wallpaper mode" << (wallpaperMode() ? "on, dial" : "off") << (wallpaperMode() ? m_wallpaperDial : -1);
     if (wallpaperMode())
         m_wallpaperTimeout.start();
     else

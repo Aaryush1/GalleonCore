@@ -27,6 +27,8 @@ Rectangle {
     // The theme shown as a line along the top (empty name: none).
     property string themeName
     property color themeColor: "white"
+    // True while the theme is being chosen with a dial: the name is shown large.
+    property bool themeChoosing: false
     property date now: new Date()
     property var locale: Qt.locale()
     // True once the cover is decoded (or when there is none).
@@ -183,5 +185,26 @@ Rectangle {
         anchors.right: parent.right
         height: 4 * root.height / 384
         color: root.barColor
+    }
+    // While the theme is being chosen: its name in a band, with arrows.
+    Rectangle {
+        visible: root.themeChoosing && root.themeName !== ""
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 18 * root.height / 384
+        width: Math.min(root.width - 32 * root.height / 384, choosingText.implicitWidth + 64 * root.height / 384)
+        height: 64 * root.height / 384
+        radius: 14 * root.height / 384
+        color: "#d9000000"
+        border.width: 3 * root.height / 384
+        border.color: root.themeColor
+        Text {
+            id: choosingText
+            anchors.centerIn: parent
+            color: root.themeColor
+            font.pixelSize: 34 * root.height / 384
+            font.bold: true
+            text: "\u25C0  " + root.themeName + "  \u25B6"
+        }
     }
 }

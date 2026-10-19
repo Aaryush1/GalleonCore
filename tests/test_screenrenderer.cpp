@@ -162,6 +162,23 @@ private Q_SLOTS:
         QVERIFY(similar(frame.pixel(5, 2), red.rgb(), 6));
         QVERIFY(similar(frame.pixel(Width / 2, 3), red.rgb(), 6));
 
+        // While choosing: a band with the name at the bottom, in the theme's colour.
+        properties.insert("themeName", "Son");
+        properties.insert("themeChoosing", true);
+        frame = nowPlaying.render(properties, QSize(Width, Height));
+        const auto redPixels = [&frame, &red] {
+            int count = 0;
+            for (int y = Height - 82; y < Height - 18; ++y) {
+                for (int x = Width / 2 - 150; x < Width / 2 + 150; ++x)
+                    count += similar(frame.pixel(x, y), red.rgb(), 12) ? 1 : 0;
+            }
+            return count;
+        };
+        QVERIFY(redPixels() > 150);
+        properties.insert("themeChoosing", false);
+        frame = nowPlaying.render(properties, QSize(Width, Height));
+        QCOMPARE(redPixels(), 0);
+
         // No theme: no line.
         properties.insert("themeName", "");
         frame = nowPlaying.render(properties, QSize(Width, Height));

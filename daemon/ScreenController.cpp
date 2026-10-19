@@ -165,12 +165,13 @@ void ScreenController::setScreenConfig(const ScreenConfig &config)
         draw();
 }
 
-void ScreenController::setTheme(const QString &name, std::uint32_t rgb)
+void ScreenController::setTheme(const QString &name, std::uint32_t rgb, bool choosing)
 {
-    if (name == m_themeName && rgb == m_themeRgb)
+    if (name == m_themeName && rgb == m_themeRgb && choosing == m_themeChoosing)
         return;
     m_themeName = name;
     m_themeRgb = rgb;
+    m_themeChoosing = choosing;
     if (!m_wallpaper.isEmpty())
         draw();
 }
@@ -204,6 +205,7 @@ void ScreenController::stepWallpaper(int steps)
 QVariantMap ScreenController::themeProperties() const
 {
     return {{QStringLiteral("barColor"), QColor::fromRgb(m_barRgb)},
+            {QStringLiteral("themeChoosing"), m_themeChoosing},
             {QStringLiteral("themeName"), m_themeName},
             {QStringLiteral("themeColor"), QColor::fromRgb(m_themeRgb)}};
 }

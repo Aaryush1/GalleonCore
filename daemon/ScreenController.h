@@ -54,7 +54,7 @@ public:
 
     // The line along the top of the screen: the theme's name and colour
     // (0xRRGGBB). An empty name removes it.
-    void setTheme(const QString &name, std::uint32_t rgb);
+    void setTheme(const QString &name, std::uint32_t rgb, bool choosing = false);
 
     // The line along the bottom edge (0xRRGGBB), and whether the wallpaper is
     // being chosen: then the wallpaper is shown even while a track plays.
@@ -93,6 +93,7 @@ private:
     bool draw();
     std::uint32_t m_barRgb = 0xffffff;
     bool m_choosingWallpaper = false;
+    bool m_themeChoosing = false;
     QString m_themeName;
     std::uint32_t m_themeRgb = 0;
     [[nodiscard]] bool wantsNowPlaying() const;

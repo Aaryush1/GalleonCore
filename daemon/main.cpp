@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
         // theme, white for the player control.
         const auto showState = [&pages, &controller] {
             const galleond::Theme *theme = pages->currentTheme();
-            controller.setTheme(theme ? theme->name : QString(), theme ? theme->rgb : 0);
+            controller.setTheme(theme ? theme->name : QString(), theme ? theme->rgb : 0, pages->themeMode());
             const std::uint32_t bar = pages->wallpaperMode() ? 0xff00ff
                                       : pages->themeMode() && theme ? theme->rgb
                                                                     : 0xffffff;
