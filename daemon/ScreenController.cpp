@@ -140,6 +140,7 @@ bool ScreenController::SetWallpaper(const QString &name)
         return false;
     }
     m_wallpaper = name;
+    qInfo().noquote() << "galleond: wallpaper" << name;
     settings().setValue(SettingWallpaper, name);
     Q_EMIT wallpaperChanged();
 
@@ -203,6 +204,7 @@ void ScreenController::setSuspended(bool suspended)
 void ScreenController::startHold()
 {
     m_holding = true;
+    qInfo() << "galleond: the chosen wallpaper stays on the screen for" << m_holdTimer.interval() / 1000 << "s";
     m_holdTimer.start();
 }
 
@@ -245,6 +247,7 @@ void ScreenController::showStepped()
 {
     if (m_wallpaper.isEmpty())
         return;
+    qInfo().noquote() << "galleond: wallpaper" << m_wallpaper;
     settings().setValue(SettingWallpaper, m_wallpaper); // written once per burst, not at every step
     Q_EMIT wallpaperChanged();
     draw();
