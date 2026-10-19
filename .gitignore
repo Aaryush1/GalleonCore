@@ -59,3 +59,6 @@ compile_commands.json
 # only sanitized extracts go into docs/protocol/
 /captures/*.pcap
 /captures/*.pcapng
+
+# Own screensaver videos stay local until they follow ASSETS.md (no brands or logos, provenance recorded)
+public/Screensavers/
