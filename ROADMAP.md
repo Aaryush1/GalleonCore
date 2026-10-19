@@ -34,7 +34,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 
 - **Aperçu fluide** du choix du fond : chaque cran renvoie un JPEG de l'écran. À mesurer sur le module : latence par cran, et si une rotation rapide s'accumule. Piste si trop lent : ne dessiner que le dernier fond demandé (regrouper les crans) et réduire la qualité JPEG pendant la rotation.
 - **Écran de veille : mesures et vidéo à fournir** — mesures à la règle (écran, touche, espaces, distance écran → touches) à mettre dans `screensaver.geometry`, puis une vidéo verticale (piste : image générée par ChatGPT puis animée par un outil IA, en boucle ; vérifier les conditions du service et `ASSETS.md`). À confirmer sur le module : fluidité à 15 i/s, continuité de l'image entre l'écran et les touches, réveil.
-- **Pages remplies** : les thèmes Multimédia / Son / Jeux / Système de `~/.config/galleoncore/pages-themes.json` sont à adopter dans `pages.json` (aujourd'hui fichier séparé, lancé avec `--pages`).
+- **Pages remplies** : les thèmes sont adoptés dans le vrai `pages.json` (copie de l'ancien : `pages.json.avant-themes`, 19 octobre). Reste à ajouter les applications voulues dans chaque page.
 - **Jeux les plus joués** (thème Jeux vidéo) : classement des jeux Steam par temps de jeu. Source à étudier en lecture seule (`~/.steam/steam/userdata/<id>/config/localconfig.vdf`, `appmanifest_*.acf`) ; NeuroHell est un `.desktop` personnel (`neurohell.desktop`).
 
 ## 3. À vérifier ou corriger
@@ -93,7 +93,7 @@ Décisions à ne pas perdre :
 
 1. Confirmer le service systemd au prochain démarrage de session, et la reprise après veille (le lancement par `systemctl --user` est confirmé).
 2. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
-3. Adopter les thèmes dans le vrai `pages.json` (après sauvegarde), puis remplir les pages avec les applications voulues.
+3. Compléter les pages de thèmes avec les applications voulues.
 4. Classement des jeux Steam les plus joués (lecture seule des fichiers Steam).
 5. Décider PyQt6 ou QML pour l'interface de réglage, puis la construire par-dessus `PagesEditor` / D-Bus.
 6. Fusionner la branche `galleond-wallpaper-clock` après relecture (ne rien pousser sans accord).
