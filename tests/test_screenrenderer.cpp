@@ -13,6 +13,7 @@ using galleond::ScreenRenderer;
 namespace {
 
 const QString WidgetFile = QStringLiteral(GALLEON_SOURCE_WIDGETS "/WallpaperClock.qml");
+const QString NowPlayingFile = QStringLiteral(GALLEON_SOURCE_WIDGETS "/NowPlaying.qml");
 constexpr int Width = 720;
 constexpr int Height = 384;
 
@@ -111,6 +112,101 @@ private Q_SLOTS:
         // 27 s or 28 s: with no seconds shown the frame does not change.
         const QImage nextSecond = renderer.render({}, moment.addSecs(1), QSize(Width, Height), locale);
         QCOMPARE(nextSecond, plain);
+    }
+
+    // ---- the "now playing" widget (720 x 384: cover 24..360, bar at y 314..320, x 388..696)
+
+    QVariantMap track(double position, double duration, bool playing = true, const QString &coverId = {})
+    {
+        return {{"title", "A Title"},
+                {"artist", "An Artist"},
+                {"positionSeconds", position},
+                {"durationSeconds", duration},
+                {"playing", playing},
+                {"coverId", coverId},
+                {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))},
+                {"locale", QVariant::fromValue(QLocale(QLocale::French, QLocale::France))}};
+    }
+
+    void theCoverAndTheTimelineAreDrawn()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        QVERIFY(renderer.isValid());
+        QImage cover(300, 300, QImage::Format_RGB32);
+        cover.fill(QColor(200, 30, 30));
+        renderer.setProvidedImage("c1", cover);
+
+        const QImage frame = renderer.render(track(50, 100, true, "c1"), QSize(Width, Height));
+        QVERIFY(!frame.isNull());
+        QVERIFY(similar(frame.pixel(190, 190), qRgb(200, 30, 30), 14)); // the cover
+        QVERIFY(similar(frame.pixel(465, 317), qRgb(0x4c, 0xaf, 0x50), 14)); // 25 %: filled, green
+        QVERIFY(similar(frame.pixel(619, 317), qRgb(0x33, 0x3a, 0x44), 14)); // 75 %: the empty track
+        QVERIFY(similar(frame.pixel(700, 200), qRgb(0x14, 0x17, 0x1c), 6));  // right margin: background
+    }
+
+    void aPausedTrackHasAGreyBar()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        const QImage frame = renderer.render(track(50, 100, false), QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(465, 317), qRgb(0x8a, 0x92, 0x9d), 14));
+    }
+
+    void withoutACoverThereIsAPlaceholder()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        const QImage frame = renderer.render(track(0, 100), QSize(Width, Height));
+        QVERIFY(!frame.isNull());
+        QVERIFY(similar(frame.pixel(40, 40), qRgb(0x23, 0x28, 0x30), 8)); // the placeholder square
+    }
+
+    void aStreamHasNoBar()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        const QImage frame = renderer.render(track(12, 0), QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(465, 317), qRgb(0x14, 0x17, 0x1c), 6));
+        QVERIFY(similar(frame.pixel(619, 317), qRgb(0x14, 0x17, 0x1c), 6));
+    }
+
+    void theTimelineMovesTheBarAndTheTimes()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        const QImage early = renderer.render(track(10, 100), QSize(Width, Height));
+        const QImage late = renderer.render(track(90, 100), QSize(Width, Height));
+        QVERIFY(similar(early.pixel(619, 317), qRgb(0x33, 0x3a, 0x44), 14)); // 75 %: not reached at 10 %
+        QVERIFY(similar(late.pixel(619, 317), qRgb(0x4c, 0xaf, 0x50), 14));  // reached at 90 %
+        QVERIFY(early != late);
+        // A second later, only the time text changes.
+        QVERIFY(renderer.render(track(59, 600), QSize(Width, Height)) != renderer.render(track(61, 600), QSize(Width, Height)));
+    }
+
+    void aPositionOutsideTheRangeStaysInsideTheBar()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        for (const double position : {-50.0, 1e9, 0.0}) {
+            const QImage frame = renderer.render(track(position, 100), QSize(Width, Height));
+            QVERIFY(!frame.isNull());
+            QVERIFY(similar(frame.pixel(700, 317), qRgb(0x14, 0x17, 0x1c), 6)); // never past the end of the bar
+        }
+    }
+
+    void aVeryLongTitleStaysInItsColumn()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        QVariantMap properties = track(10, 100);
+        properties["title"] = QString(300, QLatin1Char('W')) + QStringLiteral(" and more words after");
+        properties["artist"] = QString(300, QLatin1Char('M'));
+        const QImage frame = renderer.render(properties, QSize(Width, Height));
+        for (int y = 0; y < Height; ++y)
+            QVERIFY(similar(frame.pixel(Width - 8, y), qRgb(0x14, 0x17, 0x1c), 6)); // the right margin is never painted
+    }
+
+    void aCoverThatIsNotThereGivesNoFrame()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        // An id that no image was provided for: no half-drawn screen.
+        QVERIFY(renderer.render(track(10, 100, true, "never-provided"), QSize(Width, Height)).isNull());
+        // And the renderer recovers.
+        QVERIFY(!renderer.render(track(10, 100), QSize(Width, Height)).isNull());
     }
 
     void aBrokenWallpaperGivesNoFrame()

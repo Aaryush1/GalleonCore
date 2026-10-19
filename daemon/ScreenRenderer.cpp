@@ -6,6 +6,9 @@
 #include <QDebug>
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QQuickImageProvider>
 #include <QQuickItem>
 #include <QQuickRenderControl>
 #include <QQuickRenderTarget>
@@ -14,6 +17,43 @@
 #include <QUrl>
 
 namespace galleond {
+
+namespace {
+
+// Serves one image to the widgets as image://galleon/<anything>.
+class ProvidedImage : public QQuickImageProvider
+{
+public:
+    ProvidedImage()
+        : QQuickImageProvider(QQuickImageProvider::Image)
+    {
+    }
+
+    QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override
+    {
+        Q_UNUSED(requestedSize)
+        const QMutexLocker lock(&m_mutex);
+        // Only the id that was set is served: a stale id gets nothing.
+        const QImage image = id == m_id ? m_image : QImage();
+        if (size)
+            *size = image.size();
+        return image;
+    }
+
+    void set(const QString &id, const QImage &image)
+    {
+        const QMutexLocker lock(&m_mutex);
+        m_id = id;
+        m_image = image;
+    }
+
+private:
+    QMutex m_mutex;
+    QString m_id;
+    QImage m_image;
+};
+
+} // namespace
 
 struct ScreenRenderer::Impl
 {
@@ -25,6 +65,7 @@ struct ScreenRenderer::Impl
     std::unique_ptr<QQuickItem> root;
     // The software renderer repaints only what changed, on the same image.
     QImage frame;
+    ProvidedImage *provided = nullptr; // owned by the engine
     bool valid = false;
 
     Impl()
@@ -34,6 +75,8 @@ struct ScreenRenderer::Impl
         QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
         control = std::make_unique<QQuickRenderControl>();
         window = std::make_unique<QQuickWindow>(control.get());
+        provided = new ProvidedImage;
+        engine.addImageProvider(QStringLiteral("galleon"), provided);
     }
 };
 
@@ -69,10 +112,20 @@ bool ScreenRenderer::isValid() const
     return m_impl->valid;
 }
 
-QImage ScreenRenderer::render(const QString &wallpaperFile,
-                              const QDateTime &now,
-                              const QSize &size,
-                              const QLocale &locale)
+void ScreenRenderer::setProvidedImage(const QString &id, const QImage &image)
+{
+    m_impl->provided->set(id, image);
+}
+
+QImage ScreenRenderer::render(const QString &wallpaperFile, const QDateTime &now, const QSize &size, const QLocale &locale)
+{
+    return render({{QStringLiteral("wallpaper"), wallpaperFile.isEmpty() ? QUrl() : QUrl::fromLocalFile(wallpaperFile)},
+                   {QStringLiteral("now"), now},
+                   {QStringLiteral("locale"), QVariant::fromValue(locale)}},
+                  size);
+}
+
+QImage ScreenRenderer::render(const QVariantMap &properties, const QSize &size)
 {
     if (!m_impl->valid || !size.isValid())
         return {};
@@ -80,14 +133,13 @@ QImage ScreenRenderer::render(const QString &wallpaperFile,
     QQuickItem *root = m_impl->root.get();
     m_impl->window->setGeometry(0, 0, size.width(), size.height());
     root->setSize(size);
-    root->setProperty("wallpaper", wallpaperFile.isEmpty() ? QUrl() : QUrl::fromLocalFile(wallpaperFile));
-    root->setProperty("now", now);
-    root->setProperty("locale", QVariant::fromValue(locale));
+    for (auto it = properties.constBegin(); it != properties.constEnd(); ++it)
+        root->setProperty(qPrintable(it.key()), it.value());
 
-    // The wallpaper is decoded synchronously; if it did not load (corrupt or
+    // Images are decoded synchronously; if one did not load (corrupt or
     // unreadable file), do not show a half-drawn screen.
     if (!root->property("ready").toBool()) {
-        qWarning() << "galleond: the wallpaper did not load" << wallpaperFile;
+        qWarning() << "galleond: an image of the screen widget did not load";
         return {};
     }
 
