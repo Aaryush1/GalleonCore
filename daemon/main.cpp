@@ -13,6 +13,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QImage>
+#include <QPainter>
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -21,6 +22,31 @@
 #include <QStandardPaths>
 
 namespace {
+
+// A key picture for the hardware test: the key number on a colour that depends
+// on it; `lit` is the white version shown while the key is held down.
+QImage keyTestImage(int index, bool lit)
+{
+    constexpr int size = galleon::protocol::KeyImageSize;
+    QImage image(size, size, QImage::Format_RGB32);
+    image.fill(lit ? QColor(Qt::white) : QColor::fromHsv(index * 30, 200, 120));
+    QPainter painter(&image);
+    painter.setPen(lit ? QColor(Qt::black) : QColor(Qt::white));
+    QFont font = painter.font();
+    font.setPixelSize(size / 2);
+    font.setBold(true);
+    painter.setFont(font);
+    painter.drawText(image.rect(), Qt::AlignCenter, QString::number(index));
+    return image;
+}
+
+void drawKeyTest(galleon::StreamDeck &deck)
+{
+    for (int key = 0; key < galleon::protocol::KeyCount; ++key) {
+        if (!deck.setKeyImage(key, keyTestImage(key, false)))
+            qWarning() << "galleond: could not draw key" << key;
+    }
+}
 
 // First of `candidates` that exists as a directory/file, or an empty string.
 QString firstExisting(const QStringList &candidates, bool wantFile)
@@ -86,7 +112,9 @@ int main(int argc, char *argv[])
                                           QStringLiteral("file"));
     const QCommandLineOption traceOption(QStringLiteral("trace-input"),
                                          QStringLiteral("Print the first bytes of every key and dial report the module sends."));
-    parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption});
+    const QCommandLineOption testKeysOption(QStringLiteral("test-keys"),
+                                            QStringLiteral("Draw the key numbers on the 12 keys; a key turns white while pressed."));
+    parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
@@ -135,6 +163,16 @@ int main(int argc, char *argv[])
     });
     QObject::connect(&deck, &galleon::StreamDeck::dialPressed, [](int dial) { qInfo() << "dial" << dial << "pressed"; });
     QObject::connect(&deck, &galleon::StreamDeck::dialReleased, [](int dial) { qInfo() << "dial" << dial << "released"; });
+
+    if (parser.isSet(testKeysOption) && deck.isOpen()) {
+        drawKeyTest(deck);
+        QObject::connect(&deck, &galleon::StreamDeck::keyPressed, &deck, [&deck](int key) {
+            deck.setKeyImage(key, keyTestImage(key, true));
+        });
+        QObject::connect(&deck, &galleon::StreamDeck::keyReleased, &deck, [&deck](int key) {
+            deck.setKeyImage(key, keyTestImage(key, false));
+        });
+    }
 
     galleond::ScreenRenderer renderer(widgetFile);
     if (!renderer.isValid())
