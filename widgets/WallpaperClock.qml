@@ -22,6 +22,9 @@ Rectangle {
     property bool live: true
     property color textColor: "white"
     property bool showSeconds: false
+    // The theme shown as a line along the top (empty name: none).
+    property string themeName
+    property color themeColor: "white"
     // Language, 12/24 hour clock and date order of the text. The system's by
     // default; QML's own Qt.formatDate()/formatTime() ignore it and always
     // give English, so the formats are taken from this locale instead.
@@ -88,5 +91,26 @@ Rectangle {
         running: root.live
         repeat: true
         onTriggered: root.now = new Date()
+    }
+    // The current theme: a line along the top edge in its colour, with its
+    // name at the right. Nothing without a theme.
+    Rectangle {
+        visible: root.themeName !== ""
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 6 * root.height / 384
+        color: root.themeColor
+    }
+    Text {
+        visible: root.themeName !== ""
+        anchors.top: parent.top
+        anchors.topMargin: 10 * root.height / 384
+        anchors.right: parent.right
+        anchors.rightMargin: 16 * root.height / 384
+        color: root.themeColor
+        font.pixelSize: 15 * root.height / 384
+        font.bold: true
+        text: root.themeName
     }
 }

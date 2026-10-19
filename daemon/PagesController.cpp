@@ -53,8 +53,17 @@ void PagesController::setConfig(const PagesConfig &config)
     const bool screenChanged = !(config.screen == m_config.screen);
     m_config = config;
     m_stack = {config.home};
+    m_theme = -1;
+    for (std::size_t i = 0; i < config.themes.size(); ++i) {
+        if (config.themes[i].page == config.home) {
+            m_theme = static_cast<int>(i);
+            break;
+        }
+    }
     m_pressed.fill(false);
     redraw(true);
+    applyRings();
+    Q_EMIT themeChanged();
     if (screenChanged)
         Q_EMIT screenConfigChanged();
 }
@@ -174,6 +183,10 @@ void PagesController::perform(const Action &action, int times)
     case ActionType::App:
         launchApp(action.desktop);
         return;
+    case ActionType::Theme:
+        if (!m_config.themes.empty())
+            selectTheme((m_theme + 1) % static_cast<int>(m_config.themes.size()));
+        return;
     case ActionType::Media:
         break;
     }
@@ -197,6 +210,35 @@ void PagesController::perform(const Action &action, int times)
     case MediaCommand::Seek:
         m_media->seek(action.seconds * times);
         break;
+    }
+}
+
+const Theme *PagesController::currentTheme() const
+{
+    if (m_theme < 0 || m_theme >= static_cast<int>(m_config.themes.size()))
+        return nullptr;
+    return &m_config.themes[static_cast<std::size_t>(m_theme)];
+}
+
+void PagesController::selectTheme(int index)
+{
+    m_theme = index;
+    m_stack = {m_config.themes[static_cast<std::size_t>(index)].page};
+    m_pressed.fill(false);
+    redraw();
+    applyRings();
+    Q_EMIT themeChanged();
+}
+
+void PagesController::applyRings()
+{
+    if (!m_deck->isOpen())
+        return;
+    const Theme *theme = currentTheme();
+    const std::uint32_t rgb = theme ? theme->rgb : 0;
+    for (int dial = 0; dial < galleon::protocol::DialCount; ++dial) {
+        m_deck->setDialRing(dial, static_cast<std::uint8_t>(rgb >> 16), static_cast<std::uint8_t>(rgb >> 8),
+                            static_cast<std::uint8_t>(rgb));
     }
 }
 

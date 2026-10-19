@@ -214,6 +214,18 @@ private Q_SLOTS:
         QCOMPARE(decoded.size(), QSize(160, 160));
     }
 
+    void dialRingIsFourFeatureReports()
+    {
+        Fixture f;
+        QVERIFY(f.deck->open());
+        const auto before = f.transport->featureReports.size();
+        QVERIFY(f.deck->setDialRing(1, 0, 255, 0));
+        QCOMPARE(f.transport->featureReports.size(), before + 4);
+        QCOMPARE(int(f.transport->featureReports.back()[4]), 255);
+        QVERIFY(!f.deck->setDialRing(2, 0, 0, 0));
+        QCOMPARE(f.transport->featureReports.size(), before + 4);
+    }
+
     void brightnessIsSentAsFeatureReport()
     {
         Fixture f;

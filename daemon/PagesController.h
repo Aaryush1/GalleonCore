@@ -60,7 +60,18 @@ public:
     // (a module that was plugged in again shows its old icons).
     void redraw(bool force = false);
 
+    // The theme shown now (an entry of `themes`), or nullptr when the file has
+    // none or the current page belongs to no theme. Valid until the config changes.
+    [[nodiscard]] const Theme *currentTheme() const;
+
+    // Lights the dial rings with the current theme's colour (or switches them
+    // off without a theme). Also done by every theme change; call it again
+    // when the module was plugged in again.
+    void applyRings();
+
 Q_SIGNALS:
+    // The theme changed (also to none): the screen's line and the rings follow.
+    void themeChanged();
     // The `screen` section of the configuration in use changed.
     void screenConfigChanged();
 
@@ -84,6 +95,9 @@ private:
     MediaController *m_media;
     TileRenderer m_tiles;
     PagesConfig m_config;
+    void selectTheme(int index);
+
+    int m_theme = -1; // index in m_config.themes, -1 = none
     QStringList m_stack; // opened pages, the current one last
     std::array<bool, galleon::protocol::KeyCount> m_pressed{};
     std::array<QImage, galleon::protocol::KeyCount> m_sent; // what the keys show now

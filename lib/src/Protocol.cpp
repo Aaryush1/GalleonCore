@@ -118,6 +118,7 @@ namespace {
 
 constexpr std::uint8_t KeepAliveCommand = 0x27;
 constexpr std::uint8_t BrightnessCommand = 0x08;
+constexpr std::uint8_t DialRingCommand = 0x24;
 constexpr std::uint8_t ScreenImageCommand = 0x0c;
 constexpr std::uint8_t KeyImageCommand = 0x07;
 constexpr std::size_t ScreenHeaderSize = 16;
@@ -150,6 +151,22 @@ std::vector<std::uint8_t> brightnessReport(int percent)
     if (percent < 0 || percent > 100)
         return {};
     return featureReport(BrightnessCommand, static_cast<std::uint8_t>(percent));
+}
+
+std::vector<std::vector<std::uint8_t>> dialRingReports(int dial, std::uint8_t red, std::uint8_t green, std::uint8_t blue)
+{
+    if (dial < 0 || dial >= DialCount)
+        return {};
+    std::vector<std::vector<std::uint8_t>> reports;
+    reports.reserve(DialRingLeds);
+    for (int segment = 0; segment < DialRingLeds; ++segment) {
+        auto report = featureReport(DialRingCommand, static_cast<std::uint8_t>((1 - dial) * DialRingLeds + segment));
+        report[3] = red;
+        report[4] = green;
+        report[5] = blue;
+        reports.push_back(std::move(report));
+    }
+    return reports;
 }
 
 std::vector<std::vector<std::uint8_t>> screenImageReports(std::span<const std::uint8_t> jpeg,

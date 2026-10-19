@@ -144,6 +144,30 @@ private Q_SLOTS:
         QVERIFY(similar(frame.pixel(700, 200), qRgb(0x14, 0x17, 0x1c), 6));  // right margin: background
     }
 
+    void theThemeLineIsDrawnAlongTheTopOfBothScreens()
+    {
+        const QColor red(0xe5, 0x39, 0x35);
+        ScreenRenderer clock(WidgetFile);
+        QImage frame = clock.render({{"themeName", "Son"}, {"themeColor", red}, {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}},
+                                    QSize(Width, Height));
+        QVERIFY(!frame.isNull());
+        QVERIFY(similar(frame.pixel(5, 2), red.rgb(), 6));
+        QVERIFY(similar(frame.pixel(Width - 5, 3), red.rgb(), 6));
+
+        ScreenRenderer nowPlaying(NowPlayingFile);
+        QVariantMap properties = track(50, 100, true, "");
+        properties.insert("themeName", "Son");
+        properties.insert("themeColor", red);
+        frame = nowPlaying.render(properties, QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(5, 2), red.rgb(), 6));
+        QVERIFY(similar(frame.pixel(Width / 2, 3), red.rgb(), 6));
+
+        // No theme: no line.
+        properties.insert("themeName", "");
+        frame = nowPlaying.render(properties, QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(5, 2), qRgb(0x14, 0x17, 0x1c), 6));
+    }
+
     void anApplicationIconIsShownWholeWithRoomAroundIt()
     {
         ScreenRenderer renderer(NowPlayingFile);

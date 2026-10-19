@@ -177,6 +177,27 @@ private Q_SLOTS:
         QVERIFY(std::all_of(report.begin() + 2, report.end(), [](auto b) { return b == 0; }));
     }
 
+    void dialRingReportsCoverTheFourLedsOfTheRightDial()
+    {
+        // dial 0 -> LEDs 4..7, dial 1 -> LEDs 0..3 (rust-elgato-streamdeck PR 63).
+        const auto first = dialRingReports(0, 1, 2, 3);
+        QCOMPARE(first.size(), size_t(4));
+        for (size_t i = 0; i < first.size(); ++i) {
+            QCOMPARE(first[i].size(), FeatureReportSize);
+            QCOMPARE(int(first[i][0]), 0x03);
+            QCOMPARE(int(first[i][1]), 0x24);
+            QCOMPARE(int(first[i][2]), int(4 + i));
+            QCOMPARE(int(first[i][3]), 1);
+            QCOMPARE(int(first[i][4]), 2);
+            QCOMPARE(int(first[i][5]), 3);
+        }
+        const auto second = dialRingReports(1, 9, 8, 7);
+        QCOMPARE(int(second.front()[2]), 0);
+        QCOMPARE(int(second.back()[2]), 3);
+        QVERIFY(dialRingReports(-1, 0, 0, 0).empty());
+        QVERIFY(dialRingReports(2, 0, 0, 0).empty());
+    }
+
     void brightnessIsReport3Command08Percent()
     {
         const auto report = brightnessReport(70);

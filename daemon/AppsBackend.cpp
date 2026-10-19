@@ -118,6 +118,9 @@ void AppsBackend::reload()
             case ActionType::Back:
                 kind = QStringLiteral("back");
                 break;
+            case ActionType::Theme:
+                kind = QStringLiteral("theme");
+                break;
             case ActionType::None:
                 kind = QStringLiteral("none");
                 break;

@@ -335,6 +335,67 @@ private Q_SLOTS:
         QVERIFY(!withScreen("playing").config.has_value());
     }
 
+    void themesAreOptionalAndChecked()
+    {
+        const auto withThemes = [](const QJsonValue &themes) {
+            return parseEdited([&](QJsonObject &object) { object.insert("themes", themes); });
+        };
+        const auto theme = [](const QString &name, const QString &page, const QString &color) {
+            return QJsonObject{{"name", name}, {"page", page}, {"color", color}};
+        };
+        QVERIFY(parseEdited([](QJsonObject &) {}).config->themes.empty());
+
+        const auto good = withThemes(QJsonArray{theme("Control", "main", "#ffffff"), theme("Sound", "main", "#E53935")});
+        QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
+        QCOMPARE(good.config->themes.size(), size_t(2));
+        QCOMPARE(good.config->themes[1].rgb, 0xE53935u);
+        QCOMPARE(good.config->themes[0].page, QStringLiteral("main"));
+
+        QVERIFY(!withThemes(QJsonArray{theme("X", "nowhere", "#ffffff")}).config.has_value()); // unknown page
+        QVERIFY(!withThemes(QJsonArray{theme("X", "main", "white")}).config.has_value());
+        QVERIFY(!withThemes(QJsonArray{theme("X", "main", "#fff")}).config.has_value());
+        QVERIFY(!withThemes(QJsonArray{theme("X", "main", "#ggggggg")}).config.has_value());
+        QVERIFY(!withThemes(QJsonArray{theme("", "main", "#ffffff")}).config.has_value());
+        QVERIFY(!withThemes(QJsonArray{theme(QString(MaxLabelLength + 1, 'x'), "main", "#ffffff")}).config.has_value());
+        QVERIFY(!withThemes(QJsonArray{QJsonObject{{"name", "X"}, {"page", "main"}}}).config.has_value());
+        QVERIFY(!withThemes(QJsonArray{QJsonObject{{"name", "X"}, {"page", "main"}, {"color", "#ffffff"}, {"icon", "x"}}}).config.has_value());
+        QVERIFY(!withThemes("Sound").config.has_value());
+        QVERIFY(!withThemes(QJsonArray{"Sound"}).config.has_value());
+        QJsonArray tooMany;
+        for (int i = 0; i <= MaxThemes; ++i)
+            tooMany.append(theme("T", "main", "#ffffff"));
+        QVERIFY(!withThemes(tooMany).config.has_value());
+    }
+
+    void aThemeActionIsAcceptedOnAPress()
+    {
+        const auto press = parseEdited([](QJsonObject &object) {
+            QJsonObject dials = object.value("dials").toObject();
+            QJsonObject dial = dials.value("0").toObject();
+            dial.insert("press", QJsonObject{{"type", "theme"}});
+            dials.insert("0", dial);
+            object.insert("dials", dials);
+        });
+        QVERIFY2(press.config.has_value(), qPrintable(press.errors.join('\n')));
+        QVERIFY(press.config->dials[0].press.type == ActionType::Theme);
+
+        const auto turn = parseEdited([](QJsonObject &object) {
+            QJsonObject dials = object.value("dials").toObject();
+            QJsonObject dial = dials.value("0").toObject();
+            dial.insert("turn", QJsonObject{{"type", "theme"}});
+            dials.insert("0", dial);
+            object.insert("dials", dials);
+        });
+        QVERIFY(!turn.config.has_value());
+        QVERIFY(!parseEdited([](QJsonObject &object) {
+                    QJsonObject dials = object.value("dials").toObject();
+                    QJsonObject dial = dials.value("0").toObject();
+                    dial.insert("press", QJsonObject{{"type", "theme"}, {"page", "main"}});
+                    dials.insert("0", dial);
+                    object.insert("dials", dials);
+                }).config.has_value());
+    }
+
     void errorsAndConfigAreMutuallyExclusive()
     {
         // Every single-byte change of the default file: never a crash, and

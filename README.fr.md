@@ -165,6 +165,20 @@ Tu n'as jamais besoin de modifier le JSON pour cela :
 
 La modification est vérifiée comme tout fichier de pages, l'ancienne version est gardée dans `pages.json.bak`, et un `galleond` en marche relit le changement tout seul.
 
+### Thèmes
+
+Une liste `themes` donne un nom et une couleur à des pages. Un appui de molette avec `{ "type": "theme" }` les parcourt : les touches montrent la page du thème, une ligne de la couleur du thème court en haut de l'écran avec son nom, et les anneaux autour des deux molettes prennent la couleur.
+
+```json
+"themes": [
+  { "name": "Contrôle", "page": "main", "color": "#ffffff" },
+  { "name": "Son", "page": "son", "color": "#e53935" }
+],
+"dials": { "0": { "press": { "type": "theme" } } }
+```
+
+La couleur des anneaux utilise le rapport de fonctionnalité par LED du protocole Stream Deck (`03 24 <led> <r> <v> <b>`, tiré de la PR 63 de rust-elgato-streamdeck). Il n'est pas encore vérifié sur le module. 8 thèmes au plus ; la couleur est `#rrggbb` ; la page d'un thème doit exister.
+
 ### En cours de lecture sur l'écran
 
 Quand un lecteur joue, l'écran affiche le morceau (pochette, titre, artiste, temps et barre de progression) à la place du fond d'écran, et revient au fond quand la musique s'arrête. Une section `screen` facultative du fichier de pages le règle :

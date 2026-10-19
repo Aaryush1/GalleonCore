@@ -17,7 +17,9 @@
 #include <QStringList>
 
 #include <array>
+#include <cstdint>
 #include <optional>
+#include <vector>
 
 namespace galleond {
 
@@ -27,6 +29,7 @@ enum class ActionType : std::uint8_t {
     Page,  // open another page
     Back,  // return to the previous page
     App,   // start an application, named by its .desktop file
+    Theme, // go to the next theme (see Theme)
 };
 
 enum class MediaCommand : std::uint8_t {
@@ -105,9 +108,21 @@ struct ScreenConfig
     friend bool operator==(const ScreenConfig &, const ScreenConfig &) = default;
 };
 
+// A theme: a page of keys with a colour, shown as a line on the screen and
+// on the rings around the dials. The `theme` action steps through them.
+struct Theme
+{
+    QString name;          // shown on the screen
+    QString page;          // the page it opens (the stack is reset to it)
+    std::uint32_t rgb = 0; // 0xRRGGBB
+
+    friend bool operator==(const Theme &, const Theme &) = default;
+};
+
 struct PagesConfig
 {
     ScreenConfig screen;
+    std::vector<Theme> themes;
     QString home;
     QMap<QString, Page> pages;
     std::array<DialConfig, galleon::protocol::DialCount> dials;
@@ -125,6 +140,7 @@ inline constexpr qsizetype MaxPagesFileBytes = 256 * 1024;
 inline constexpr int MaxPages = 32;
 inline constexpr int MaxLabelLength = 24;
 inline constexpr int MaxNameLength = 64;
+inline constexpr int MaxThemes = 8;
 inline constexpr int MaxPageDepth = 8; // pages opened one from another, at run time
 
 // Parses and validates the content of a pages file. Never throws, never reads

@@ -52,6 +52,10 @@ public:
                      VideoThumbnails *thumbnails = nullptr,
                      QObject *parent = nullptr);
 
+    // The line along the top of the screen: the theme's name and colour
+    // (0xRRGGBB). An empty name removes it.
+    void setTheme(const QString &name, std::uint32_t rgb);
+
     // When to show the track, and whether covers may be downloaded.
     void setScreenConfig(const ScreenConfig &config);
 
@@ -76,8 +80,11 @@ Q_SIGNALS:
     void deckAvailableChanged();
 
 private:
+    [[nodiscard]] QVariantMap themeProperties() const;
     void tick();
     bool draw();
+    QString m_themeName;
+    std::uint32_t m_themeRgb = 0;
     [[nodiscard]] bool wantsNowPlaying() const;
     bool drawNowPlaying();
     void onNowPlayingChanged();

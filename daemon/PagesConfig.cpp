@@ -23,6 +23,8 @@ const QRegularExpression PageNamePattern(QStringLiteral("^[a-z0-9_-]{1,32}$"));
 // so no path can leave that folder.
 const QRegularExpression IconNamePattern(QStringLiteral("^[A-Za-z0-9._-]{1,64}$"));
 
+const QRegularExpression ThemeColorPattern(QStringLiteral("^#[0-9A-Fa-f]{6}$"));
+
 struct Parser
 {
     QStringList errors;
@@ -127,6 +129,13 @@ struct Parser
             out.type = ActionType::Back;
             return;
         }
+        if (type == QLatin1String("theme")) {
+            rejectUnknown(object, {QStringLiteral("type")}, path);
+            if (turnAction)
+                error(path, QStringLiteral("a dial turn needs a media volume or seek action"));
+            out.type = ActionType::Theme;
+            return;
+        }
         if (type == QLatin1String("app")) {
             rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("desktop")}, path);
             if (turnAction)
@@ -156,7 +165,7 @@ struct Parser
             return;
         }
         if (type != QLatin1String("media")) {
-            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app"));
+            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app, theme"));
             return;
         }
 
@@ -254,6 +263,48 @@ struct Parser
         }
     }
 
+    void themes(const QJsonValue &value, PagesConfig &config)
+    {
+        if (value.isUndefined())
+            return;
+        if (!value.isArray()) {
+            error(QStringLiteral("themes"), QStringLiteral("must be an array"));
+            return;
+        }
+        const QJsonArray array = value.toArray();
+        if (array.size() > MaxThemes)
+            error(QStringLiteral("themes"), QStringLiteral("has more than %1 themes").arg(MaxThemes));
+        for (qsizetype i = 0; i < array.size() && i < MaxThemes; ++i) {
+            const QString path = QStringLiteral("themes[%1]").arg(i);
+            if (!array.at(i).isObject()) {
+                error(path, QStringLiteral("must be an object"));
+                continue;
+            }
+            const QJsonObject object = array.at(i).toObject();
+            rejectUnknown(object, {QStringLiteral("name"), QStringLiteral("page"), QStringLiteral("color")}, path);
+            Theme theme;
+            bool ok = text(object.value(QStringLiteral("name")), path + QStringLiteral(".name"), MaxLabelLength, theme.name);
+            if (ok && theme.name.isEmpty()) {
+                error(path + QStringLiteral(".name"), QStringLiteral("must not be empty"));
+                ok = false;
+            }
+            ok = text(object.value(QStringLiteral("page")), path + QStringLiteral(".page"), MaxNameLength, theme.page) && ok;
+            QString color;
+            if (!text(object.value(QStringLiteral("color")), path + QStringLiteral(".color"), 7, color)) {
+                ok = false;
+            } else if (!ThemeColorPattern.match(color).hasMatch()) {
+                error(path + QStringLiteral(".color"), QStringLiteral("must be a colour such as #00bcd4"));
+                ok = false;
+            } else {
+                theme.rgb = color.mid(1).toUInt(nullptr, 16);
+            }
+            if (!ok)
+                continue;
+            referencedPages.insert(theme.page);
+            config.themes.push_back(theme);
+        }
+    }
+
     void screen(const QJsonValue &value, PagesConfig &config)
     {
         if (value.isUndefined())
@@ -347,7 +398,7 @@ PagesParseResult parsePagesConfig(const QByteArray &json)
     Parser parser;
     parser.rejectUnknown(root,
                          {QStringLiteral("version"), QStringLiteral("home"), QStringLiteral("pages"), QStringLiteral("dials"),
-                          QStringLiteral("screen")},
+                          QStringLiteral("screen"), QStringLiteral("themes")},
                          QStringLiteral("file"));
     int version = 0;
     if (parser.integer(root.value(QStringLiteral("version")), 1, 1, QStringLiteral("version"), version) && version != 1)
@@ -357,6 +408,7 @@ PagesParseResult parsePagesConfig(const QByteArray &json)
     parser.pages(root.value(QStringLiteral("pages")), config);
     parser.dials(root.value(QStringLiteral("dials")), config);
     parser.screen(root.value(QStringLiteral("screen")), config);
+    parser.themes(root.value(QStringLiteral("themes")), config);
 
     parser.text(root.value(QStringLiteral("home")), QStringLiteral("home"), MaxNameLength, config.home);
     if (!config.home.isEmpty() && !config.pages.contains(config.home))

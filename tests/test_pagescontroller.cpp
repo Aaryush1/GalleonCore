@@ -13,6 +13,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -553,6 +554,74 @@ private Q_SLOTS:
                 return f.media.previousCount > 0;
             }(),
             5000);
+    }
+
+    void aDialPressStepsThroughTheThemes()
+    {
+        QJsonObject config{
+            {"version", 1},
+            {"home", "main"},
+            {"pages", QJsonObject{{"main", page({keyJson(0, "A", mediaAction("previous"))})},
+                                  {"sound", page({keyJson(0, "B", mediaAction("next"))})}}},
+            {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffffff"}},
+                                  QJsonObject{{"name", "Sound"}, {"page", "sound"}, {"color", "#e53935"}}}},
+            {"dials", QJsonObject{{"0", QJsonObject{{"press", QJsonObject{{"type", "theme"}}}}}}}};
+        const auto parsed = parsePagesConfig(QJsonDocument(config).toJson());
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+
+        Fixture f;
+        QSignalSpy changed(f.controller.get(), &PagesController::themeChanged);
+        f.controller->setConfig(*parsed.config);
+        QVERIFY(f.controller->currentTheme());
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control"));
+
+        // The rings take the theme's colour: 4 LEDs per dial, 8 reports.
+        const auto ringReports = [&] {
+            std::vector<std::vector<std::uint8_t>> reports;
+            for (const auto &r : f.transport->featureReports) {
+                if (r.size() > 5 && r[1] == 0x24)
+                    reports.push_back(r);
+            }
+            return reports;
+        };
+        auto rings = ringReports();
+        QVERIFY(rings.size() >= 8);
+        QCOMPARE(int(rings.back()[3]), 255);
+
+        const auto before = f.transport->writes.size();
+        f.pressDial(0, true);
+        f.pressDial(0, false);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Sound"));
+        QCOMPARE(f.controller->currentPage(), QStringLiteral("sound"));
+        QVERIFY(f.keysDrawnSince(before).contains(0));
+        rings = ringReports();
+        QCOMPARE(int(rings.back()[3]), 0xe5);
+        QCOMPARE(int(rings.back()[4]), 0x39);
+        QCOMPARE(int(rings.back()[5]), 0x35);
+
+        f.pressDial(0, true); // wraps around to the first
+        f.pressDial(0, false);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control"));
+        QCOMPARE(f.controller->currentPage(), QStringLiteral("main"));
+        QVERIFY(changed.count() >= 3);
+    }
+
+    void withoutThemesTheRingsStayDarkAndThePressDoesNothing()
+    {
+        const auto parsed = parsePagesConfig(
+            QJsonDocument(QJsonObject{{"version", 1},
+                                      {"home", "main"},
+                                      {"pages", QJsonObject{{"main", page({})}}},
+                                      {"dials", QJsonObject{{"0", QJsonObject{{"press", QJsonObject{{"type", "theme"}}}}}}}})
+                .toJson());
+        QVERIFY(parsed.config.has_value());
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        QVERIFY(!f.controller->currentTheme());
+        f.pressDial(0, true);
+        f.pressDial(0, false);
+        QVERIFY(!f.controller->currentTheme());
+        QCOMPARE(f.controller->currentPage(), QStringLiteral("main"));
     }
 };
 

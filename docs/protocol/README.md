@@ -216,7 +216,7 @@ Measured on this unit (read-only: the HID report descriptor and GET feature repo
 
 Cross-checked against a second, independent implementation, OpenActionAPI/rust-elgato-streamdeck pull request 63 (linked from OpenDeck issue 272): VID/PID 1b1c:2b18, interface 0 only, keep-alive `03 27` in a 32-byte feature report every 500 ms, keys 160 x 160 JPEG and screen 720 x 384 JPEG, both without rotation or mirroring.
 
-That implementation also lights the dial rings through the Stream Deck protocol: a 6-byte feature report `03 24 <led> <red> <green> <blue>`, 4 LEDs per dial (led = (1 - dial) * 4 + segment, so dial 0 uses LEDs 4 to 7 and dial 1 uses LEDs 0 to 3). Not tested here. The LampArray interface sees only one lamp per ring.
+That implementation also lights the dial rings through the Stream Deck protocol: a 6-byte feature report `03 24 <led> <red> <green> <blue>`, 4 LEDs per dial (led = (1 - dial) * 4 + segment, so dial 0 uses LEDs 4 to 7 and dial 1 uses LEDs 0 to 3). `galleond` sends it for the themes (`dialRingReports`, padded to 32 bytes); the test on the module is pending. The LampArray interface sees only one lamp per ring.
 
 Image headers (galleon-deck, and the Stream Deck Plus conventions the Rust code reuses for the Galleon): key `02 07 <key> <last> <len u16le> <part u16le>`, screen `02 0c <x> <y> <w> <h> <last> <part> <len> 00`.
 

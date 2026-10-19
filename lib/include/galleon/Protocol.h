@@ -126,6 +126,17 @@ std::vector<std::uint8_t> keepAliveReport();
 // Empty if `percent` is outside 0..100.
 std::vector<std::uint8_t> brightnessReport(int percent);
 
+// Number of LEDs in the ring around one dial.
+inline constexpr int DialRingLeds = 4;
+
+// Feature reports that light the ring around a dial with one colour: one
+// report per LED, `03 24 <led> <red> <green> <blue>` with led = (1 - dial) * 4
+// + segment (dial 0 uses LEDs 4 to 7, dial 1 uses LEDs 0 to 3). Source:
+// OpenActionAPI/rust-elgato-streamdeck pull request 63, which sends 6 bytes;
+// here padded to 32 like the module's other feature reports. NOT yet verified
+// on the hardware. Empty if `dial` is outside 0..DialCount-1.
+std::vector<std::vector<std::uint8_t>> dialRingReports(int dial, std::uint8_t red, std::uint8_t green, std::uint8_t blue);
+
 // Cuts a JPEG into the output reports that draw it on the top screen.
 // Header of 16 bytes (galleon-deck, "Top screen output report"):
 //   02 0c  x(u16le) y(u16le) w(u16le) h(u16le)  last(u8)  part(u16le)  len(u16le)  00

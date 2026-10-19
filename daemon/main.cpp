@@ -378,11 +378,20 @@ int main(int argc, char *argv[])
                                                             galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
         QObject::connect(pages.get(), &galleond::PagesController::screenConfigChanged, &controller,
                          [&pages, &controller] { controller.setScreenConfig(pages->screenConfig()); });
+        const auto showTheme = [&pages, &controller] {
+            const galleond::Theme *theme = pages->currentTheme();
+            controller.setTheme(theme ? theme->name : QString(), theme ? theme->rgb : 0);
+        };
+        QObject::connect(pages.get(), &galleond::PagesController::themeChanged, &controller, showTheme);
         pages->loadFile(pagesFile);
+        showTheme();
         controller.setScreenConfig(pages->screenConfig());
         // A module plugged in again shows its old icons: send everything.
         QObject::connect(&controller, &galleond::ScreenController::deckAvailableChanged, pages.get(),
-                         [&pages] { pages->redraw(true); });
+                         [&pages] {
+                             pages->redraw(true);
+                             pages->applyRings();
+                         });
     }
 
     // org.galleoncore.Deck on the session bus: SetWallpaper, ClearWallpaper, Wallpapers.

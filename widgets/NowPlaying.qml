@@ -22,6 +22,9 @@ Rectangle {
     property string coverId
     // The picture is an application icon, not a cover: shown whole, with room around it.
     property bool coverIsIcon: false
+    // The theme shown as a line along the top (empty name: none).
+    property string themeName
+    property color themeColor: "white"
     property date now: new Date()
     property var locale: Qt.locale()
     // True once the cover is decoded (or when there is none).
@@ -148,5 +151,26 @@ Rectangle {
         color: "#9aa2ad"
         font.pixelSize: 18 * root.unit
         text: root.clock(root.durationSeconds)
+    }
+    // The current theme: a line along the top edge in its colour, with its
+    // name at the right. Nothing without a theme.
+    Rectangle {
+        visible: root.themeName !== ""
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 6 * root.height / 384
+        color: root.themeColor
+    }
+    Text {
+        visible: root.themeName !== ""
+        anchors.top: parent.top
+        anchors.topMargin: 10 * root.height / 384
+        anchors.right: parent.right
+        anchors.rightMargin: 16 * root.height / 384
+        color: root.themeColor
+        font.pixelSize: 15 * root.height / 384
+        font.bold: true
+        text: root.themeName
     }
 }

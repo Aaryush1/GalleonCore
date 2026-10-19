@@ -165,6 +165,20 @@ You never need to edit the JSON for this:
 
 The edit is checked like any pages file, the previous version is kept as `pages.json.bak`, and a running `galleond` reads the change by itself.
 
+### Themes
+
+A `themes` list gives pages a name and a colour. A dial press with `{ "type": "theme" }` steps through them: the keys show the theme's page, a line in the theme's colour runs along the top of the screen with its name, and the rings around both dials take the colour.
+
+```json
+"themes": [
+  { "name": "Control", "page": "main", "color": "#ffffff" },
+  { "name": "Sound", "page": "sound", "color": "#e53935" }
+],
+"dials": { "0": { "press": { "type": "theme" } } }
+```
+
+The ring colours use the Stream Deck protocol's per-LED feature report (`03 24 <led> <r> <g> <b>`, from rust-elgato-streamdeck PR 63). It has not been verified on the module yet. At most 8 themes; the colour is `#rrggbb`; a theme's page must exist.
+
 ### Now playing on the screen
 
 While a player is playing, the screen shows the track (cover, title, artist, time and a progress bar) instead of the wallpaper, and goes back to the wallpaper when the music stops. This is set by an optional `screen` section of the pages file:

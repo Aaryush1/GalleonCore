@@ -131,6 +131,19 @@ bool StreamDeck::setBrightness(int percent)
     return m_transport->sendFeatureReport(protocol::brightnessReport(percent));
 }
 
+bool StreamDeck::setDialRing(int dial, std::uint8_t red, std::uint8_t green, std::uint8_t blue)
+{
+    if (!isOpen())
+        return false;
+    const auto reports = protocol::dialRingReports(dial, red, green, blue);
+    if (reports.empty())
+        return false;
+    bool ok = true;
+    for (const auto &report : reports)
+        ok = m_transport->sendFeatureReport(report) && ok;
+    return ok;
+}
+
 void StreamDeck::setTraceInput(bool enabled)
 {
     m_traceInput = enabled;

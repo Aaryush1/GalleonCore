@@ -36,6 +36,8 @@ public:
     bool setKeyImage(int key, const QImage &image);
     bool setScreenImage(const QImage &image);
     bool setBrightness(int percent);
+    // Lights the ring around a dial (0 or 1) with one colour; see protocol::dialRingReports.
+    bool setDialRing(int dial, std::uint8_t red, std::uint8_t green, std::uint8_t blue);
 
     // Logs the first bytes and the status of every input report. For checking
     // what the module really sends; off by default (it is chatty).

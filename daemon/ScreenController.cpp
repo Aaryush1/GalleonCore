@@ -8,6 +8,7 @@
 #include <galleon/Protocol.h>
 #include <galleon/StreamDeck.h>
 
+#include <QColor>
 #include <QDateTime>
 #include <QIcon>
 #include <QDebug>
@@ -159,6 +160,22 @@ void ScreenController::setScreenConfig(const ScreenConfig &config)
         draw();
 }
 
+void ScreenController::setTheme(const QString &name, std::uint32_t rgb)
+{
+    if (name == m_themeName && rgb == m_themeRgb)
+        return;
+    m_themeName = name;
+    m_themeRgb = rgb;
+    if (!m_wallpaper.isEmpty())
+        draw();
+}
+
+QVariantMap ScreenController::themeProperties() const
+{
+    return {{QStringLiteral("themeName"), m_themeName},
+            {QStringLiteral("themeColor"), QColor::fromRgb(m_themeRgb)}};
+}
+
 bool ScreenController::wantsNowPlaying() const
 {
     if (!m_media || !m_nowPlayingRenderer || m_wallpaper.isEmpty() || m_screenConfig.nowPlaying == NowPlayingMode::Never)
@@ -241,8 +258,8 @@ void ScreenController::onNowPlayingChanged()
 bool ScreenController::drawNowPlaying()
 {
     const NowPlaying track = m_media->nowPlaying();
-    const QImage frame = m_nowPlayingRenderer->render(
-        {{QStringLiteral("title"), track.title},
+    QVariantMap properties = themeProperties();
+    properties.insert({{QStringLiteral("title"), track.title},
          {QStringLiteral("artist"), track.artist},
          {QStringLiteral("positionSeconds"), track.positionSeconds},
          {QStringLiteral("durationSeconds"), track.durationSeconds},
@@ -250,8 +267,9 @@ bool ScreenController::drawNowPlaying()
          {QStringLiteral("coverId"), m_coverId},
          {QStringLiteral("coverIsIcon"), m_coverIsIcon},
          {QStringLiteral("now"), QDateTime::currentDateTime()},
-         {QStringLiteral("locale"), QVariant::fromValue(QLocale())}},
-        QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
+         {QStringLiteral("locale"), QVariant::fromValue(QLocale())}});
+    const QImage frame = m_nowPlayingRenderer->render(
+        properties, QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
     return !frame.isNull() && m_deck->setScreenImage(frame);
 }
 
@@ -268,9 +286,12 @@ bool ScreenController::draw()
     if (nowPlaying)
         return drawNowPlaying();
 
-    const QImage frame = m_renderer->render(entry->path,
-                                            QDateTime::currentDateTime(),
-                                            QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
+    QVariantMap properties = themeProperties();
+    properties.insert({{QStringLiteral("wallpaper"), QUrl::fromLocalFile(entry->path)},
+                       {QStringLiteral("now"), QDateTime::currentDateTime()},
+                       {QStringLiteral("locale"), QVariant::fromValue(QLocale())}});
+    const QImage frame = m_renderer->render(
+        properties, QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
     if (frame.isNull())
         return false;
     return m_deck->setScreenImage(frame);
