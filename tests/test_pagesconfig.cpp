@@ -396,6 +396,24 @@ private Q_SLOTS:
                 }).config.has_value());
     }
 
+    void aWallpaperModeActionIsAcceptedOnAPress()
+    {
+        const auto edit = [](const QJsonObject &action, const QString &field) {
+            return parseEdited([&](QJsonObject &object) {
+                QJsonObject dials = object.value("dials").toObject();
+                QJsonObject dial = dials.value("1").toObject();
+                dial.insert(field, action);
+                dials.insert("1", dial);
+                object.insert("dials", dials);
+            });
+        };
+        const auto press = edit(QJsonObject{{"type", "wallpaper-mode"}}, "press");
+        QVERIFY2(press.config.has_value(), qPrintable(press.errors.join('\n')));
+        QVERIFY(press.config->dials[1].press.type == ActionType::WallpaperMode);
+        QVERIFY(!edit(QJsonObject{{"type", "wallpaper-mode"}}, "turn").config.has_value());
+        QVERIFY(!edit(QJsonObject{{"type", "wallpaper-mode"}, {"x", 1}}, "press").config.has_value());
+    }
+
     void errorsAndConfigAreMutuallyExclusive()
     {
         // Every single-byte change of the default file: never a crash, and

@@ -179,6 +179,10 @@ Une liste `themes` donne un nom et une couleur à des pages. Un appui de molette
 
 La couleur des anneaux utilise le rapport de fonctionnalité par LED du protocole Stream Deck (`03 24 <led> <r> <v> <b>`, tiré de la PR 63 de rust-elgato-streamdeck). Il n'est pas encore vérifié sur le module. 8 thèmes au plus ; la couleur est `#rrggbb` ; la page d'un thème doit exister.
 
+### Choisir le fond d'écran avec une molette
+
+Un appui de molette avec `{ "type": "wallpaper-mode" }` fait passer cette molette du contrôle du lecteur au choix du fond d'écran : la tourner parcourt les fonds du catalogue (le choix est retenu, et le fond s'affiche même pendant qu'une piste joue), un second appui revient en arrière. Après 30 secondes sans rotation, le retour se fait tout seul. Une fine ligne en bas de l'écran et l'anneau de la molette droite indiquent le mode : blanc pour le contrôle du lecteur, magenta pour le choix du fond.
+
 ### En cours de lecture sur l'écran
 
 Quand un lecteur joue, l'écran affiche le morceau (pochette, titre, artiste, temps et barre de progression) à la place du fond d'écran, et revient au fond quand la musique s'arrête. Une section `screen` facultative du fichier de pages le règle :

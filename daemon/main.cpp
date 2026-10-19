@@ -383,6 +383,13 @@ int main(int argc, char *argv[])
             controller.setTheme(theme ? theme->name : QString(), theme ? theme->rgb : 0);
         };
         QObject::connect(pages.get(), &galleond::PagesController::themeChanged, &controller, showTheme);
+        const auto showMode = [&pages, &controller] {
+            controller.setBottomBar(pages->wallpaperMode() ? 0xff00ff : 0xffffff, pages->wallpaperMode());
+        };
+        QObject::connect(pages.get(), &galleond::PagesController::wallpaperModeChanged, &controller, showMode);
+        QObject::connect(pages.get(), &galleond::PagesController::wallpaperStep, &controller,
+                         [&controller](int steps) { controller.stepWallpaper(steps); });
+        showMode();
         pages->loadFile(pagesFile);
         showTheme();
         controller.setScreenConfig(pages->screenConfig());

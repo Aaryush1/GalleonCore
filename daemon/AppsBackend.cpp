@@ -118,6 +118,9 @@ void AppsBackend::reload()
             case ActionType::Back:
                 kind = QStringLiteral("back");
                 break;
+            case ActionType::WallpaperMode:
+                kind = QStringLiteral("wallpaper-mode");
+                break;
             case ActionType::Theme:
                 kind = QStringLiteral("theme");
                 break;

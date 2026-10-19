@@ -20,6 +20,8 @@ namespace {
 constexpr int ReloadDelayMs = 250; // editors write a file in several steps
 constexpr int MinLaunchIntervalMs = 700; // a double press must not start an application twice
 constexpr int MaxLookedUpApps = 64;
+constexpr int WallpaperModeTimeoutMs = 30000; // back to the player control when left alone
+constexpr std::uint32_t WallpaperModeRgb = 0xff00ff; // magenta
 
 } // namespace
 
@@ -39,6 +41,10 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     connect(m_deck, &galleon::StreamDeck::dialRotated, this, &PagesController::onDialRotated);
     connect(m_deck, &galleon::StreamDeck::dialPressed, this, &PagesController::onDialPressed);
     connect(m_media, &MediaController::stateChanged, this, [this] { redraw(); });
+
+    m_wallpaperTimeout.setSingleShot(true);
+    m_wallpaperTimeout.setInterval(WallpaperModeTimeoutMs);
+    connect(&m_wallpaperTimeout, &QTimer::timeout, this, [this] { setWallpaperMode(-1); });
 
     m_reloadTimer.setSingleShot(true);
     m_reloadTimer.setInterval(ReloadDelayMs);
@@ -61,9 +67,12 @@ void PagesController::setConfig(const PagesConfig &config)
         }
     }
     m_pressed.fill(false);
+    m_wallpaperDial = -1; // a new file: back to the player control
+    m_wallpaperTimeout.stop();
     redraw(true);
     applyRings();
     Q_EMIT themeChanged();
+    Q_EMIT wallpaperModeChanged();
     if (screenChanged)
         Q_EMIT screenConfigChanged();
 }
@@ -183,6 +192,9 @@ void PagesController::perform(const Action &action, int times)
     case ActionType::App:
         launchApp(action.desktop);
         return;
+    case ActionType::WallpaperMode:
+        setWallpaperMode(m_pressedDial);
+        return;
     case ActionType::Theme:
         if (!m_config.themes.empty())
             selectTheme((m_theme + 1) % static_cast<int>(m_config.themes.size()));
@@ -240,7 +252,25 @@ void PagesController::applyRings()
     const std::uint32_t rgb = theme ? theme->rgb : 0;
     m_deck->setDialRing(0, static_cast<std::uint8_t>(rgb >> 16), static_cast<std::uint8_t>(rgb >> 8),
                         static_cast<std::uint8_t>(rgb));
-    m_deck->setDialRing(1, 0xff, 0xff, 0xff);
+    // The right ring: white for the player control, magenta while it chooses the wallpaper.
+    const std::uint32_t right = wallpaperMode() ? WallpaperModeRgb : 0xffffff;
+    m_deck->setDialRing(1, static_cast<std::uint8_t>(right >> 16), static_cast<std::uint8_t>(right >> 8),
+                        static_cast<std::uint8_t>(right));
+}
+
+void PagesController::setWallpaperMode(int dial)
+{
+    // A press toggles: the dial that is in the mode leaves it, any other enters it.
+    const int wanted = dial >= 0 && dial != m_wallpaperDial ? dial : -1;
+    if (wanted == m_wallpaperDial)
+        return;
+    m_wallpaperDial = wanted;
+    if (wallpaperMode())
+        m_wallpaperTimeout.start();
+    else
+        m_wallpaperTimeout.stop();
+    applyRings();
+    Q_EMIT wallpaperModeChanged();
 }
 
 DesktopApp PagesController::appFor(const QString &desktop)
@@ -298,6 +328,11 @@ void PagesController::onDialRotated(int dial, int steps)
 {
     if (dial < 0 || dial >= galleon::protocol::DialCount || steps == 0)
         return;
+    if (dial == m_wallpaperDial) {
+        m_wallpaperTimeout.start(); // in use: keep the mode
+        Q_EMIT wallpaperStep(steps);
+        return;
+    }
     perform(m_config.dials[static_cast<std::size_t>(dial)].turn, steps);
 }
 
@@ -305,7 +340,9 @@ void PagesController::onDialPressed(int dial)
 {
     if (dial < 0 || dial >= galleon::protocol::DialCount)
         return;
+    m_pressedDial = dial;
     perform(m_config.dials[static_cast<std::size_t>(dial)].press);
+    m_pressedDial = -1;
 }
 
 } // namespace galleond

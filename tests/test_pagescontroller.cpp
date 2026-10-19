@@ -626,6 +626,52 @@ private Q_SLOTS:
         QVERIFY(!f.controller->currentTheme());
         QCOMPARE(f.controller->currentPage(), QStringLiteral("main"));
     }
+
+    void theRightDialPressSwitchesToChoosingTheWallpaper()
+    {
+        const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
+            {"version", 1},
+            {"home", "main"},
+            {"pages", QJsonObject{{"main", page({})}}},
+            {"dials", QJsonObject{{"1", QJsonObject{{"turn", mediaAction("volume").value("type").toString() == "media"
+                                                              ? QJsonObject{{"type", "media"}, {"command", "seek"}, {"seconds", 5}}
+                                                              : QJsonObject()},
+                                                    {"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        QSignalSpy modes(f.controller.get(), &PagesController::wallpaperModeChanged);
+
+        const auto rightRing = [&] {
+            for (auto it = f.transport->featureReports.rbegin(); it != f.transport->featureReports.rend(); ++it) {
+                if (it->size() > 5 && (*it)[1] == 0x24 && (*it)[2] < 4)
+                    return std::array<int, 3>{(*it)[3], (*it)[4], (*it)[5]};
+            }
+            return std::array<int, 3>{-1, -1, -1};
+        };
+        QCOMPARE(rightRing(), (std::array<int, 3>{255, 255, 255})); // the player control: white
+
+        // Not in the mode: a turn is the configured one (seek), no wallpaper step.
+        f.turnDial(1, 2);
+        QCOMPARE(steps.count(), 0);
+        QCOMPARE(f.media.seekTotal, 10);
+
+        f.pressDial(1, true);
+        f.pressDial(1, false);
+        QVERIFY(f.controller->wallpaperMode());
+        QCOMPARE(rightRing(), (std::array<int, 3>{255, 0, 255})); // magenta
+        f.turnDial(1, 3);
+        QCOMPARE(steps.count(), 1);
+        QCOMPARE(steps.first().first().toInt(), 3);
+        QCOMPARE(f.media.seekTotal, 10); // the player is left alone
+
+        f.pressDial(1, true); // a second press leaves the mode
+        f.pressDial(1, false);
+        QVERIFY(!f.controller->wallpaperMode());
+        QCOMPARE(rightRing(), (std::array<int, 3>{255, 255, 255}));
+        QVERIFY(modes.count() >= 2);
+    }
 };
 
 QTEST_MAIN(TestPagesController)

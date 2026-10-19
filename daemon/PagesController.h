@@ -64,12 +64,19 @@ public:
     // none or the current page belongs to no theme. Valid until the config changes.
     [[nodiscard]] const Theme *currentTheme() const;
 
+    // True while a dial is set to choosing the wallpaper (its press toggles it).
+    [[nodiscard]] bool wallpaperMode() const { return m_wallpaperDial >= 0; }
+
     // Lights the left dial ring with the current theme's colour (off without
     // a theme) and the right one white. Also done by every theme change; call it again
     // when the module was plugged in again.
     void applyRings();
 
 Q_SIGNALS:
+    // The dial in wallpaper mode turned: `steps` wallpapers forward (negative: back).
+    void wallpaperStep(int steps);
+    // Wallpaper mode was entered or left.
+    void wallpaperModeChanged();
     // The theme changed (also to none): the screen's line and the rings follow.
     void themeChanged();
     // The `screen` section of the configuration in use changed.
@@ -97,6 +104,11 @@ private:
     PagesConfig m_config;
     void selectTheme(int index);
 
+    void setWallpaperMode(int dial); // -1 leaves the mode
+
+    int m_pressedDial = -1; // the dial whose press is being performed
+    int m_wallpaperDial = -1; // the dial that chooses the wallpaper, -1 = none
+    QTimer m_wallpaperTimeout;
     int m_theme = -1; // index in m_config.themes, -1 = none
     QStringList m_stack; // opened pages, the current one last
     std::array<bool, galleon::protocol::KeyCount> m_pressed{};

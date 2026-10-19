@@ -170,15 +170,42 @@ void ScreenController::setTheme(const QString &name, std::uint32_t rgb)
         draw();
 }
 
+void ScreenController::setBottomBar(std::uint32_t rgb, bool choosingWallpaper)
+{
+    if (rgb == m_barRgb && choosingWallpaper == m_choosingWallpaper)
+        return;
+    m_barRgb = rgb;
+    m_choosingWallpaper = choosingWallpaper;
+    if (!m_wallpaper.isEmpty())
+        draw();
+}
+
+void ScreenController::stepWallpaper(int steps)
+{
+    const QList<WallpaperEntry> &entries = m_catalog.entries();
+    const auto count = static_cast<int>(entries.size());
+    if (count == 0 || steps == 0)
+        return;
+    int current = -1;
+    for (int i = 0; i < count; ++i) {
+        if (entries[i].name == m_wallpaper)
+            current = i;
+    }
+    // Steps are bounded by the dial decoder; the modulo keeps any value in range.
+    const int next = (((current < 0 ? 0 : current) + steps) % count + count) % count;
+    SetWallpaper(entries[next].name);
+}
+
 QVariantMap ScreenController::themeProperties() const
 {
-    return {{QStringLiteral("themeName"), m_themeName},
+    return {{QStringLiteral("barColor"), QColor::fromRgb(m_barRgb)},
+            {QStringLiteral("themeName"), m_themeName},
             {QStringLiteral("themeColor"), QColor::fromRgb(m_themeRgb)}};
 }
 
 bool ScreenController::wantsNowPlaying() const
 {
-    if (!m_media || !m_nowPlayingRenderer || m_wallpaper.isEmpty() || m_screenConfig.nowPlaying == NowPlayingMode::Never)
+    if (m_choosingWallpaper || !m_media || !m_nowPlayingRenderer || m_wallpaper.isEmpty() || m_screenConfig.nowPlaying == NowPlayingMode::Never)
         return false;
     if (m_media->nowPlaying().isEmpty())
         return false;

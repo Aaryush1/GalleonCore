@@ -129,6 +129,13 @@ struct Parser
             out.type = ActionType::Back;
             return;
         }
+        if (type == QLatin1String("wallpaper-mode")) {
+            rejectUnknown(object, {QStringLiteral("type")}, path);
+            if (turnAction)
+                error(path, QStringLiteral("a dial turn needs a media volume or seek action"));
+            out.type = ActionType::WallpaperMode;
+            return;
+        }
         if (type == QLatin1String("theme")) {
             rejectUnknown(object, {QStringLiteral("type")}, path);
             if (turnAction)
@@ -165,7 +172,7 @@ struct Parser
             return;
         }
         if (type != QLatin1String("media")) {
-            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app, theme"));
+            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app, theme, wallpaper-mode"));
             return;
         }
 

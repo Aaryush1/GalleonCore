@@ -22,6 +22,8 @@ Rectangle {
     property string coverId
     // The picture is an application icon, not a cover: shown whole, with room around it.
     property bool coverIsIcon: false
+    // The colour of the line along the bottom edge (transparent: none).
+    property color barColor: "transparent"
     // The theme shown as a line along the top (empty name: none).
     property string themeName
     property color themeColor: "white"
@@ -172,5 +174,14 @@ Rectangle {
         font.pixelSize: 15 * root.height / 384
         font.bold: true
         text: root.themeName
+    }
+    // A thin line along the bottom edge: which control the right dial has
+    // (white: the player, magenta: choosing the wallpaper). None when transparent.
+    Rectangle {
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 4 * root.height / 384
+        color: root.barColor
     }
 }

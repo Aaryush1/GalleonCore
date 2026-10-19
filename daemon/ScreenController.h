@@ -56,6 +56,14 @@ public:
     // (0xRRGGBB). An empty name removes it.
     void setTheme(const QString &name, std::uint32_t rgb);
 
+    // The line along the bottom edge (0xRRGGBB), and whether the wallpaper is
+    // being chosen: then the wallpaper is shown even while a track plays.
+    void setBottomBar(std::uint32_t rgb, bool choosingWallpaper);
+
+    // Shows the wallpaper `steps` places further in the catalog (negative:
+    // back), wrapping around. Remembered like any choice.
+    void stepWallpaper(int steps);
+
     // When to show the track, and whether covers may be downloaded.
     void setScreenConfig(const ScreenConfig &config);
 
@@ -83,6 +91,8 @@ private:
     [[nodiscard]] QVariantMap themeProperties() const;
     void tick();
     bool draw();
+    std::uint32_t m_barRgb = 0xffffff;
+    bool m_choosingWallpaper = false;
     QString m_themeName;
     std::uint32_t m_themeRgb = 0;
     [[nodiscard]] bool wantsNowPlaying() const;

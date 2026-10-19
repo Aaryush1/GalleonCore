@@ -30,6 +30,7 @@ enum class ActionType : std::uint8_t {
     Back,  // return to the previous page
     App,   // start an application, named by its .desktop file
     Theme, // go to the next theme (see Theme)
+    WallpaperMode, // switch the dial to choosing the screen's wallpaper, and back
 };
 
 enum class MediaCommand : std::uint8_t {

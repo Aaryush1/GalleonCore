@@ -179,6 +179,10 @@ A `themes` list gives pages a name and a colour. A dial press with `{ "type": "t
 
 The ring colours use the Stream Deck protocol's per-LED feature report (`03 24 <led> <r> <g> <b>`, from rust-elgato-streamdeck PR 63). It has not been verified on the module yet. At most 8 themes; the colour is `#rrggbb`; a theme's page must exist.
 
+### Choosing the wallpaper with a dial
+
+A dial press with `{ "type": "wallpaper-mode" }` switches that dial from the player control to choosing the wallpaper: turning it steps through the wallpapers of the catalog (remembered, shown even while a track plays), and a second press goes back. After 30 seconds without a turn, it goes back by itself. A thin line along the bottom of the screen and the right dial's ring show the mode: white for the player control, magenta for choosing the wallpaper.
+
 ### Now playing on the screen
 
 While a player is playing, the screen shows the track (cover, title, artist, time and a progress bar) instead of the wallpaper, and goes back to the wallpaper when the music stops. This is set by an optional `screen` section of the pages file:

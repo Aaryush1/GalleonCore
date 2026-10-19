@@ -412,6 +412,39 @@ private Q_SLOTS:
         f.media.set(MediaController::State::Playing, Fixture::track());
         QCOMPARE(f.transport->writes.size(), before);
     }
+
+    void steppingChoosesTheNextWallpaperAndWrapsAround()
+    {
+        Fixture f;
+        QImage red(1600, 900, QImage::Format_RGB32);
+        red.fill(QColor(200, 30, 30));
+        QVERIFY(red.save(f.dir.filePath("wall/style/red.png")));
+        ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(), WallpaperCatalog(f.dir.filePath("wall")),
+                                    WidgetsDir + "/WallpaperClock.qml");
+        QVERIFY(controller.SetWallpaper("style/green.png"));
+        controller.stepWallpaper(1);
+        QCOMPARE(controller.wallpaper(), QStringLiteral("style/red.png"));
+        controller.stepWallpaper(1); // wraps around
+        QCOMPARE(controller.wallpaper(), QStringLiteral("style/green.png"));
+        controller.stepWallpaper(-1);
+        QCOMPARE(controller.wallpaper(), QStringLiteral("style/red.png"));
+        controller.stepWallpaper(-7); // many steps: still inside the catalog
+        QVERIFY(!controller.wallpaper().isEmpty());
+        controller.stepWallpaper(0);
+    }
+
+    void choosingTheWallpaperShowsItEvenWhileATrackPlays()
+    {
+        Fixture f;
+        f.controller->SetWallpaper(f.wallpaper());
+        f.media.set(MediaController::State::Playing, Fixture::track());
+        QTRY_VERIFY_WITH_TIMEOUT(f.lastScreen().pixelColor(690, 200) != QColor(30, 160, 60), 3000); // the track screen
+        f.controller->setBottomBar(0xff00ff, true);
+        QTRY_VERIFY_WITH_TIMEOUT(near(f.lastScreen().pixel(690, 200), qRgb(30, 160, 60)), 3000); // the wallpaper
+        QVERIFY(near(f.lastScreen().pixel(360, 382), qRgb(255, 0, 255), 50));                       // the magenta line
+        f.controller->setBottomBar(0xffffff, false);
+        QTRY_VERIFY_WITH_TIMEOUT(f.lastScreen().pixelColor(690, 200) != QColor(30, 160, 60), 3000);
+    }
 };
 
 QTEST_MAIN(TestScreenController)
