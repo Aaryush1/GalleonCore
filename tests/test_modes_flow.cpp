@@ -123,6 +123,8 @@ struct Fixture
 
     void dial(int index, bool pressed)
     {
+        if (pressed)
+            QTest::qWait(200); // a step just before a press is the click's own wobble: let it settle
         std::vector<std::uint8_t> report = {0x01, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00};
         report[5 + static_cast<std::size_t>(index)] = pressed ? 1 : 0;
         transport->pendingReads.push_back(report);
@@ -136,6 +138,7 @@ struct Fixture
     }
     void turn(int index, int steps)
     {
+        QTest::qWait(200); // a step right after a press is the click's release: let it pass
         std::vector<std::uint8_t> report = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x00};
         report[5 + static_cast<std::size_t>(index)] = static_cast<std::uint8_t>(steps);
         transport->pendingReads.push_back(report);
@@ -233,6 +236,33 @@ private Q_SLOTS:
         QCOMPARE(f.screen->wallpaper(), QStringLiteral("style/b-blue.png"));
         QTest::qWait(400);
         QVERIFY(near(f.lastScreen().pixel(700, 200), qRgb(40, 60, 200))); // and it stays
+    }
+
+    void theWobbleOfTheClickDoesNotChangeTheChoice()
+    {
+        Fixture f;
+        f.click(1);   // wallpaper mode
+        f.turn(1, 1); // the blue one: the user's choice
+        QTRY_VERIFY_WITH_TIMEOUT(near(f.lastScreen().pixel(700, 200), qRgb(40, 60, 200)), 3000);
+        QTest::qWait(300);
+
+        // Pressing the dial moves it a little: a step right before the press...
+        std::vector<std::uint8_t> turn = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x00};
+        turn[6] = 1; // dial 1, one step
+        f.transport->pendingReads.push_back(turn);
+        QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
+        std::vector<std::uint8_t> press = {0x01, 0x03, 0x03, 0x00, 0x00, 0x00, 0x01};
+        f.transport->pendingReads.push_back(press);
+        QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
+        QTest::qWait(60);
+        QVERIFY(!f.pages->wallpaperMode());
+        // ...and one right after it (the release): the chosen wallpaper is still the blue.
+        turn[6] = 0xff; // -1
+        f.transport->pendingReads.push_back(turn);
+        QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
+        QTest::qWait(300);
+        QCOMPARE(f.screen->wallpaper(), QStringLiteral("style/b-blue.png"));
+        QTRY_VERIFY_WITH_TIMEOUT(near(f.lastScreen().pixel(700, 200), qRgb(40, 60, 200)), 3000);
     }
 
     void turningSeveralStepsThenLeavingQuicklyKeepsTheLastWallpaper()

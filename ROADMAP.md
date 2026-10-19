@@ -31,6 +31,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 | Thème « Pavé numérique » (touches = clavier virtuel uinput, liste fixe de touches, touche maintenue tant qu'on appuie) choisi tout seul quand aucun média ne joue, Contrôle quand un lecteur joue (`"when"`) ; touches teintées d'une version sombre de la couleur du thème | oui | à confirmer (retour de l'utilisateur) |
 | Test de bout en bout des molettes (`test_modes_flow` : vrais widgets, faux module, même câblage que `galleond` via `connectPagesToScreen`) : thème sans média, rotation, volume rendu à la sortie du mode, choix du fond validé | oui | — |
 | Molette gauche sans lecteur : règle le volume du système (`wpctl`, PipeWire) ; le fond choisi reste 4 s à l'écran avant que la lecture reprenne ; la veille laisse au moins la moitié du temps du démon libre | oui | à confirmer |
+| Clic de molette : le cran parasite juste avant ou après l'appui est ignoré (fenêtre de 150 ms), pour que le fond ou le thème choisi ne bouge pas à la validation | oui (`test_modes_flow`) | à confirmer |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 
 ## 2. En cours

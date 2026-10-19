@@ -107,6 +107,7 @@ struct Fixture
 
     void turnDial(int dial, int signedSteps)
     {
+        QTest::qWait(200); // a step right after a press is the click's release: let it pass
         std::vector<std::uint8_t> report = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x00};
         report[5 + static_cast<std::size_t>(dial)] = static_cast<std::uint8_t>(signedSteps);
         transport->pendingReads.push_back(report);
@@ -116,6 +117,8 @@ struct Fixture
 
     void pressDial(int dial, bool pressed)
     {
+        if (pressed)
+            QTest::qWait(200); // a step just before a press is the click's own wobble: let it settle
         std::vector<std::uint8_t> report = {0x01, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00};
         report[5 + static_cast<std::size_t>(dial)] = pressed ? 1 : 0;
         transport->pendingReads.push_back(report);

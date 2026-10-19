@@ -131,6 +131,17 @@ private:
     void setWallpaperMode(int dial); // -1 leaves the mode
     void setThemeMode(int dial);     // -1 leaves the mode
 
+    // Clicking a dial moves it a little: a step just before a press, or just after
+    // it, is the click and not a turn. Each dial remembers its latest steps and press.
+    struct RecentTurn
+    {
+        qint64 at = 0; // ms on m_clock
+        int steps = 0;
+    };
+    static constexpr int ClickWindowMs = 150;
+    QElapsedTimer m_clock;
+    std::array<std::array<RecentTurn, 6>, galleon::protocol::DialCount> m_recentTurns{};
+    std::array<qint64, galleon::protocol::DialCount> m_lastPressAt{};
     KeyInjector *m_injector = nullptr;
     std::array<int, galleon::protocol::KeyCount> m_heldKey{}; // key code held for each key, 0 = none
     bool m_mediaPresent = false;

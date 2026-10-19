@@ -3,6 +3,8 @@
 
 #include "PagesController.h"
 
+#include <algorithm>
+
 #include <galleon/StreamDeck.h>
 
 #include <QDebug>
@@ -38,6 +40,8 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     , m_tiles(std::move(tiles))
     , m_launcher([](const DesktopApp &app) { return DesktopEntries::launch(app); })
 {
+    m_clock.start();
+    m_lastPressAt.fill(-ClickWindowMs * 4);
     m_mediaPresent = isMediaPresent(m_media->state());
     // The built-in pages: always valid, so there is always something to show.
     if (const auto fallback = parsePagesConfig(defaultPagesJson()); fallback.config)
@@ -500,6 +504,13 @@ void PagesController::onDialRotated(int dial, int steps)
         return;
     if (dial < 0 || dial >= galleon::protocol::DialCount || steps == 0)
         return;
+    const qint64 now = m_clock.elapsed();
+    const auto index = static_cast<std::size_t>(dial);
+    if (now - m_lastPressAt[index] < ClickWindowMs)
+        return; // the release of the click, not a turn
+    auto &recent = m_recentTurns[index];
+    std::rotate(recent.begin(), recent.begin() + 1, recent.end()); // the oldest slot is reused
+    recent.back() = {now, steps};
     if (dial == m_themeDial) {
         m_themeTimeout.start(); // in use: keep the mode
         stepTheme(steps);
@@ -519,6 +530,20 @@ void PagesController::onDialPressed(int dial)
         return;
     if (dial < 0 || dial >= galleon::protocol::DialCount)
         return;
+    // A step that came just before this press was the click: take it back.
+    const qint64 now = m_clock.elapsed();
+    const auto index = static_cast<std::size_t>(dial);
+    int wobble = 0;
+    for (RecentTurn &turn : m_recentTurns[index]) {
+        if (turn.steps != 0 && now - turn.at < ClickWindowMs)
+            wobble += turn.steps;
+        turn = {};
+    }
+    m_lastPressAt[index] = now;
+    if (wobble != 0 && dial == m_themeDial)
+        stepTheme(-wobble);
+    else if (wobble != 0 && dial == m_wallpaperDial)
+        Q_EMIT wallpaperStep(-wobble);
     m_pressedDial = dial;
     perform(m_config.dials[static_cast<std::size_t>(dial)].press);
     m_pressedDial = -1;
