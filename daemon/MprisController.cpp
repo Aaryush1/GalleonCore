@@ -7,6 +7,9 @@
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #include <QDBusArgument>
+#include <QRegularExpression>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QDBusPendingReply>
 #include <QDBusVariant>
 #include <QDebug>
@@ -124,7 +127,47 @@ MediaController::State MprisController::state() const
 NowPlaying MprisController::nowPlaying() const
 {
     const QString name = current();
-    return name.isEmpty() ? NowPlaying{} : m_players.value(name).track;
+    if (name.isEmpty())
+        return {};
+    const Player player = m_players.value(name);
+    NowPlaying track = player.track;
+    track.playerIcon = player.iconName;
+    return track;
+}
+
+QString MprisController::iconNameForDesktopEntry(const QString &desktopEntry)
+{
+    static const QRegularExpression plainName(QStringLiteral("^[A-Za-z0-9._-]{1,100}$"));
+    if (!plainName.match(desktopEntry).hasMatch())
+        return {};
+    // The application's own file says which icon it uses.
+    const QString file = QStandardPaths::locate(QStandardPaths::GenericDataLocation,
+                                                QStringLiteral("applications/") + desktopEntry + QStringLiteral(".desktop"));
+    if (!file.isEmpty()) {
+        QSettings settings(file, QSettings::IniFormat);
+        settings.beginGroup(QStringLiteral("Desktop Entry"));
+        const QString icon = settings.value(QStringLiteral("Icon")).toString();
+        if (plainName.match(icon).hasMatch()) // a name of the theme; a path is not used
+            return icon;
+    }
+    return desktopEntry; // most applications name their icon like their entry
+}
+
+void MprisController::fetchIdentity(const QString &name)
+{
+    // The root interface (org.mpris.MediaPlayer2) names the application.
+    QDBusMessage message = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("GetAll"));
+    message << QStringLiteral("org.mpris.MediaPlayer2");
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message, CallTimeoutMs), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, name](QDBusPendingCallWatcher *call) {
+        call->deleteLater();
+        const QDBusPendingReply<QVariantMap> reply = *call;
+        auto player = m_players.find(name);
+        if (reply.isError() || player == m_players.end())
+            return;
+        const QString entry = reply.value().value(QStringLiteral("DesktopEntry")).toString().left(100);
+        player->iconName = iconNameForDesktopEntry(entry);
+    });
 }
 
 QString MprisController::current() const
@@ -185,6 +228,7 @@ void MprisController::refreshNames()
             if (!m_players.contains(name)) {
                 qInfo() << "galleond: music player found:" << name;
                 m_players.insert(name, Player{});
+                fetchIdentity(name);
             }
         }
         setPlayers(); // reads the states, and reports a change

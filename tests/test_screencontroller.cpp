@@ -8,6 +8,7 @@
 #include <galleon/StreamDeck.h>
 
 #include <QDir>
+#include <QIcon>
 #include <QImage>
 #include <QTemporaryDir>
 #include <QTest>
@@ -261,6 +262,61 @@ private Q_SLOTS:
         video.positionSeconds = 6;
         f.media.set(MediaController::State::Playing, video);
         QVERIFY(near(pixelOf(f.lastScreen(), 190, 190), qRgb(230, 130, 20)));
+    }
+
+    // A throw-away icon theme holding one icon: "galleon-test-player".
+    static bool installTestTheme(const QString &root, QColor colour)
+    {
+        QDir().mkpath(root + "/galleontest/48x48/apps");
+        QFile index(root + "/galleontest/index.theme");
+        if (!index.open(QIODevice::WriteOnly))
+            return false;
+        index.write("[Icon Theme]\nName=galleontest\nDirectories=48x48/apps\n\n[48x48/apps]\nSize=48\nType=Fixed\n");
+        index.close();
+        QImage icon(48, 48, QImage::Format_ARGB32);
+        icon.fill(colour);
+        if (!icon.save(root + "/galleontest/48x48/apps/galleon-test-player.png"))
+            return false;
+        QIcon::setThemeSearchPaths({root});
+        QIcon::setThemeName("galleontest");
+        return true;
+    }
+
+    void aTrackWithoutACoverShowsThePlayerIcon()
+    {
+        Fixture f;
+        QVERIFY(installTestTheme(f.dir.filePath("icons"), QColor(10, 200, 220)));
+        QVERIFY(f.controller->SetWallpaper(f.wallpaper()));
+
+        NowPlaying video = Fixture::track(5, 100);
+        video.playerIcon = "galleon-test-player"; // what MPRIS' DesktopEntry gives
+        f.media.set(MediaController::State::Playing, video);
+        QVERIFY(near(pixelOf(f.lastScreen(), 190, 190), qRgb(10, 200, 220)));  // the icon
+        QVERIFY(near(pixelOf(f.lastScreen(), 36, 36), qRgb(0x23, 0x28, 0x30))); // with room around it
+
+        // A real cover takes its place...
+        QImage red(200, 200, QImage::Format_RGB32);
+        red.fill(QColor(210, 30, 30));
+        QVERIFY(red.save(f.dir.filePath("red.png")));
+        video.artUrl = QUrl::fromLocalFile(f.dir.filePath("red.png")).toString();
+        f.media.set(MediaController::State::Playing, video);
+        QVERIFY(near(pixelOf(f.lastScreen(), 36, 36), qRgb(210, 30, 30))); // a cover fills the square
+
+        // ...and the icon comes back when the next track has none.
+        video.artUrl.clear();
+        f.media.set(MediaController::State::Playing, video);
+        QVERIFY(near(pixelOf(f.lastScreen(), 190, 190), qRgb(10, 200, 220)));
+        QIcon::setThemeName(QString());
+    }
+
+    void anUnknownPlayerIconLeavesThePlaceholder()
+    {
+        Fixture f;
+        QVERIFY(f.controller->SetWallpaper(f.wallpaper()));
+        NowPlaying video = Fixture::track(5, 100);
+        video.playerIcon = "no-such-icon-in-any-theme";
+        f.media.set(MediaController::State::Playing, video);
+        QVERIFY(near(pixelOf(f.lastScreen(), 40, 40), qRgb(0x23, 0x28, 0x30)));
     }
 
     void aBadCoverFallsBackToThePlaceholder()

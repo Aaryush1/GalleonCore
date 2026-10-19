@@ -9,6 +9,7 @@
 #include <galleon/StreamDeck.h>
 
 #include <QDateTime>
+#include <QIcon>
 #include <QDebug>
 #include <QSettings>
 #include <QVariantMap>
@@ -48,9 +49,7 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
     if (m_media && m_nowPlayingRenderer) {
         connect(m_media, &MediaController::nowPlayingChanged, this, &ScreenController::onNowPlayingChanged);
         connect(&m_cover, &CoverLoader::coverChanged, this, [this] {
-            m_coverId = m_cover.cover().isNull() ? QString() : QString::number(++m_coverSerial);
-            if (!m_coverId.isEmpty())
-                m_nowPlayingRenderer->setProvidedImage(m_coverId, m_cover.cover());
+            updateCoverImage();
             if (wantsNowPlaying())
                 draw();
         });
@@ -157,6 +156,41 @@ bool ScreenController::wantsNowPlaying() const
            || (m_screenConfig.nowPlaying == NowPlayingMode::PlayingOrPaused && state == MediaController::State::Paused);
 }
 
+QImage ScreenController::iconImage(const QString &iconName)
+{
+    if (iconName.isEmpty())
+        return {};
+    if (const auto known = m_icons.constFind(iconName); known != m_icons.constEnd())
+        return known.value();
+    const QIcon icon = QIcon::fromTheme(iconName);
+    QImage image = icon.isNull() ? QImage() : icon.pixmap(256, 256).toImage();
+    if (m_icons.size() >= 8)
+        m_icons.clear(); // a session has few players: this only bounds the worst case
+    m_icons.insert(iconName, image);
+    return image;
+}
+
+void ScreenController::updateCoverImage()
+{
+    // The real cover first, then the player's icon; otherwise the widget's note.
+    QImage image = m_cover.cover();
+    QString key = image.isNull() ? QString() : QStringLiteral("cover:") + m_cover.coverUrl();
+    bool isIcon = false;
+    if (image.isNull()) {
+        const QString iconName = m_media->nowPlaying().playerIcon;
+        image = iconImage(iconName);
+        isIcon = !image.isNull();
+        key = isIcon ? QStringLiteral("icon:") + iconName : QString();
+    }
+    if (key == m_shownImageKey)
+        return; // nothing new: keep the same id, so the widget does not decode it again
+    m_shownImageKey = key;
+    m_coverIsIcon = isIcon;
+    m_coverId = image.isNull() ? QString() : QString::number(++m_coverSerial);
+    if (!m_coverId.isEmpty())
+        m_nowPlayingRenderer->setProvidedImage(m_coverId, image);
+}
+
 void ScreenController::onNowPlayingChanged()
 {
     // A new cover is wanted whenever the track says another address.
@@ -169,6 +203,7 @@ void ScreenController::onNowPlayingChanged()
         m_wantedCover = track.artUrl.isEmpty() ? CoverLoader::findLocalCover(track.url) : track.artUrl;
     }
     m_cover.request(m_wantedCover);
+    updateCoverImage(); // the player's icon may stand in, or the track changed
     if (!m_wallpaper.isEmpty())
         draw(); // the track, its timeline, or the return to the wallpaper
 }
@@ -183,6 +218,7 @@ bool ScreenController::drawNowPlaying()
          {QStringLiteral("durationSeconds"), track.durationSeconds},
          {QStringLiteral("playing"), m_media->state() == MediaController::State::Playing},
          {QStringLiteral("coverId"), m_coverId},
+         {QStringLiteral("coverIsIcon"), m_coverIsIcon},
          {QStringLiteral("now"), QDateTime::currentDateTime()},
          {QStringLiteral("locale"), QVariant::fromValue(QLocale())}},
         QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));

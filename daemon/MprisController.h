@@ -41,6 +41,11 @@ public:
     void changeVolume(int percent) override;
     void seek(int seconds) override;
 
+    // The icon theme name of a player application, from its MPRIS DesktopEntry
+    // ("vlc" -> the Icon= of vlc.desktop). Falls back to the entry itself; empty
+    // for an entry that is not a plain name.
+    [[nodiscard]] static QString iconNameForDesktopEntry(const QString &desktopEntry);
+
     // For tests: poll now instead of waiting for the timers.
     void refreshNow();
 
@@ -49,11 +54,13 @@ private:
     {
         State state = State::Stopped;
         NowPlaying track;
+        QString iconName; // from the root interface, read once
         qint64 lastPlaying = 0; // ordering: the highest was playing most recently
     };
 
     void refreshNames();
     void refreshState(const QString &name);
+    void fetchIdentity(const QString &name);
     void setPlayers();
     [[nodiscard]] QString current() const;
     void callPlayer(const QString &method, const QVariantList &arguments = {});

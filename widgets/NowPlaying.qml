@@ -20,6 +20,8 @@ Rectangle {
     property bool playing: true
     // The id of a cover held by the image provider "galleon"; empty: none.
     property string coverId
+    // The picture is an application icon, not a cover: shown whole, with room around it.
+    property bool coverIsIcon: false
     property date now: new Date()
     property var locale: Qt.locale()
     // True once the cover is decoded (or when there is none).
@@ -67,9 +69,10 @@ Rectangle {
         Image {
             id: cover
             anchors.fill: parent
+            anchors.margins: root.coverIsIcon ? parent.width * 0.16 : 0
             visible: root.coverId !== ""
             source: root.coverId !== "" ? "image://galleon/" + root.coverId : ""
-            fillMode: Image.PreserveAspectCrop
+            fillMode: root.coverIsIcon ? Image.PreserveAspectFit : Image.PreserveAspectCrop
             asynchronous: false
             cache: false
             smooth: true

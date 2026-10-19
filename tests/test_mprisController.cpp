@@ -4,6 +4,10 @@
 #include <MprisController.h>
 
 #include <QCoreApplication>
+#include <QDBusAbstractAdaptor>
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 #include <QDBusConnection>
 #include <QSignalSpy>
 #include <QTest>
@@ -12,6 +16,27 @@ using galleond::MediaController;
 using galleond::MprisController;
 
 namespace {
+
+// The root interface of an MPRIS player, org.mpris.MediaPlayer2.
+class RootAdaptor : public QDBusAbstractAdaptor
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.mpris.MediaPlayer2")
+    Q_PROPERTY(QString DesktopEntry READ desktopEntry)
+    Q_PROPERTY(QString Identity READ identity)
+
+public:
+    RootAdaptor(QObject *parent, QString entry)
+        : QDBusAbstractAdaptor(parent)
+        , m_entry(std::move(entry))
+    {
+    }
+    [[nodiscard]] QString desktopEntry() const { return m_entry; }
+    [[nodiscard]] static QString identity() { return QStringLiteral("Fake Player"); }
+
+private:
+    QString m_entry;
+};
 
 // A music player as MPRIS describes it, on the session bus under a private name.
 class FakePlayer : public QObject
@@ -24,17 +49,19 @@ class FakePlayer : public QObject
     Q_PROPERTY(qlonglong Position READ position)
 
 public:
-    explicit FakePlayer(QString name, QString status = QStringLiteral("Paused"))
+    explicit FakePlayer(QString name, QString status = QStringLiteral("Paused"), QString desktopEntry = {})
         : m_name(std::move(name))
         , m_status(std::move(status))
     {
+        if (!desktopEntry.isEmpty())
+            new RootAdaptor(this, std::move(desktopEntry)); // exported with the object
         // Its own connection: two players of one process would otherwise share
         // one object path.
         m_connectionName = m_name;
         auto bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, m_connectionName);
         m_registered = bus.registerService(m_name)
                        && bus.registerObject(QStringLiteral("/org/mpris/MediaPlayer2"), this,
-                                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllProperties);
+                                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllProperties | QDBusConnection::ExportAdaptors);
     }
     ~FakePlayer() override
     {
@@ -324,6 +351,40 @@ private Q_SLOTS:
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("m7none"));
         QTest::qWait(200);
         QVERIFY(controller.nowPlaying().isEmpty());
+    }
+
+    void theIconNameComesFromTheDesktopEntry()
+    {
+        QTemporaryDir data;
+        QDir().mkpath(data.filePath("applications"));
+        QFile entry(data.filePath("applications/galleontest-player.desktop"));
+        QVERIFY(entry.open(QIODevice::WriteOnly));
+        entry.write("[Desktop Entry]\nType=Application\nName=Test\nIcon=galleon-test-icon\n");
+        entry.close();
+        QFile pathIcon(data.filePath("applications/galleontest-path.desktop"));
+        QVERIFY(pathIcon.open(QIODevice::WriteOnly));
+        pathIcon.write("[Desktop Entry]\nName=Test\nIcon=/usr/share/pixmaps/evil.png\n");
+        pathIcon.close();
+        const QByteArray previous = qgetenv("XDG_DATA_DIRS");
+        qputenv("XDG_DATA_DIRS", data.path().toUtf8());
+
+        QCOMPARE(MprisController::iconNameForDesktopEntry("galleontest-player"), QStringLiteral("galleon-test-icon"));
+        QCOMPARE(MprisController::iconNameForDesktopEntry("galleontest-path"), QStringLiteral("galleontest-path")); // a path is not used
+        QCOMPARE(MprisController::iconNameForDesktopEntry("vlc"), QStringLiteral("vlc")); // no file: the entry itself
+        QVERIFY(MprisController::iconNameForDesktopEntry("../../etc/passwd").isEmpty());
+        QVERIFY(MprisController::iconNameForDesktopEntry("a b").isEmpty());
+        QVERIFY(MprisController::iconNameForDesktopEntry({}).isEmpty());
+        QVERIFY(MprisController::iconNameForDesktopEntry(QString(101, QLatin1Char('x'))).isEmpty());
+
+        qputenv("XDG_DATA_DIRS", previous);
+    }
+
+    void thePlayerIconIsReadFromTheRootInterface()
+    {
+        FakePlayer player(uniqueName("m12"), QStringLiteral("Playing"), QStringLiteral("vlc"));
+        player.setMetadata({{"xesam:url", "file:///videos/film.mp4"}});
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m12"));
+        QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().playerIcon, QStringLiteral("vlc"), 5000);
     }
 
     void stateNamesMatchTheIconStates()

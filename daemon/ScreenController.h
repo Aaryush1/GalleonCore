@@ -79,6 +79,9 @@ private:
     [[nodiscard]] bool wantsNowPlaying() const;
     bool drawNowPlaying();
     void onNowPlayingChanged();
+    // Picks what the cover square shows: the cover, else the player's icon.
+    void updateCoverImage();
+    [[nodiscard]] QImage iconImage(const QString &iconName);
     void scheduleNextMinute();
     void checkDeck();
 
@@ -91,6 +94,9 @@ private:
     CoverLoader m_cover;
     ScreenConfig m_screenConfig;
     QString m_coverId; // changes with every cover, so the widget never reuses an old one
+    QString m_shownImageKey; // what m_coverId stands for: "cover:<url>" or "icon:<name>"
+    bool m_coverIsIcon = false;
+    QHash<QString, QImage> m_icons; // theme icons already turned into images (a handful)
     int m_coverSerial = 0;
     QString m_lastArtUrl;   // the track the cover address was worked out for
     QString m_lastTrackUrl;

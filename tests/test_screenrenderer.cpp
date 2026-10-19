@@ -144,6 +144,21 @@ private Q_SLOTS:
         QVERIFY(similar(frame.pixel(700, 200), qRgb(0x14, 0x17, 0x1c), 6));  // right margin: background
     }
 
+    void anApplicationIconIsShownWholeWithRoomAroundIt()
+    {
+        ScreenRenderer renderer(NowPlayingFile);
+        QImage icon(256, 256, QImage::Format_ARGB32);
+        icon.fill(QColor(220, 120, 0)); // a full square: a crop would fill the whole cover area
+        renderer.setProvidedImage("icon1", icon);
+        QVariantMap properties = track(10, 100, true, "icon1");
+        properties["coverIsIcon"] = true;
+        const QImage frame = renderer.render(properties, QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(190, 190), qRgb(220, 120, 0), 14));          // the icon, in the middle
+        QVERIFY(similar(frame.pixel(36, 36), qRgb(0x23, 0x28, 0x30), 8));        // the room around it
+        properties["coverIsIcon"] = false;                                       // the same picture as a cover fills the square
+        QVERIFY(similar(renderer.render(properties, QSize(Width, Height)).pixel(36, 36), qRgb(220, 120, 0), 14));
+    }
+
     void aPausedTrackHasAGreyBar()
     {
         ScreenRenderer renderer(NowPlayingFile);
