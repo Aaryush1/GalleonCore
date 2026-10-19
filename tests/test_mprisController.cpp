@@ -154,6 +154,42 @@ private Q_SLOTS:
         controller.seek(5);
     }
 
+    void withoutAPlayerTheDialSetsTheSystemVolumeThroughAFixedCommand()
+    {
+        QTemporaryDir dir;
+        const QString log = dir.filePath("calls.log");
+        const QString script = dir.filePath("fake-wpctl");
+        QFile file(script);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("#!/bin/sh\necho \"$@\" >> '" + log.toUtf8() + "'\n");
+        file.setPermissions(file.permissions() | QFileDevice::ExeOwner | QFileDevice::ExeUser);
+        file.close();
+
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("sysvol"));
+        // A test controller never touches the real system volume by itself.
+        controller.changeVolume(5);
+        QTest::qWait(200);
+        QVERIFY(!QFile::exists(log));
+
+        controller.setSystemVolumeProgram(script);
+        controller.changeVolume(2);
+        controller.changeVolume(2);
+        controller.changeVolume(2); // a fast turn: one command for the whole burst
+        QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(log), 3000);
+        QTest::qWait(300);
+        QFile calls(log);
+        QVERIFY(calls.open(QIODevice::ReadOnly));
+        const QStringList lines = QString::fromUtf8(calls.readAll()).trimmed().split('\n');
+        QCOMPARE(lines.size(), 1);
+        QCOMPARE(lines[0], QStringLiteral("set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 6%+"));
+
+        controller.changeVolume(-4);
+        QTRY_VERIFY_WITH_TIMEOUT(QFile(log).size() > 50, 3000);
+        QFile again(log);
+        QVERIFY(again.open(QIODevice::ReadOnly));
+        QVERIFY(QString::fromUtf8(again.readAll()).trimmed().endsWith(QStringLiteral("@DEFAULT_AUDIO_SINK@ 4%-")));
+    }
+
     void aPlayerIsFoundWithItsState()
     {
         FakePlayer player(uniqueName("a"), QStringLiteral("Paused"));

@@ -25,6 +25,10 @@ class MprisController : public MediaController
     Q_OBJECT
 
 public:
+    // The program that sets the system volume when no player is there (default: wpctl
+    // when it is installed). Empty: the dial then does nothing without a player. For the tests.
+    void setSystemVolumeProgram(const QString &program) { m_systemVolumeProgram = program; }
+
     // `namePrefix` selects which players are considered; the tests use a
     // private one. `playerctld` (a proxy of the last player) is always skipped:
     // it would count the same player twice.
@@ -86,6 +90,11 @@ private:
     NowPlaying m_reportedTrack;
     // Volume steps arrive faster than a D-Bus round trip: they add up here and
     // one read-then-write at a time applies them, so none is lost.
+    // Without any player, the dial sets the system volume (PipeWire, wpctl) instead.
+    void applySystemVolume(int percent);
+    QString m_systemVolumeProgram;
+    int m_pendingSystemVolume = 0;
+    QTimer m_systemVolumeTimer;
     int m_pendingVolume = 0;
     bool m_volumeBusy = false;
 

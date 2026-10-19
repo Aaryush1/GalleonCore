@@ -7,6 +7,7 @@
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #include <QDBusArgument>
+#include <QProcess>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
@@ -23,6 +24,7 @@ namespace galleond {
 
 namespace {
 
+constexpr int SystemVolumeGatherMs = 40; // steps of a fast turn are gathered for this long
 constexpr int NamesIntervalMs = 3000;
 constexpr int StateIntervalMs = 1000;
 constexpr int CallTimeoutMs = 1500;
@@ -110,6 +112,22 @@ MprisController::MprisController(QDBusConnection bus, QString namePrefix, QObjec
     , m_prefix(std::move(namePrefix))
 {
     m_clock.start();
+    // The system volume is only touched by the real thing: a controller made with
+    // another name prefix (the tests) never moves the volume of the machine it runs on.
+    if (m_prefix == QLatin1String("org.mpris.MediaPlayer2."))
+        m_systemVolumeProgram = QStandardPaths::findExecutable(QStringLiteral("wpctl"));
+    m_systemVolumeTimer.setSingleShot(true);
+    m_systemVolumeTimer.setInterval(SystemVolumeGatherMs);
+    connect(&m_systemVolumeTimer, &QTimer::timeout, this, [this] {
+        const int percent = std::exchange(m_pendingSystemVolume, 0);
+        if (percent == 0 || m_systemVolumeProgram.isEmpty())
+            return;
+        // A fixed command and a whole number: nothing from outside goes into it. At most 100 %.
+        QProcess::startDetached(m_systemVolumeProgram,
+                                {QStringLiteral("set-volume"), QStringLiteral("-l"), QStringLiteral("1.0"),
+                                 QStringLiteral("@DEFAULT_AUDIO_SINK@"),
+                                 QString::number(std::abs(percent)) + QLatin1Char('%') + (percent > 0 ? QLatin1Char('+') : QLatin1Char('-'))});
+    });
     m_namesTimer.setInterval(NamesIntervalMs);
     m_stateTimer.setInterval(StateIntervalMs);
     connect(&m_namesTimer, &QTimer::timeout, this, &MprisController::refreshNames);
@@ -374,9 +392,25 @@ void MprisController::changeVolume(int percent)
         applyPendingVolume();
 }
 
+void MprisController::applySystemVolume(int percent)
+{
+    if (m_systemVolumeProgram.isEmpty())
+        return;
+    // Steps are gathered for a moment: a fast turn starts one program, not twenty.
+    m_pendingSystemVolume = std::clamp(m_pendingSystemVolume + percent, -100, 100);
+    if (m_systemVolumeTimer.isActive())
+        return;
+    m_systemVolumeTimer.start();
+}
+
 void MprisController::applyPendingVolume()
 {
     const QString name = current();
+    if (name.isEmpty() && m_pendingVolume != 0) {
+        // No player: the system volume, so that the dial is not dead.
+        applySystemVolume(std::exchange(m_pendingVolume, 0));
+        return;
+    }
     if (name.isEmpty() || m_pendingVolume == 0) {
         m_pendingVolume = 0;
         return;
