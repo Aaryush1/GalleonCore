@@ -177,11 +177,23 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
             painter.setFont(font);
             painter.drawText(area, Qt::AlignCenter | Qt::TextWordWrap, key.label);
         } else {
-            font.setPixelSize(22);
+            // Under the icon: the label in the largest size that fits in two lines.
+            const QRectF area(6, Size - 50, Size - 12, 46);
+            int pixelSize = 22;
+            for (; pixelSize > 14; pixelSize -= 1) {
+                font.setPixelSize(pixelSize);
+                const QRectF needed = QFontMetricsF(font).boundingRect(area, Qt::AlignCenter | Qt::TextWordWrap, key.label);
+                if (needed.height() <= area.height() && needed.width() <= area.width() + 0.5)
+                    break;
+            }
+            font.setPixelSize(pixelSize);
             painter.setFont(font);
             const QFontMetrics metrics(font);
-            const QString text = metrics.elidedText(key.label, Qt::ElideRight, Size - 16);
-            painter.drawText(QRectF(8, Size - 46, Size - 16, 38), Qt::AlignCenter, text);
+            // Whatever still does not fit (one very long word) is cut at the end.
+            QString text = key.label;
+            if (metrics.horizontalAdvance(text) > 2 * area.width())
+                text = metrics.elidedText(text, Qt::ElideRight, static_cast<int>(2 * area.width() - 8));
+            painter.drawText(area, Qt::AlignCenter | Qt::TextWordWrap, text);
         }
     }
     if (highlight) {
