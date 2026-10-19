@@ -29,6 +29,7 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 | Stream Deck protocol (keys, screen, dials) | Keep-alive, brightness, key and screen images implemented from the module's own descriptor and community work; screen image, key images, key and dial input **confirmed on the hardware** |
 | Off-screen QML rendering to the deck | Wallpaper with the time (`WallpaperClock.qml`), software renderer |
 | Daemon + D-Bus interface | Wallpaper picker (`galleond --preview`) and `org.galleoncore.Deck` (`SetWallpaper`, `ClearWallpaper`, `Wallpapers`) |
+| Button pages (JSON) and music player (MPRIS) | Implemented, tests green, **not yet tried on the module** |
 | KDE Plasma widgets | Skeleton |
 | RGB lighting | **Under investigation.** The protocol (Corsair "V2"/Bragi) is not supported anywhere yet. Support is meant to land upstream in OpenRGB. |
 | OpenRGB plugin | Planned |
@@ -112,6 +113,34 @@ busctl --user call org.galleoncore.Deck /org/galleoncore/Deck org.galleoncore.De
 ```
 
 Only the images found in the wallpaper folder can be chosen, and each one is checked (real JPEG or PNG, size, no symbolic link). The last choice is remembered. The folder is `--wallpapers`, `$GALLEONCORE_WALLPAPERS`, `<data dir>/galleoncore/wallpaper`, or the source tree.
+
+## Button pages
+
+The 12 keys and the 2 dials run the actions of a JSON file, `~/.config/galleoncore/pages.json` (or `--pages file`). Without it, built-in pages control the music player. The file is read again when it changes; a file with an error is refused as a whole and the previous pages stay (the errors are in the log).
+
+```json
+{
+  "version": 1,
+  "home": "main",
+  "pages": {
+    "main": { "keys": [
+      { "key": 0, "label": "Previous", "icon": "media-skip-backward", "action": { "type": "media", "command": "previous" } },
+      { "key": 1, "label": "Play", "icon": { "playing": "media-playback-pause", "paused": "media-playback-start" },
+        "action": { "type": "media", "command": "play-pause" } },
+      { "key": 11, "label": "More", "action": { "type": "page", "page": "other" } }
+    ] },
+    "other": { "keys": [ { "key": 0, "label": "Back", "action": { "type": "back" } } ] }
+  },
+  "dials": { "0": { "turn": { "type": "media", "command": "volume", "step": 2 }, "press": { "type": "media", "command": "play-pause" } } }
+}
+```
+
+- Keys are numbered 0 to 11, row by row from the top left. A key without an `action` does nothing.
+- `icon`: a name of the desktop icon theme, or a file next to the pages file (`.png`, `.jpg`, `.svg`; no path). It can be an object with one name per player state (`playing`, `paused`, `stopped`).
+- Actions: `media` (`play-pause`, `next`, `previous`, `stop`, `volume` with `step` in percent, `seek` with `seconds`), `page` (open a page), `back`, `none`. A dial `turn` takes `volume` or `seek`, applied once per click.
+- The music player is found through MPRIS: the one that is playing, else the last one that played.
+- Actions come from this file only; nothing runs a program.
+- `galleond --render-keys keys.png` draws the keys of the first page into an image, without the hardware.
 
 ## Hardware notes
 

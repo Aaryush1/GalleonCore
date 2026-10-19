@@ -1,8 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "MprisController.h"
+#include "PagesConfig.h"
+#include "PagesController.h"
 #include "ScreenController.h"
 #include "ScreenRenderer.h"
+#include "TileRenderer.h"
 #include "WallpaperCatalog.h"
 
 #include <galleon/Protocol.h>
@@ -14,12 +18,15 @@
 #include <QDebug>
 #include <QImage>
 #include <QPainter>
+#include <QFile>
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QStandardPaths>
+
+#include <memory>
 
 namespace {
 
@@ -57,6 +64,43 @@ QString firstExisting(const QStringList &candidates, bool wantFile)
             return info.absoluteFilePath();
     }
     return {};
+}
+
+QString defaultPagesFile(const QString &fromCommandLine)
+{
+    if (!fromCommandLine.isEmpty())
+        return QFileInfo(fromCommandLine).absoluteFilePath();
+    return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + QStringLiteral("/galleoncore/pages.json");
+}
+
+// The 12 keys of the first page in one PNG (3 columns, 4 rows, like the module),
+// for checking the icons without the hardware.
+bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QString &state)
+{
+    QByteArray json = galleond::defaultPagesJson();
+    QFile file(pagesFile);
+    if (file.exists() && file.open(QIODevice::ReadOnly))
+        json = file.read(galleond::MaxPagesFileBytes + 1);
+    const galleond::PagesParseResult parsed = galleond::parsePagesConfig(json);
+    if (!parsed.config) {
+        for (const QString &line : parsed.errors)
+            qCritical().noquote() << "galleond:" << line;
+        return false;
+    }
+    const galleond::TileRenderer tiles(QFileInfo(pagesFile).absolutePath());
+    constexpr int tile = galleon::protocol::KeyImageSize;
+    constexpr int gap = 12;
+    QImage sheet(3 * tile + 2 * gap, 4 * tile + 3 * gap, QImage::Format_RGB32);
+    sheet.fill(QColor(0x10, 0x10, 0x10));
+    QPainter painter(&sheet);
+    const galleond::Page &page = parsed.config->pages.value(parsed.config->home);
+    for (int key = 0; key < galleon::protocol::KeyCount; ++key) {
+        const auto &configured = page.keys[static_cast<std::size_t>(key)];
+        const QImage image = configured ? tiles.render(*configured, state, false) : tiles.blank();
+        painter.drawImage((key % 3) * (tile + gap), (key / 3) * (tile + gap), image);
+    }
+    painter.end();
+    return sheet.save(pngFile);
 }
 
 QString defaultWallpaperDir(const QString &fromCommandLine)
@@ -114,7 +158,19 @@ int main(int argc, char *argv[])
                                          QStringLiteral("Print the first bytes of every key and dial report the module sends."));
     const QCommandLineOption testKeysOption(QStringLiteral("test-keys"),
                                             QStringLiteral("Draw the key numbers on the 12 keys; a key turns white while pressed."));
-    parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption});
+    const QCommandLineOption pagesOption(QStringLiteral("pages"),
+                                         QStringLiteral("Pages file (default: ~/.config/galleoncore/pages.json)."),
+                                         QStringLiteral("file"));
+    const QCommandLineOption noPagesOption(QStringLiteral("no-pages"),
+                                           QStringLiteral("Do not put the button pages on the keys."));
+    const QCommandLineOption renderKeysOption(QStringLiteral("render-keys"),
+                                              QStringLiteral("Draw the keys of the first page into this PNG file and exit. Does not touch the hardware."),
+                                              QStringLiteral("file"));
+    const QCommandLineOption stateOption(QStringLiteral("state"),
+                                         QStringLiteral("Player state shown by --render-keys: playing, paused or stopped."),
+                                         QStringLiteral("state"), QStringLiteral("paused"));
+    parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption,
+                       pagesOption, noPagesOption, renderKeysOption, stateOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
@@ -125,6 +181,14 @@ int main(int argc, char *argv[])
     }
     if (wallpaperDir.isEmpty())
         qWarning() << "galleond: no wallpaper folder found (see --wallpapers)";
+
+    if (parser.isSet(renderKeysOption)) {
+        const bool ok = renderKeysTo(defaultPagesFile(parser.value(pagesOption)), parser.value(renderKeysOption),
+                                     parser.value(stateOption));
+        if (ok)
+            qInfo() << "galleond: wrote" << parser.value(renderKeysOption);
+        return ok ? 0 : 1;
+    }
 
     if (parser.isSet(renderOption)) {
         // Offline mode: no deck, no D-Bus.
@@ -178,6 +242,20 @@ int main(int argc, char *argv[])
     if (!renderer.isValid())
         return 1;
     galleond::ScreenController controller(&deck, &renderer, galleond::WallpaperCatalog(wallpaperDir), widgetFile);
+
+    // The button pages: keys and dials drive the music player (MPRIS).
+    std::unique_ptr<galleond::MprisController> media;
+    std::unique_ptr<galleond::PagesController> pages;
+    if (!parser.isSet(noPagesOption) && !parser.isSet(testKeysOption)) {
+        const QString pagesFile = defaultPagesFile(parser.value(pagesOption));
+        media = std::make_unique<galleond::MprisController>();
+        pages = std::make_unique<galleond::PagesController>(&deck, media.get(),
+                                                            galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
+        pages->loadFile(pagesFile);
+        // A module plugged in again shows its old icons: send everything.
+        QObject::connect(&controller, &galleond::ScreenController::deckAvailableChanged, pages.get(),
+                         [&pages] { pages->redraw(true); });
+    }
 
     // org.galleoncore.Deck on the session bus: SetWallpaper, ClearWallpaper, Wallpapers.
     auto bus = QDBusConnection::sessionBus();

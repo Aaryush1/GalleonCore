@@ -29,6 +29,7 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 | Protocole Stream Deck (touches, écran, molettes) | Keep-alive, luminosité, images des touches et de l'écran implémentés d'après le descripteur du module et le travail communautaire ; image de l'écran, images des touches, touches et molettes **confirmées sur le matériel** |
 | Rendu QML hors écran vers le deck | Fond d'écran avec l'heure (`WallpaperClock.qml`), rendu logiciel |
 | Démon + interface D-Bus | Choix du fond (`galleond --preview`) et `org.galleoncore.Deck` (`SetWallpaper`, `ClearWallpaper`, `Wallpapers`) |
+| Pages de boutons (JSON) et lecteur de musique (MPRIS) | Implémentés, tests verts, **pas encore essayés sur le module** |
 | Widgets KDE Plasma | Squelette |
 | Éclairage RVB | **En cours d'investigation.** Le protocole (Corsair « V2 »/Bragi) n'est encore supporté nulle part. Le support doit être intégré en amont dans OpenRGB. |
 | Plugin OpenRGB | Prévu |
@@ -112,6 +113,34 @@ busctl --user call org.galleoncore.Deck /org/galleoncore/Deck org.galleoncore.De
 ```
 
 Seules les images du dossier des fonds peuvent être choisies, et chacune est vérifiée (vrai JPEG ou PNG, taille, pas de lien symbolique). Le dernier choix est mémorisé. Le dossier est `--wallpapers`, `$GALLEONCORE_WALLPAPERS`, `<dossier de données>/galleoncore/wallpaper`, ou l'arbre des sources.
+
+## Pages de boutons
+
+Les 12 touches et les 2 molettes exécutent les actions d'un fichier JSON, `~/.config/galleoncore/pages.json` (ou `--pages fichier`). Sans lui, des pages intégrées pilotent le lecteur de musique. Le fichier est relu quand il change ; un fichier avec une erreur est refusé en entier et les pages précédentes restent (les erreurs sont dans le journal).
+
+```json
+{
+  "version": 1,
+  "home": "main",
+  "pages": {
+    "main": { "keys": [
+      { "key": 0, "label": "Précédent", "icon": "media-skip-backward", "action": { "type": "media", "command": "previous" } },
+      { "key": 1, "label": "Lecture", "icon": { "playing": "media-playback-pause", "paused": "media-playback-start" },
+        "action": { "type": "media", "command": "play-pause" } },
+      { "key": 11, "label": "Plus", "action": { "type": "page", "page": "other" } }
+    ] },
+    "other": { "keys": [ { "key": 0, "label": "Retour", "action": { "type": "back" } } ] }
+  },
+  "dials": { "0": { "turn": { "type": "media", "command": "volume", "step": 2 }, "press": { "type": "media", "command": "play-pause" } } }
+}
+```
+
+- Les touches sont numérotées de 0 à 11, rangée par rangée depuis le haut gauche. Une touche sans `action` ne fait rien.
+- `icon` : un nom du thème d'icônes du bureau, ou un fichier à côté du fichier de pages (`.png`, `.jpg`, `.svg` ; pas de chemin). Elle peut être un objet avec un nom par état du lecteur (`playing`, `paused`, `stopped`).
+- Actions : `media` (`play-pause`, `next`, `previous`, `stop`, `volume` avec `step` en pourcent, `seek` avec `seconds`), `page` (ouvrir une page), `back`, `none`. Le `turn` d'une molette prend `volume` ou `seek`, appliqué à chaque cran.
+- Le lecteur de musique est trouvé par MPRIS : celui qui joue, sinon le dernier qui a joué.
+- Les actions viennent de ce fichier seulement ; rien ne lance de programme.
+- `galleond --render-keys touches.png` dessine les touches de la première page dans une image, sans le matériel.
 
 ## Notes matérielles
 
