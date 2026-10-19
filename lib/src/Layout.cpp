@@ -15,12 +15,12 @@ bool GridGeometry::isValid() const
 
 double GridGeometry::widthMm() const
 {
-    return columns * keyWidthMm + (columns - 1) * gapXMm;
+    return (columns * keyWidthMm) + ((columns - 1) * gapXMm);
 }
 
 double GridGeometry::heightMm() const
 {
-    return rows * keyHeightMm + (rows - 1) * gapYMm;
+    return (rows * keyHeightMm) + ((rows - 1) * gapYMm);
 }
 
 double GridGeometry::aspectRatio() const
@@ -43,10 +43,10 @@ std::vector<Rect> keyRects(const GridGeometry &grid, const Rect &frame)
     for (int row = 0; row < grid.rows; ++row) {
         for (int column = 0; column < grid.columns; ++column) {
             rects.push_back(Rect{
-                frame.x + column * (grid.keyWidthMm + grid.gapXMm) * scaleX,
-                frame.y + row * (grid.keyHeightMm + grid.gapYMm) * scaleY,
-                grid.keyWidthMm * scaleX,
-                grid.keyHeightMm * scaleY,
+                .x=frame.x + (column * (grid.keyWidthMm + grid.gapXMm) * scaleX),
+                .y=frame.y + (row * (grid.keyHeightMm + grid.gapYMm) * scaleY),
+                .width=grid.keyWidthMm * scaleX,
+                .height=grid.keyHeightMm * scaleY,
             });
         }
     }

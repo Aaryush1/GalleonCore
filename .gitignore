@@ -54,3 +54,9 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+
+# Raw USB captures hold device serial numbers and may hold keystrokes:
+# only sanitized extracts go into docs/protocol/
+/captures/*.pcap
+/captures/*.pcapng
+

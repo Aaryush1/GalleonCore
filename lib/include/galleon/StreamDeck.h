@@ -33,9 +33,24 @@ public:
     [[nodiscard]] QString serialNumber() const;
 
     // Return false while the protocol is not implemented.
-    bool setKeyImage(int key, const QImage &image);
-    bool setScreenImage(const QImage &image);
+    // `flush`: the module shows a picture only when a second transfer follows it (measured on the
+    // module, see docs/protocol/README.md): by default every picture is sent twice in a row, so it is
+    // shown at once. Pictures that stream (a video) pass false: the next one flushes the last.
+    bool setKeyImage(int key, const QImage &image, bool flush = true);
+    // `quality`: JPEG quality, 1..100. A lower one makes a smaller picture, quicker to send:
+    // for pictures that change at each step of a dial. 90 otherwise.
+    bool setScreenImage(const QImage &image, int quality = 90, bool flush = true);
     bool setBrightness(int percent);
+    // Lights the ring around a dial (0 or 1) with one colour; see protocol::dialRingReports.
+    bool setDialRing(int dial, std::uint8_t red, std::uint8_t green, std::uint8_t blue);
+
+    // Sends the keep-alive report now, outside its timer (used to test whether it makes the module
+    // show a picture it already received). The timer keeps its own rhythm.
+    bool sendKeepAliveNow();
+
+    // Logs the first bytes and the status of every input report. For checking
+    // what the module really sends; off by default (it is chatty).
+    void setTraceInput(bool enabled);
 
     // Exposed for tests; the hardware needs protocol::KeepAliveIntervalMs.
     void setKeepAliveInterval(int ms);
@@ -51,11 +66,15 @@ Q_SIGNALS:
 private:
     void sendKeepAlive();
     void pollInput();
+    bool pollOneReport(); // false when there is nothing more to read (or the module is gone)
     void dispatch(const protocol::InputEvent &event);
 
     std::unique_ptr<Transport> m_transport;
     QTimer m_keepAliveTimer;
     QTimer m_inputTimer;
+    protocol::InputState m_inputState;
+    int m_invalidReports = 0;
+    bool m_traceInput = false;
 };
 
 } // namespace galleon

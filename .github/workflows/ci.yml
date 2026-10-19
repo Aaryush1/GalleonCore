@@ -28,7 +28,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake g++ clang libclang-rt-18-dev \
-            qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config
+            qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config \
+            qml6-module-qtquick qml6-module-qtqml qml6-module-qtqml-workerscript
       - name: Configure
         run: cmake -B build -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DGALLEON_WERROR=ON ${{ matrix.flags }}
       - name: Build

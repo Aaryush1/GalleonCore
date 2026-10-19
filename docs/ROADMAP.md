@@ -62,6 +62,16 @@ Le gel observé par galleon-deck vient très probablement d'un mauvais format de
 - Format V2 existant : 2 à 4 soirées.
 - Variante de protocole : 1 à 3 semaines de soirées.
 
+### Décision : pilote dans le plugin (16 octobre 2026)
+
+Plutôt que d'attendre une version d'OpenRGB qui intègre le contrôleur, le pilote RVB est enregistré **à l'exécution par le plugin**, via l'API des plugins d'OpenRGB (API v5, branche `master` : `RegisterVirtualRGBController`, structure `RGBController_Setup` avec ses rappels `DeviceUpdateLEDs` / `DeviceUpdateMode`). Un OpenRGB standard suffit. Source : `OpenRGBPluginInterface.h` et `RGBControllerInterface.h` d'OpenRGB.
+
+- À prouver d'abord, sans clavier : un plugin minimal qui enregistre un faux contrôleur de 12 LED.
+- Les contrôleurs « virtuels » n'ont pas été conçus pour du matériel réel : aucun exemple connu. **Plan B : patcher OpenRGB.**
+- Le code Corsair V2 d'OpenRGB n'est pas exposé aux plugins : le format d'envoi est à reprendre dans le plugin (GPL-2.0-or-later), toujours en lecture seule tant que le format n'est pas compris.
+- La proposition au cœur d'OpenRGB reste l'objectif à terme.
+- Qui écrit sur le clavier (plugin ou `galleond`) reste à trancher.
+
 ## 4. Écran du clavier et Plasmoids
 
 Un Plasmoid ne peut pas s'afficher directement sur le Galleon, qui attend des JPEG envoyés en HID.
@@ -194,3 +204,25 @@ Toute donnée externe est non fiable jusqu'à sa validation complète : rapports
 **Ensuite, dans GalleonCore**
 - [ ] Remplir `data/devices/galleon-100-sd.json` avec les mesures
 - [ ] Implémenter le keep-alive et l'envoi d'une première image dans `libgalleon`, avec des tests construits sur les captures
+
+## 9. Prochaines étapes (notes du 18 octobre 2026)
+
+Fait : fond d'écran avec l'heure sur l'écran du Galleon, validé sur le matériel (`galleond --wallpaper …`, `--preview`).
+
+À faire, dans cet ordre :
+1. ~~**Touches et molettes**~~ **fait le 19 octobre** (appuis, rotations et images de touches validés sur le matériel) : analyser les rapports d'entrée (`01 00 0c 00` + 12 octets pour les touches, `01 03 03 00 …` pour les molettes, d'après galleon-deck) et émettre les signaux de `StreamDeck`. Puis envoyer des **images de touches** (rapports `02 07`, pas encore essayés sur le module).
+2. **Pages de boutons et menus** : chaque touche a une icône et une action ; une touche peut ouvrir une page (menu). Exemples voulus : Discord, lecteur de musique (sous Linux via MPRIS), Ableton (surtout côté Windows), raccourcis clavier via uinput. Les actions et les pages sont décrites dans un fichier de configuration validé comme toute donnée externe.
+3. **Écran de veille animé** : fond animé extrait en JPEG une fois pour toutes (voir §8, « Fonds animés »). Piste : une image générée animée avec le modèle `prunaai/p-video`. À vérifier avant : conditions d'utilisation et licence du modèle et du service, aucune œuvre, marque ou personne réelle (`ASSETS.md`), provenance consignée dans un `PROVENANCE.md`.
+4. Service systemd utilisateur pour lancer `galleond` à la connexion.
+
+Les icônes affichées par les touches en mode hôte viennent de la mémoire du module, pas de `galleond` : elles seront remplacées par celles des pages de boutons.
+
+### Contrôle de la musique : Linux (MPRIS) et Windows (SMTC)
+
+Source : le dépôt de l'utilisateur, https://github.com/Bit-Scripts/MusicLocal-Discord-Presence (MIT, Python ; `backends/mpris.py` et `backends/smtc.py` lus le 19 octobre 2026). Seuls des faits d'API sont retenus, aucun code n'est copié.
+
+- **Linux, MPRIS** (`org.mpris.MediaPlayer2.*`, objet `/org/mpris/MediaPlayer2`) : état, `Metadata` (`xesam:title`, `xesam:artist` = liste, `mpris:artUrl` = `file://` ou `http(s)://`, `mpris:length` en microsecondes) et `Position` en microsecondes. C'est déjà ce que `MprisController` utilise (état, commandes) ; le projet source choisit simplement le premier lecteur trouvé, alors que `MprisController` préfère celui qui joue.
+- **Windows, SMTC** (`GlobalSystemMediaTransportControlsSessionManager`) : la session « courante » du système (`get_current_session`) donne titre, artiste, miniature (flux à lire), `source_app_user_model_id` et la chronologie (position, fin). Les commandes existent dans l'API (lecture/pause, suivant, précédent, arrêt, changement de position) mais **pas le volume** : sous Windows le volume doit passer par l'audio du système (Core Audio), pas par SMTC.
+- VLC : le projet source passe par l'API HTTP de VLC. Sous Linux, VLC expose MPRIS : ce détour n'est pas nécessaire.
+
+Conséquence pour l'architecture : l'interface `MediaController` reste la frontière. Une classe `SmtcController` (C++/WinRT) s'y ajoutera pendant la phase Windows ; les pages de boutons n'ont rien à changer. À ajouter ensuite à l'interface : les **métadonnées** (titre, artiste, pochette, position, durée) pour un widget « en cours de lecture » sur l'écran du haut.

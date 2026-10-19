@@ -2,7 +2,7 @@
 
 Linux support for the Corsair Galleon 100 SD keyboard (built-in Elgato Stream Deck: 12 LCD keys, screen, 2 dials). Owner works on Kubuntu / KDE Plasma 6 and speaks French; answer him in French. Code, comments and public docs in English (README.fr.md is the French mirror of README.md: keep both in sync).
 
-Full design notes (French): `docs/ROADMAP.md`. Read it before architectural changes.
+Project status and next steps: `ROADMAP.md` at the root (French). Read it at the start of a session and update it after every finished and tested feature (move it to "Implémenté et testé", never mark "sur le module" without the owner's feedback). Full design notes (French): `docs/ROADMAP.md`. Read them before architectural changes.
 
 ## Layout
 - `lib/` libgalleon, C++20/Qt 6, **LGPL-3.0-or-later**, in three layers:

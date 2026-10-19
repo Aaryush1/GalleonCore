@@ -28,9 +28,10 @@ struct HidTransport::Device
     Device &operator=(const Device &) = delete;
 };
 
-HidTransport::HidTransport(std::uint16_t vendorId, std::uint16_t productId)
+HidTransport::HidTransport(std::uint16_t vendorId, std::uint16_t productId, int interfaceNumber)
     : m_vendorId(vendorId)
     , m_productId(productId)
+    , m_interfaceNumber(interfaceNumber)
 {
 }
 
@@ -42,7 +43,14 @@ bool HidTransport::open()
         return true;
 
     auto device = std::make_unique<Device>();
-    device->handle = hid_open(m_vendorId, m_productId, nullptr);
+    // hid_open(vid, pid) would take the first interface found, which for the
+    // Stream Deck module may be the numpad or the dial keys: pick by number.
+    hid_device_info *devices = hid_enumerate(m_vendorId, m_productId);
+    for (const hid_device_info *info = devices; info && !device->handle; info = info->next) {
+        if (m_interfaceNumber < 0 || info->interface_number == m_interfaceNumber)
+            device->handle = hid_open_path(info->path);
+    }
+    hid_free_enumeration(devices);
     if (!device->handle) {
         qWarning() << "galleon: cannot open device"
                    << QString::fromWCharArray(hid_error(nullptr));

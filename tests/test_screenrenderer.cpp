@@ -1,0 +1,342 @@
+// SPDX-FileCopyrightText: 2026 Paul Woisard
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include <ScreenRenderer.h>
+
+#include <QGuiApplication>
+#include <QImage>
+#include <QTemporaryDir>
+#include <QTest>
+
+using galleond::ScreenRenderer;
+
+namespace {
+
+const QString &widgetFile()
+{
+    static const QString file = QStringLiteral(GALLEON_SOURCE_WIDGETS "/WallpaperClock.qml");
+    return file;
+}
+const QString &nowPlayingFile()
+{
+    static const QString file = QStringLiteral(GALLEON_SOURCE_WIDGETS "/NowPlaying.qml");
+    return file;
+}
+constexpr int Width = 720;
+constexpr int Height = 384;
+
+bool similar(QRgb a, QRgb b, int tolerance)
+{
+    return qAbs(qRed(a) - qRed(b)) <= tolerance && qAbs(qGreen(a) - qGreen(b)) <= tolerance
+           && qAbs(qBlue(a) - qBlue(b)) <= tolerance;
+}
+
+int countBrightPixels(const QImage &image, const QRect &area)
+{
+    int count = 0;
+    for (int y = area.top(); y <= area.bottom(); ++y) {
+        for (int x = area.left(); x <= area.right(); ++x) {
+            if (qGray(image.pixel(x, y)) > 200)
+                ++count;
+        }
+    }
+    return count;
+}
+
+} // namespace
+
+class TestScreenRenderer : public QObject
+{
+    Q_OBJECT
+
+private Q_SLOTS:
+    void framesHaveTheScreenSize()
+    {
+        ScreenRenderer renderer(widgetFile());
+        QVERIFY(renderer.isValid());
+        const QImage frame = renderer.render({}, QDateTime::currentDateTime(), QSize(Width, Height));
+        QCOMPARE(frame.size(), QSize(Width, Height));
+    }
+
+    void withoutWallpaperTheBackgroundIsBlackAndTheClockIsDrawn()
+    {
+        ScreenRenderer renderer(widgetFile());
+        const QImage frame = renderer.render({}, QDateTime(QDate(2026, 10, 18), QTime(12, 34)), QSize(Width, Height));
+        QVERIFY(!frame.isNull());
+        QVERIFY(similar(frame.pixel(Width - 5, Height - 5), qRgb(0, 0, 0), 8)); // far corner
+        // White digits over the left part.
+        QVERIFY(countBrightPixels(frame, QRect(20, 80, 380, 200)) > 500);
+    }
+
+    void aWallpaperFillsTheScreenWithItsColour()
+    {
+        QTemporaryDir const dir;
+        QImage red(1600, 900, QImage::Format_RGB32);
+        red.fill(QColor(200, 30, 30));
+        const QString file = dir.filePath("red.png");
+        QVERIFY(red.save(file));
+
+        ScreenRenderer renderer(widgetFile());
+        const QImage frame = renderer.render(file, QDateTime(QDate(2026, 10, 18), QTime(8, 5)), QSize(Width, Height));
+        QVERIFY(!frame.isNull());
+        // The right edge is not darkened: the wallpaper colour shows through.
+        QVERIFY2(similar(frame.pixel(Width - 5, Height / 2), qRgb(200, 30, 30), 12),
+                 qPrintable(QString::number(frame.pixel(Width - 5, Height / 2), 16)));
+        // The left edge is darkened for the text.
+        QVERIFY(qRed(frame.pixel(5, 5)) < 120);
+    }
+
+    void theTimeChangesTheFrame()
+    {
+        ScreenRenderer renderer(widgetFile());
+        const QImage first = renderer.render({}, QDateTime(QDate(2026, 10, 18), QTime(10, 11)), QSize(Width, Height));
+        const QImage second = renderer.render({}, QDateTime(QDate(2026, 10, 18), QTime(23, 59)), QSize(Width, Height));
+        QVERIFY(first != second);
+        const QImage again = renderer.render({}, QDateTime(QDate(2026, 10, 18), QTime(10, 11)), QSize(Width, Height));
+        QCOMPARE(again, first); // same input, same pixels
+    }
+
+    void theLanguageAndClockFormatFollowTheLocale()
+    {
+        ScreenRenderer renderer(widgetFile());
+        const QDateTime afternoon(QDate(2026, 10, 18), QTime(15, 7)); // "15:07" or "3:07 PM"
+        const QImage french = renderer.render({}, afternoon, QSize(Width, Height), QLocale(QLocale::French, QLocale::France));
+        const QImage american = renderer.render({}, afternoon, QSize(Width, Height), QLocale(QLocale::English, QLocale::UnitedStates));
+        const QImage frenchAgain = renderer.render({}, afternoon, QSize(Width, Height), QLocale(QLocale::French, QLocale::France));
+        QVERIFY(!french.isNull() && !american.isNull());
+        QVERIFY(french != american);
+        QCOMPARE(frenchAgain, french);
+    }
+
+    void secondsAreShownOnlyWhenAsked()
+    {
+        // Same locale and instant: only the seconds setting may change the frame.
+        ScreenRenderer renderer(widgetFile());
+        const QDateTime moment(QDate(2026, 10, 18), QTime(9, 41, 27));
+        const QLocale locale(QLocale::French, QLocale::France);
+        const QImage plain = renderer.render({}, moment, QSize(Width, Height), locale);
+        const QImage again = renderer.render({}, moment, QSize(Width, Height), locale);
+        QCOMPARE(again, plain);
+        // 27 s or 28 s: with no seconds shown the frame does not change.
+        const QImage nextSecond = renderer.render({}, moment.addSecs(1), QSize(Width, Height), locale);
+        QCOMPARE(nextSecond, plain);
+    }
+
+    // ---- the "now playing" widget (720 x 384: cover 24..360, bar at y 314..320, x 388..696)
+
+    QVariantMap track(double position, double duration, bool playing = true, const QString &coverId = {})
+    {
+        return {{"title", "A Title"},
+                {"artist", "An Artist"},
+                {"positionSeconds", position},
+                {"durationSeconds", duration},
+                {"playing", playing},
+                {"coverId", coverId},
+                {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))},
+                {"localeName", QLocale(QLocale::French, QLocale::France).name()}};
+    }
+
+    void theCoverAndTheTimelineAreDrawn()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        QVERIFY(renderer.isValid());
+        QImage cover(300, 300, QImage::Format_RGB32);
+        cover.fill(QColor(200, 30, 30));
+        renderer.setProvidedImage("c1", cover);
+
+        const QImage frame = renderer.render(track(50, 100, true, "c1"), QSize(Width, Height));
+        QVERIFY(!frame.isNull());
+        QVERIFY(similar(frame.pixel(190, 190), qRgb(200, 30, 30), 14)); // the cover
+        QVERIFY(similar(frame.pixel(465, 317), qRgb(0x4c, 0xaf, 0x50), 14)); // 25 %: filled, green
+        QVERIFY(similar(frame.pixel(619, 317), qRgb(0x33, 0x3a, 0x44), 14)); // 75 %: the empty track
+        QVERIFY(similar(frame.pixel(700, 200), qRgb(0x14, 0x17, 0x1c), 6));  // right margin: background
+    }
+
+    void theThemeLineIsDrawnAlongTheTopOfBothScreens()
+    {
+        const QColor red(0xe5, 0x39, 0x35);
+        ScreenRenderer clock(widgetFile());
+        QImage frame = clock.render({{"themeName", "Son"}, {"themeColor", red}, {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}},
+                                    QSize(Width, Height));
+        QVERIFY(!frame.isNull());
+        QVERIFY(similar(frame.pixel(5, 2), red.rgb(), 6));
+        QVERIFY(similar(frame.pixel(Width - 5, 3), red.rgb(), 6));
+
+        ScreenRenderer nowPlaying(nowPlayingFile());
+        QVariantMap properties = track(50, 100, true, "");
+        properties.insert("themeName", "Son");
+        properties.insert("themeColor", red);
+        frame = nowPlaying.render(properties, QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(5, 2), red.rgb(), 6));
+        QVERIFY(similar(frame.pixel(Width / 2, 3), red.rgb(), 6));
+
+        // While choosing: a band with the name at the bottom, in the theme's colour.
+        properties.insert("themeName", "Son");
+        properties.insert("themeChoosing", true);
+        frame = nowPlaying.render(properties, QSize(Width, Height));
+        const auto redPixels = [&frame, &red] {
+            int count = 0;
+            for (int y = Height - 82; y < Height - 18; ++y) {
+                for (int x = (Width / 2) - 150; x < (Width / 2) + 150; ++x)
+                    count += similar(frame.pixel(x, y), red.rgb(), 12) ? 1 : 0;
+            }
+            return count;
+        };
+        QVERIFY(redPixels() > 150);
+        properties.insert("themeChoosing", false);
+        frame = nowPlaying.render(properties, QSize(Width, Height));
+        QCOMPARE(redPixels(), 0);
+
+        // The same on the wallpaper screen (what shows when no track plays).
+        frame = clock.render({{"themeName", "Son"}, {"themeColor", red}, {"themeChoosing", true},
+                              {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}},
+                             QSize(Width, Height));
+        if (!qEnvironmentVariableIsEmpty("GALLEON_SAVE_FRAMES"))
+            frame.save(qEnvironmentVariable("GALLEON_SAVE_FRAMES") + "/wallpaper-choosing.png");
+        int bandPixels = 0;
+        for (int y = Height - 82; y < Height - 18; ++y) {
+            for (int x = (Width / 2) - 150; x < (Width / 2) + 150; ++x)
+                bandPixels += similar(frame.pixel(x, y), red.rgb(), 12) ? 1 : 0;
+        }
+        QVERIFY2(bandPixels > 150, "the band with the theme name is drawn on the wallpaper screen too");
+
+        // The countdown after a choice: a magenta ring with the seconds, bottom right.
+        const auto magenta = [](const QImage &image) {
+            int count = 0;
+            for (int y = Height - 120; y < Height - 20; ++y) {
+                for (int x = Width - 120; x < Width - 20; ++x)
+                    count += similar(image.pixel(x, y), qRgb(255, 0, 255), 20) ? 1 : 0;
+            }
+            return count;
+        };
+        frame = clock.render({{"countdown", 3}, {"themeName", ""}, {"themeChoosing", false},
+                              {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}},
+                             QSize(Width, Height));
+        QVERIFY(magenta(frame) > 150);
+        frame = clock.render({{"countdown", 0}, {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}}, QSize(Width, Height));
+        QCOMPARE(magenta(frame), 0);
+
+        // No theme: no line.
+        properties.insert("themeName", "");
+        frame = nowPlaying.render(properties, QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(5, 2), qRgb(0x14, 0x17, 0x1c), 6));
+    }
+
+    void anApplicationIconIsShownWholeWithRoomAroundIt()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        QImage icon(256, 256, QImage::Format_ARGB32);
+        icon.fill(QColor(220, 120, 0)); // a full square: a crop would fill the whole cover area
+        renderer.setProvidedImage("icon1", icon);
+        QVariantMap properties = track(10, 100, true, "icon1");
+        properties["coverIsIcon"] = true;
+        const QImage frame = renderer.render(properties, QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(190, 190), qRgb(220, 120, 0), 14));          // the icon, in the middle
+        QVERIFY(similar(frame.pixel(36, 36), qRgb(0x23, 0x28, 0x30), 8));        // the room around it
+        properties["coverIsIcon"] = false;                                       // the same picture as a cover fills the square
+        QVERIFY(similar(renderer.render(properties, QSize(Width, Height)).pixel(36, 36), qRgb(220, 120, 0), 14));
+    }
+
+    void aPausedTrackHasAGreyBar()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        const QImage frame = renderer.render(track(50, 100, false), QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(465, 317), qRgb(0x8a, 0x92, 0x9d), 14));
+    }
+
+    void withoutACoverThereIsAPlaceholder()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        const QImage frame = renderer.render(track(0, 100), QSize(Width, Height));
+        QVERIFY(!frame.isNull());
+        QVERIFY(similar(frame.pixel(40, 40), qRgb(0x23, 0x28, 0x30), 8)); // the placeholder square
+    }
+
+    void aStreamHasNoBar()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        const QImage frame = renderer.render(track(12, 0), QSize(Width, Height));
+        QVERIFY(similar(frame.pixel(465, 317), qRgb(0x14, 0x17, 0x1c), 6));
+        QVERIFY(similar(frame.pixel(619, 317), qRgb(0x14, 0x17, 0x1c), 6));
+    }
+
+    void theTimelineMovesTheBarAndTheTimes()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        const QImage early = renderer.render(track(10, 100), QSize(Width, Height));
+        const QImage late = renderer.render(track(90, 100), QSize(Width, Height));
+        QVERIFY(similar(early.pixel(619, 317), qRgb(0x33, 0x3a, 0x44), 14)); // 75 %: not reached at 10 %
+        QVERIFY(similar(late.pixel(619, 317), qRgb(0x4c, 0xaf, 0x50), 14));  // reached at 90 %
+        QVERIFY(early != late);
+        // A second later, only the time text changes.
+        QVERIFY(renderer.render(track(59, 600), QSize(Width, Height)) != renderer.render(track(61, 600), QSize(Width, Height)));
+    }
+
+    void aPositionOutsideTheRangeStaysInsideTheBar()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        for (const double position : {-50.0, 1e9, 0.0}) {
+            const QImage frame = renderer.render(track(position, 100), QSize(Width, Height));
+            QVERIFY(!frame.isNull());
+            QVERIFY(similar(frame.pixel(700, 317), qRgb(0x14, 0x17, 0x1c), 6)); // never past the end of the bar
+        }
+    }
+
+    void aVeryLongTitleStaysInItsColumn()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        QVariantMap properties = track(10, 100);
+        properties["title"] = QString(300, QLatin1Char('W')) + QStringLiteral(" and more words after");
+        properties["artist"] = QString(300, QLatin1Char('M'));
+        const QImage frame = renderer.render(properties, QSize(Width, Height));
+        for (int y = 0; y < Height; ++y)
+            QVERIFY(similar(frame.pixel(Width - 8, y), qRgb(0x14, 0x17, 0x1c), 6)); // the right margin is never painted
+    }
+
+    void aCoverThatIsNotThereGivesNoFrame()
+    {
+        ScreenRenderer renderer(nowPlayingFile());
+        // An id that no image was provided for: no half-drawn screen.
+        QVERIFY(renderer.render(track(10, 100, true, "never-provided"), QSize(Width, Height)).isNull());
+        // And the renderer recovers.
+        QVERIFY(!renderer.render(track(10, 100), QSize(Width, Height)).isNull());
+    }
+
+    void aBrokenWallpaperGivesNoFrame()
+    {
+        QTemporaryDir const dir;
+        QFile broken(dir.filePath("broken.jpg"));
+        QVERIFY(broken.open(QIODevice::WriteOnly));
+        broken.write("not an image");
+        broken.close();
+
+        ScreenRenderer renderer(widgetFile());
+        QVERIFY(renderer.render(dir.filePath("broken.jpg"), QDateTime::currentDateTime(), QSize(Width, Height)).isNull());
+        // And the renderer still works afterwards.
+        QVERIFY(!renderer.render({}, QDateTime::currentDateTime(), QSize(Width, Height)).isNull());
+    }
+
+    void aMissingWidgetIsReported()
+    {
+        ScreenRenderer renderer(QStringLiteral("/nonexistent/Widget.qml"));
+        QVERIFY(!renderer.isValid());
+        QVERIFY(renderer.render({}, QDateTime::currentDateTime(), QSize(Width, Height)).isNull());
+    }
+
+    void invalidSizesAreRejected()
+    {
+        ScreenRenderer renderer(widgetFile());
+        QVERIFY(renderer.render({}, QDateTime::currentDateTime(), QSize()).isNull());
+        QVERIFY(renderer.render({}, QDateTime::currentDateTime(), QSize(-1, 10)).isNull());
+    }
+};
+
+// A GUI application: Qt Quick needs one, even off-screen.
+int main(int argc, char *argv[])
+{
+    qputenv("QT_QPA_PLATFORM", "offscreen");
+    const QGuiApplication app(argc, argv);
+    TestScreenRenderer test;
+    return QTest::qExec(&test, argc, argv);
+}
+#include "test_screenrenderer.moc"

@@ -1,0 +1,571 @@
+// SPDX-FileCopyrightText: 2026 Paul Woisard
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "MprisController.h"
+
+#include <QDBusConnectionInterface>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
+#include <QDBusArgument>
+#include <QProcess>
+#include <QRegularExpression>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QDBusPendingReply>
+#include <QDBusVariant>
+#include <QDebug>
+#include <QFileInfo>
+#include <QUrl>
+
+#include <algorithm>
+#include <array>
+#include <utility>
+
+namespace galleond {
+
+namespace {
+
+constexpr int SystemVolumeGatherMs = 40; // steps of a fast turn are gathered for this long
+constexpr int NamesIntervalMs = 3000;
+constexpr int StateIntervalMs = 1000;
+constexpr int CallTimeoutMs = 1500;
+constexpr int ChangeDelayMs = 15; // bursts of notifications are read once
+constexpr int MaxPlayers = 16; // a session never has this many: bounds the polling
+
+// Built on first use: a global QString has no place to catch what its constructor throws.
+const QString &playerPath()
+{
+    static const QString path = QStringLiteral("/org/mpris/MediaPlayer2");
+    return path;
+}
+const QString &playerInterface()
+{
+    static const QString name = QStringLiteral("org.mpris.MediaPlayer2.Player");
+    return name;
+}
+const QString &rootInterface()
+{
+    static const QString name = QStringLiteral("org.mpris.MediaPlayer2");
+    return name;
+}
+const QString &propertiesInterface()
+{
+    static const QString name = QStringLiteral("org.freedesktop.DBus.Properties");
+    return name;
+}
+
+// Calls `handler` with the finished call. The watcher is a child of `owner` (so it
+// goes with it) and is deleted once the handler has run.
+template <typename Handler>
+void whenDone(QObject *owner, const QDBusPendingCall &call, Handler handler)
+{
+    auto *watcher = new QDBusPendingCallWatcher(call, owner);
+    QObject::connect(watcher, &QDBusPendingCallWatcher::finished, owner,
+                     [watcher, handler = std::move(handler)] {
+                         watcher->deleteLater();
+                         handler(watcher);
+                     });
+}
+
+// "xesam:artist" is a list of strings by the specification, but some players
+// send a single string: both are accepted.
+QString artistOf(const QVariant &value)
+{
+    QStringList artists;
+    if (value.metaType().id() == QMetaType::QString) {
+        artists << value.toString();
+    } else if (value.canConvert<QDBusArgument>()) {
+        artists = qdbus_cast<QStringList>(value.value<QDBusArgument>());
+    } else {
+        artists = value.toStringList();
+    }
+    artists.removeAll(QString());
+    return cleanMetadataText(artists.join(QStringLiteral(", ")));
+}
+
+// A readable title for a track that has none (a video, an untagged file): the
+// name of the file or of the last part of the address, without its extension.
+QString titleFromUrl(const QString &address)
+{
+    const QUrl url(address);
+    if (!url.isValid())
+        return {};
+    QString name = QFileInfo(url.fileName()).completeBaseName(); // fileName() is already percent-decoded
+    name.replace(QLatin1Char('_'), QLatin1Char(' '));
+    return cleanMetadataText(name);
+}
+
+// The track from the answer of GetAll on org.mpris.MediaPlayer2.Player.
+NowPlaying trackFrom(const QVariantMap &properties)
+{
+    NowPlaying track;
+    QVariantMap metadata;
+    const QVariant raw = properties.value(QStringLiteral("Metadata"));
+    if (raw.canConvert<QDBusArgument>())
+        metadata = qdbus_cast<QVariantMap>(raw.value<QDBusArgument>());
+    else
+        metadata = raw.toMap();
+
+    track.title = cleanMetadataText(metadata.value(QStringLiteral("xesam:title")).toString());
+    track.artist = artistOf(metadata.value(QStringLiteral("xesam:artist")));
+    track.artUrl = metadata.value(QStringLiteral("mpris:artUrl")).toString().left(2048).trimmed();
+    track.url = metadata.value(QStringLiteral("xesam:url")).toString().left(2048).trimmed();
+    // A video or an untagged file has no title: its file name stands in.
+    if (track.title.isEmpty() && track.artist.isEmpty())
+        track.title = titleFromUrl(track.url);
+
+    // Microseconds, signed or unsigned depending on the player.
+    bool ok = false;
+    const qlonglong length = metadata.value(QStringLiteral("mpris:length")).toLongLong(&ok);
+    if (ok && length > 0)
+        track.durationSeconds = static_cast<double>(length) / 1e6;
+    const qlonglong position = properties.value(QStringLiteral("Position")).toLongLong(&ok);
+    if (ok && position > 0)
+        track.positionSeconds = static_cast<double>(position) / 1e6;
+    if (track.durationSeconds > 0 && track.positionSeconds > track.durationSeconds)
+        track.positionSeconds = track.durationSeconds;
+    return track;
+}
+
+MediaController::State stateFromStatus(const QString &status)
+{
+    if (status == QLatin1String("Playing"))
+        return MediaController::State::Playing;
+    if (status == QLatin1String("Paused"))
+        return MediaController::State::Paused;
+    return MediaController::State::Stopped;
+}
+
+} // namespace
+
+MprisController::MprisController(QDBusConnection bus, QString namePrefix, QObject *parent)
+    : MediaController(parent)
+    , m_bus(std::move(bus))
+    , m_prefix(std::move(namePrefix))
+{
+    m_clock.start();
+    // The system volume is only touched by the real thing: a controller made with
+    // another name prefix (the tests) never moves the volume of the machine it runs on.
+    if (m_prefix == QLatin1String("org.mpris.MediaPlayer2."))
+        m_systemVolumeProgram = QStandardPaths::findExecutable(QStringLiteral("wpctl"));
+    m_systemVolumeTimer.setSingleShot(true);
+    m_systemVolumeTimer.setInterval(SystemVolumeGatherMs);
+    connect(&m_systemVolumeTimer, &QTimer::timeout, this, [this] {
+        const int percent = std::exchange(m_pendingSystemVolume, 0);
+        if (percent == 0 || m_systemVolumeProgram.isEmpty())
+            return;
+        // A fixed command and a whole number: nothing from outside goes into it. At most 100 %.
+        QProcess::startDetached(m_systemVolumeProgram,
+                                {QStringLiteral("set-volume"), QStringLiteral("-l"), QStringLiteral("1.0"),
+                                 QStringLiteral("@DEFAULT_AUDIO_SINK@"),
+                                 QString::number(std::abs(percent)) + QLatin1Char('%') + (percent > 0 ? QLatin1Char('+') : QLatin1Char('-'))});
+    });
+    m_namesTimer.setInterval(NamesIntervalMs);
+    m_stateTimer.setInterval(StateIntervalMs);
+    connect(&m_namesTimer, &QTimer::timeout, this, &MprisController::refreshNames);
+    connect(&m_stateTimer, &QTimer::timeout, this, &MprisController::setPlayers);
+    m_namesTimer.start();
+    m_stateTimer.start();
+
+    // The polling above only keeps the timeline moving and catches what a player
+    // forgets to announce; a change of track or status arrives as a notification.
+    m_changeTimer.setSingleShot(true);
+    m_changeTimer.setInterval(ChangeDelayMs);
+    connect(&m_changeTimer, &QTimer::timeout, this, &MprisController::setPlayers);
+    m_bus.connect(QString(), playerPath(), propertiesInterface(), QStringLiteral("PropertiesChanged"), this,
+                  SLOT(onPropertiesChanged(QDBusMessage)));
+    m_bus.connect(QStringLiteral("org.freedesktop.DBus"), QStringLiteral("/org/freedesktop/DBus"),
+                  QStringLiteral("org.freedesktop.DBus"), QStringLiteral("NameOwnerChanged"), this,
+                  SLOT(onNameOwnerChanged(QString, QString, QString)));
+    refreshNow();
+}
+
+MediaController::State MprisController::state() const
+{
+    const QString name = current();
+    return name.isEmpty() ? State::NoPlayer : m_players.value(name).state;
+}
+
+NowPlaying MprisController::nowPlaying() const
+{
+    const QString name = current();
+    if (name.isEmpty())
+        return {};
+    const Player player = m_players.value(name);
+    NowPlaying track = player.track;
+    track.playerIcon = player.iconName;
+    return track;
+}
+
+QString MprisController::iconNameForDesktopEntry(const QString &desktopEntry)
+{
+    static const QRegularExpression plainName(QStringLiteral("^[A-Za-z0-9._-]{1,100}$"));
+    if (!plainName.match(desktopEntry).hasMatch())
+        return {};
+    // The application's own file says which icon it uses.
+    const QString file = QStandardPaths::locate(QStandardPaths::GenericDataLocation,
+                                                QStringLiteral("applications/") + desktopEntry + QStringLiteral(".desktop"));
+    if (!file.isEmpty()) {
+        QSettings settings(file, QSettings::IniFormat);
+        settings.beginGroup(QStringLiteral("Desktop Entry"));
+        const QString icon = settings.value(QStringLiteral("Icon")).toString();
+        if (plainName.match(icon).hasMatch()) // a name of the theme; a path is not used
+            return icon;
+    }
+    return desktopEntry; // most applications name their icon like their entry
+}
+
+void MprisController::fetchIdentity(const QString &name)
+{
+    // The root interface (org.mpris.MediaPlayer2) names the application.
+    QDBusMessage message = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("GetAll"));
+    message << QStringLiteral("org.mpris.MediaPlayer2");
+    whenDone(this, m_bus.asyncCall(message, CallTimeoutMs), [this, name](QDBusPendingCallWatcher *call) {
+        const QDBusPendingReply<QVariantMap> reply = *call;
+        auto player = m_players.find(name);
+        if (reply.isError() || player == m_players.end())
+            return;
+        const QString entry = reply.value().value(QStringLiteral("DesktopEntry")).toString().left(100);
+        player->iconName = iconNameForDesktopEntry(entry);
+    });
+}
+
+QString MprisController::current() const
+{
+    QString best;
+    for (auto it = m_players.constBegin(); it != m_players.constEnd(); ++it) {
+        if (best.isEmpty()) {
+            best = it.key();
+            continue;
+        }
+        const Player &candidate = it.value();
+        const Player &chosen = m_players.value(best);
+        const bool candidatePlaying = candidate.state == State::Playing;
+        const bool chosenPlaying = chosen.state == State::Playing;
+        // A player that plays beats one that does not, then the one that played last, then the name.
+        bool better = it.key() < best;
+        if (candidatePlaying != chosenPlaying)
+            better = candidatePlaying;
+        else if (candidate.lastPlaying != chosen.lastPlaying)
+            better = candidate.lastPlaying > chosen.lastPlaying;
+        if (better)
+            best = it.key();
+    }
+    return best;
+}
+
+void MprisController::setPollIntervals(int namesMs, int stateMs)
+{
+    m_namesTimer.setInterval(namesMs);
+    m_stateTimer.setInterval(stateMs);
+}
+
+void MprisController::onPropertiesChanged(const QDBusMessage &message)
+{
+    // Only the player interface matters; a track change sends several of these
+    // at once, so they are joined and the players are read one time.
+    if (message.arguments().value(0).toString() == playerInterface() && !m_players.isEmpty())
+        m_changeTimer.start();
+}
+
+void MprisController::onNameOwnerChanged(const QString &name, const QString & /*unused*/, const QString & /*unused*/)
+{
+    if (name.startsWith(m_prefix))
+        refreshNames();
+}
+
+void MprisController::refreshNow()
+{
+    refreshNames();
+}
+
+void MprisController::refreshNames()
+{
+    if (!m_bus.isConnected())
+        return;
+    // ListNames asynchronously (registeredServiceNames() would block).
+    const QDBusMessage listNames = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.DBus"),
+                                                                  QStringLiteral("/org/freedesktop/DBus"),
+                                                                  QStringLiteral("org.freedesktop.DBus"),
+                                                                  QStringLiteral("ListNames"));
+    whenDone(this, m_bus.asyncCall(listNames, CallTimeoutMs), [this](QDBusPendingCallWatcher *call) {
+        const QDBusPendingReply<QStringList> reply = *call;
+        if (reply.isError())
+            return;
+
+        QStringList found;
+        for (const QString &name : reply.value()) {
+            if (name.startsWith(m_prefix) && !name.endsWith(QLatin1String(".playerctld")) && found.size() < MaxPlayers)
+                found.append(name);
+        }
+        for (auto it = m_players.begin(); it != m_players.end();) {
+            if (found.contains(it.key())) {
+                ++it;
+            } else {
+                qInfo() << "galleond: music player gone:" << it.key();
+                it = m_players.erase(it);
+            }
+        }
+        for (const QString &name : std::as_const(found)) {
+            if (!m_players.contains(name)) {
+                qInfo() << "galleond: music player found:" << name;
+                m_players.insert(name, Player{});
+                fetchIdentity(name);
+            }
+        }
+        setPlayers(); // reads the states, and reports a change
+    });
+}
+
+void MprisController::setPlayers()
+{
+    // Reads the state of every known player, then reports a change if the
+    // answer of the current one is different from what was last reported.
+    for (auto it = m_players.constBegin(); it != m_players.constEnd(); ++it)
+        refreshState(it.key());
+    if (m_players.isEmpty() && m_reported != State::NoPlayer) {
+        m_reported = State::NoPlayer;
+        m_reportedTrack = {};
+        Q_EMIT stateChanged();
+        Q_EMIT nowPlayingChanged();
+    }
+}
+
+void MprisController::refreshState(const QString &name)
+{
+    // One GetAll gives the status, the metadata and the position together.
+    QDBusMessage message = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("GetAll"));
+    message << playerInterface();
+    whenDone(this, m_bus.asyncCall(message, CallTimeoutMs), [this, name](QDBusPendingCallWatcher *call) {
+        auto player = m_players.find(name);
+        if (player == m_players.end())
+            return;
+        const QDBusPendingReply<QVariantMap> reply = *call;
+        if (reply.isError()) {
+            if (player->state != State::Stopped || !player->track.isEmpty())
+                qWarning() << "galleond: cannot read the player" << name << reply.error().message();
+            player->state = State::Stopped;
+            player->track = {};
+        } else {
+            const QVariantMap properties = reply.value();
+            player->state = stateFromStatus(properties.value(QStringLiteral("PlaybackStatus")).toString());
+            player->track = trackFrom(properties);
+            player->shuffle = properties.value(QStringLiteral("Shuffle")).toBool();
+            const QString loop = properties.value(QStringLiteral("LoopStatus")).toString();
+            player->loop = Loop::None;
+            if (loop == QLatin1String("Track"))
+                player->loop = Loop::Track;
+            else if (loop == QLatin1String("Playlist"))
+                player->loop = Loop::Playlist;
+        }
+        if (player->state == State::Playing)
+            player->lastPlaying = m_clock.elapsed();
+
+        const State now = state();
+        const NowPlaying track = nowPlaying();
+        const bool stateChanged = now != m_reported;
+        const bool trackChanged = !(track == m_reportedTrack);
+        if (stateChanged || track.title != m_reportedTrack.title || track.artist != m_reportedTrack.artist
+            || track.artUrl != m_reportedTrack.artUrl) {
+            static constexpr std::array<const char *, 4> names{"no player", "stopped", "paused", "playing"};
+            qInfo().noquote() << "galleond: player" << names.at(static_cast<std::size_t>(now)) << "-" << track.artist << "-" << track.title
+                              << (track.artUrl.isEmpty() ? QStringLiteral("(no cover address)") : QStringLiteral("cover: ") + track.artUrl.left(100));
+        }
+        const bool extrasChanged = shuffleOn() != m_reportedShuffle || loopMode() != m_reportedLoop;
+        m_reported = now;
+        m_reportedTrack = track;
+        m_reportedShuffle = shuffleOn();
+        m_reportedLoop = loopMode();
+        if (stateChanged || extrasChanged)
+            Q_EMIT this->stateChanged(); // the keys that show shuffle and repeat follow
+        if (stateChanged || trackChanged)
+            Q_EMIT nowPlayingChanged();
+    });
+}
+
+void MprisController::callPlayer(const QString &method, const QVariantList &arguments)
+{
+    const QString name = current();
+    if (name.isEmpty())
+        return;
+    QDBusMessage message = QDBusMessage::createMethodCall(name, playerPath(), playerInterface(), method);
+    message.setArguments(arguments);
+    whenDone(this, m_bus.asyncCall(message, CallTimeoutMs), [this, name, method](QDBusPendingCallWatcher *call) {
+        if (call->isError())
+            qWarning() << "galleond: the player" << name << "refused" << method << call->error().message();
+        refreshState(name); // the state changed (or not): the icon must follow
+    });
+}
+
+void MprisController::playPause()
+{
+    callPlayer(QStringLiteral("PlayPause"));
+}
+
+void MprisController::next()
+{
+    callPlayer(QStringLiteral("Next"));
+}
+
+void MprisController::previous()
+{
+    callPlayer(QStringLiteral("Previous"));
+}
+
+void MprisController::stop()
+{
+    callPlayer(QStringLiteral("Stop"));
+}
+
+void MprisController::changeProperty(const QString &interface, const QString &property,
+                                     const std::function<QVariant(const QVariant &)> &next)
+{
+    const QString name = current();
+    if (name.isEmpty())
+        return;
+    QDBusMessage get = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("Get"));
+    get << interface << property;
+    whenDone(this, m_bus.asyncCall(get, CallTimeoutMs), [this, name, interface, property, next](QDBusPendingCallWatcher *call) {
+        const QDBusPendingReply<QDBusVariant> reply = *call;
+        if (reply.isError())
+            return; // the player has no such property: nothing to change
+        const QVariant value = next(reply.value().variant());
+        if (!value.isValid())
+            return;
+        QDBusMessage set = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("Set"));
+        set << interface << property << QVariant::fromValue(QDBusVariant(value));
+        whenDone(this, m_bus.asyncCall(set, CallTimeoutMs), [this, name, property](QDBusPendingCallWatcher *done) {
+            if (done->isError())
+                qWarning() << "galleond: the player" << name << "refused to change" << property << done->error().message();
+            refreshState(name); // the key shows the new state at once, without waiting for the player to say so
+        });
+    });
+}
+
+bool MprisController::shuffleOn() const
+{
+    const auto it = m_players.constFind(current());
+    return it != m_players.constEnd() && it->shuffle;
+}
+
+MediaController::Loop MprisController::loopMode() const
+{
+    const auto it = m_players.constFind(current());
+    return it == m_players.constEnd() ? Loop::None : it->loop;
+}
+
+void MprisController::toggleShuffle()
+{
+    changeProperty(playerInterface(), QStringLiteral("Shuffle"), [](const QVariant &v) { return QVariant(!v.toBool()); });
+}
+
+void MprisController::cycleRepeat()
+{
+    // None -> the whole playlist -> the track -> none, as a player's own repeat button does.
+    changeProperty(playerInterface(), QStringLiteral("LoopStatus"), [](const QVariant &v) {
+        const QString now = v.toString();
+        QString next = QStringLiteral("None");
+        if (now == QLatin1String("None"))
+            next = QStringLiteral("Playlist");
+        else if (now == QLatin1String("Playlist"))
+            next = QStringLiteral("Track");
+        return QVariant(next);
+    });
+}
+
+void MprisController::toggleFullscreen()
+{
+    changeProperty(rootInterface(), QStringLiteral("Fullscreen"), [](const QVariant &v) { return QVariant(!v.toBool()); });
+}
+
+void MprisController::raisePlayer()
+{
+    const QString name = current();
+    if (name.isEmpty())
+        return;
+    QDBusMessage const message = QDBusMessage::createMethodCall(name, playerPath(), rootInterface(), QStringLiteral("Raise"));
+    whenDone(this, m_bus.asyncCall(message, CallTimeoutMs), [name](QDBusPendingCallWatcher *call) {
+        if (call->isError())
+            qWarning() << "galleond: the player" << name << "cannot be brought to the front" << call->error().message();
+    });
+}
+
+void MprisController::restartTrack()
+{
+    // Seek back further than the start: a player then goes to the start of the track (MPRIS says so).
+    callPlayer(QStringLiteral("Seek"), {QVariant::fromValue<qlonglong>(-86400LL * 1000000LL)});
+}
+
+void MprisController::toggleMute()
+{
+    if (m_systemVolumeProgram.isEmpty())
+        return;
+    // The system sound, for every player alike: a fixed command, nothing from outside goes in.
+    QProcess::startDetached(m_systemVolumeProgram,
+                            {QStringLiteral("set-mute"), QStringLiteral("@DEFAULT_AUDIO_SINK@"), QStringLiteral("toggle")});
+}
+
+void MprisController::seek(int seconds)
+{
+    // MPRIS Seek takes an offset in microseconds.
+    callPlayer(QStringLiteral("Seek"), {QVariant::fromValue<qlonglong>(static_cast<qlonglong>(seconds) * 1000000LL)});
+}
+
+void MprisController::changeVolume(int percent)
+{
+    m_pendingVolume = std::clamp(m_pendingVolume + percent, -200, 200); // bounded: a dial cannot queue more
+    if (!m_volumeBusy)
+        applyPendingVolume();
+}
+
+void MprisController::applySystemVolume(int percent)
+{
+    if (m_systemVolumeProgram.isEmpty())
+        return;
+    // Steps are gathered for a moment: a fast turn starts one program, not twenty.
+    m_pendingSystemVolume = std::clamp(m_pendingSystemVolume + percent, -100, 100);
+    if (m_systemVolumeTimer.isActive())
+        return;
+    m_systemVolumeTimer.start();
+}
+
+void MprisController::applyPendingVolume()
+{
+    const QString name = current();
+    if (name.isEmpty() && m_pendingVolume != 0) {
+        // No player: the system volume, so that the dial is not dead.
+        applySystemVolume(std::exchange(m_pendingVolume, 0));
+        return;
+    }
+    if (name.isEmpty() || m_pendingVolume == 0) {
+        m_pendingVolume = 0;
+        return;
+    }
+    // Read the volume, then write it back moved: Volume is a property between
+    // 0.0 and 1.0 (some players do not support it: the read then fails and
+    // nothing is written).
+    const int percent = std::exchange(m_pendingVolume, 0);
+    m_volumeBusy = true;
+    QDBusMessage get = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("Get"));
+    get << playerInterface() << QStringLiteral("Volume");
+    whenDone(this, m_bus.asyncCall(get, CallTimeoutMs), [this, name, percent](QDBusPendingCallWatcher *call) {
+        const QDBusPendingReply<QDBusVariant> reply = *call;
+        bool ok = false;
+        const double volume = reply.isError() ? 0.0 : reply.value().variant().toDouble(&ok);
+        if (!ok) {
+            m_volumeBusy = false;
+            m_pendingVolume = 0; // the player has no volume: drop what piled up
+            return;
+        }
+        const double target = std::clamp(volume + (percent / 100.0), 0.0, 1.0);
+        QDBusMessage set = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("Set"));
+        set << playerInterface() << QStringLiteral("Volume") << QVariant::fromValue(QDBusVariant(target));
+        whenDone(this, m_bus.asyncCall(set, CallTimeoutMs), [this](QDBusPendingCallWatcher *) {
+            m_volumeBusy = false;
+            if (m_pendingVolume != 0)
+                applyPendingVolume(); // steps came in meanwhile
+        });
+    });
+}
+
+} // namespace galleond

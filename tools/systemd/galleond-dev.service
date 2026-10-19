@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The same user service, running galleond from the build tree (rebuild, then
+# `systemctl --user restart galleond`). Copy it as ~/.config/systemd/user/galleond.service.
+# %h is the home folder; change the path if the project is elsewhere.
+
+[Unit]
+Description=GalleonCore daemon (build tree)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/Documents/GalleonCore/build/daemon/galleond
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

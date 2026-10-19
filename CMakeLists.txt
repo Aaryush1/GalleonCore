@@ -28,7 +28,7 @@ if(GALLEON_SANITIZE)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick DBus)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick DBus Network)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(HIDAPI REQUIRED IMPORTED_TARGET hidapi-hidraw)
 
@@ -47,4 +47,6 @@ if(GALLEON_FUZZ)
 endif()
 
 install(DIRECTORY widgets/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/widgets)
-install(FILES tools/udev/70-galleon.rules DESTINATION lib/udev/rules.d)
+install(DIRECTORY public/wallpaper/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/wallpaper)
+install(FILES tools/udev/70-galleon.rules tools/udev/71-galleon-uinput.rules DESTINATION lib/udev/rules.d)
+install(FILES tools/systemd/galleond.service DESTINATION lib/systemd/user)

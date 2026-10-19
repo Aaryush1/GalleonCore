@@ -5,3 +5,8 @@
 # Never suppress anything from GalleonCore itself.
 leak:libfontconfig
 leak:libdbus
+# Qt Quick's software scene graph on Qt 6.4 (Ubuntu 24.04, the CI) keeps the
+# decoded images of the widgets (pixmap cache and textures) in a reference
+# cycle that is still there at exit; Qt 6.10 is clean. The allocations are made
+# by Qt Quick on behalf of its image items, not by our own code.
+leak:libQt6Quick

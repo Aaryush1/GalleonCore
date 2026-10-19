@@ -24,11 +24,17 @@ Styles are free to use: manga, cyberpunk, space western, cinematic lighting. Cha
 
 Wallpapers go in [`public/wallpaper/`](public/wallpaper/), one folder per style, with a `PROVENANCE.md` listing each file. That folder is CC-BY-SA-4.0 as a whole.
 
+Screensaver videos go in [`public/Screensavers/`](public/Screensavers/), with a `PROVENANCE.md` (tool, date, exact prompts). Same rules, same licence. A video is checked frame by frame for logos, brands and existing characters before it is added.
+
 ## AI-generated assets
 
 - Do not name an existing work, character or artist in the prompt.
 - Record the provenance next to the license: the tool, the date, and the prompt.
 - Review the result with the rules above: a generated image can still resemble an existing character.
+
+## Screensaver videos
+
+The animated screensaver plays one vertical video over the screen and the keys (see the README). The same rules apply to any clip added to the repository: no existing characters, trademarks, real people or footage, provenance recorded (tool, date, prompt), CC-BY-SA-4.0. A clip generated or animated with an AI service is added only if that service's terms allow publishing it under this license. Your own clip for your own keyboard stays on your computer.
 
 ## Your own wallpapers
 
