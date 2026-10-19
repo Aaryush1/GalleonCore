@@ -54,9 +54,8 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 2. **Profils** : plusieurs fichiers de pages et bascule (changement de profil selon l'application active ou au choix) ; le fichier JSON unique actuel est le profil de base.
 3. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, raccourcis clavier (uinput, avec validation).
 4. **Windows** : backend SMTC derrière `MediaController` (MPRIS est Linux seulement) ; portage hidapi déjà couvert par `Transport`.
-5. **Économiseur d'écran animé** : à n'envisager qu'après vérification des conditions du modèle de génération et de `ASSETS.md` (pas de personnages, marques ni personnes réelles ; CC-BY-SA-4.0 par défaut, provenance notée).
-6. **Plasmoids KDE** réutilisant `widgets/` (aperçu de l'écran du clavier sur le bureau).
-7. **RVB du clavier** : reste côté fork d'OpenRGB, bloqué tant que le protocole d'écriture non persistant n'est pas trouvé.
+5. **Plasmoids KDE** réutilisant `widgets/` (aperçu de l'écran du clavier sur le bureau).
+6. **RVB du clavier** : reste côté fork d'OpenRGB, bloqué tant que le protocole d'écriture non persistant n'est pas trouvé.
 
 ## 5. Architecture
 
