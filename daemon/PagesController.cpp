@@ -61,7 +61,9 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     connect(&m_wallpaperTimeout, &QTimer::timeout, this, [this] {
         // The countdown: the dial stays in the choice, magenta, until it is over.
         if (m_wallpaperLeft > 1) {
-            Q_EMIT wallpaperCountdown(--m_wallpaperLeft);
+            --m_wallpaperLeft;
+            qInfo() << "galleond: validation in" << m_wallpaperLeft << "s";
+            Q_EMIT wallpaperCountdown(m_wallpaperLeft);
         } else {
             m_wallpaperTimeout.stop();
             setWallpaperMode(-1); // validated: the ring goes white and the choice is closed
@@ -384,6 +386,7 @@ void PagesController::stepTheme(int steps)
 void PagesController::restartWallpaperCountdown()
 {
     m_wallpaperLeft = std::max(1, m_config.screen.wallpaperValidateSeconds);
+    qInfo() << "galleond: validation in" << m_wallpaperLeft << "s (started again)";
     m_wallpaperTimeout.start();
     Q_EMIT wallpaperCountdown(m_wallpaperLeft);
 }

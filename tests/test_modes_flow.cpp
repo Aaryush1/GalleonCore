@@ -13,10 +13,12 @@
 #include <galleon/StreamDeck.h>
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -67,13 +69,13 @@ QJsonObject page()
     return {{"keys", QJsonArray{}}};
 }
 
-PagesConfig userLikeConfig(int stepDelayMs = 0)
+PagesConfig userLikeConfig(int stepDelayMs = 0, int validateSeconds = 60)
 {
     // The same shape as the user's file: Control tied to a playing media, the keypad to none.
     const QJsonObject root{
         {"version", 1},
         {"home", "main"},
-        {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", stepDelayMs}}}, // the tests validate by hand
+        {"screen", QJsonObject{{"wallpaper_validate_seconds", validateSeconds}, {"wallpaper_step_delay_ms", stepDelayMs}}}, // the tests validate by hand
         {"pages", QJsonObject{{"main", page()}, {"son", page()}, {"numpad", page()}}},
         {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffd600"}, {"when", "media"}},
                               QJsonObject{{"name", "Sound"}, {"page", "son"}, {"color", "#e53935"}},
@@ -98,7 +100,7 @@ struct Fixture
     std::unique_ptr<ScreenController> screen;
     std::unique_ptr<PagesController> pages;
 
-    explicit Fixture(int stepDelayMs = 0)
+    explicit Fixture(int stepDelayMs = 0, int validateSeconds = 60)
     {
         QDir().mkpath(dir.filePath("wall/style"));
         QImage green(1600, 900, QImage::Format_RGB32);
@@ -118,7 +120,7 @@ struct Fixture
                                                     WidgetsDir + "/WallpaperClock.qml", &media, nowPlayingRenderer.get());
         pages = std::make_unique<PagesController>(deck.get(), &media, TileRenderer());
         connectPagesToScreen(*pages, *screen);
-        pages->setConfig(userLikeConfig(stepDelayMs));
+        pages->setConfig(userLikeConfig(stepDelayMs, validateSeconds));
         QVERIFY(screen->SetWallpaper("style/a-green.png"));
     }
 
@@ -289,6 +291,39 @@ private Q_SLOTS:
         QTest::qWait(300);
         f.turn(1, 1);
         QCOMPARE(f.screen->wallpaper(), QStringLiteral("style/b-blue.png"));
+    }
+
+    void aTurnStartsTheValidationCountdownAgainFromTheTop()
+    {
+        Fixture f(150, 3); // a countdown of 3 seconds
+        QElapsedTimer clock;
+        f.click(1);
+        clock.start();
+        QTRY_VERIFY_WITH_TIMEOUT(f.pages->wallpaperMode(), 1000);
+        QTest::qWait(400);
+        QSignalSpy countdown(f.pages.get(), &PagesController::wallpaperCountdown);
+
+        QTest::qWait(1800);          // the first countdown is down to 2 or 1 ...
+        f.turn(1, 1);                 // ... and a turn starts it again from the top
+        QVERIFY(!countdown.isEmpty());
+        QCOMPARE(countdown.last().first().toInt(), 3);
+        const qint64 turnedAt = clock.elapsed();
+
+        // What is drawn must follow: the circle shows another number a second later.
+        const auto circle = [&f] { return f.lastScreen().copy(600, 264, 100, 100); };
+        QTRY_VERIFY_WITH_TIMEOUT(!f.lastScreen().isNull(), 1000);
+        const QImage atTop = circle();
+        QTest::qWait(1300);
+        QVERIFY2(circle() != atTop, "the number in the circle did not go down");
+        QVERIFY(f.pages->wallpaperMode());
+
+        // It must not end by the first countdown's own time (about 3 s after the click).
+        QTest::qWait(200);
+        QVERIFY2(f.pages->wallpaperMode(), "the countdown was not started again");
+        // And it ends 3 s after the turn, not much earlier or later.
+        QTRY_VERIFY_WITH_TIMEOUT(!f.pages->wallpaperMode(), 4000);
+        const qint64 endedAfter = clock.elapsed() - turnedAt;
+        QVERIFY2(endedAfter >= 2700 && endedAfter <= 3700, qPrintable(QString::number(endedAfter)));
     }
 
     void turningSeveralStepsThenLeavingQuicklyKeepsTheLastWallpaper()
