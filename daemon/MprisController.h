@@ -6,6 +6,7 @@
 #include "MediaController.h"
 
 #include <QDBusConnection>
+#include <QDBusMessage>
 #include <QElapsedTimer>
 #include <QHash>
 #include <QTimer>
@@ -48,6 +49,15 @@ public:
 
     // For tests: poll now instead of waiting for the timers.
     void refreshNow();
+    // For tests: slow the periodic polling down, to show that a change is seen
+    // through the player's notifications and not by the next poll.
+    void setPollIntervals(int namesMs, int stateMs);
+
+private Q_SLOTS:
+    // The player says its status or its track changed: read it at once.
+    void onPropertiesChanged(const QDBusMessage &message);
+    // A player appeared or quit.
+    void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
 
 private:
     struct Player
@@ -70,6 +80,7 @@ private:
     QHash<QString, Player> m_players;
     QTimer m_namesTimer;
     QTimer m_stateTimer;
+    QTimer m_changeTimer; // joins the bursts of notifications a player sends at a track change
     QElapsedTimer m_clock;
     State m_reported = State::NoPlayer;
     NowPlaying m_reportedTrack;

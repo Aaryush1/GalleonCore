@@ -26,6 +26,7 @@ namespace {
 constexpr int NamesIntervalMs = 3000;
 constexpr int StateIntervalMs = 1000;
 constexpr int CallTimeoutMs = 1500;
+constexpr int ChangeDelayMs = 15; // bursts of notifications are read once
 constexpr int MaxPlayers = 16; // a session never has this many: bounds the polling
 
 const QString PlayerPath = QStringLiteral("/org/mpris/MediaPlayer2");
@@ -115,6 +116,17 @@ MprisController::MprisController(QDBusConnection bus, QString namePrefix, QObjec
     connect(&m_stateTimer, &QTimer::timeout, this, &MprisController::setPlayers);
     m_namesTimer.start();
     m_stateTimer.start();
+
+    // The polling above only keeps the timeline moving and catches what a player
+    // forgets to announce; a change of track or status arrives as a notification.
+    m_changeTimer.setSingleShot(true);
+    m_changeTimer.setInterval(ChangeDelayMs);
+    connect(&m_changeTimer, &QTimer::timeout, this, &MprisController::setPlayers);
+    m_bus.connect(QString(), PlayerPath, PropertiesInterface, QStringLiteral("PropertiesChanged"), this,
+                  SLOT(onPropertiesChanged(QDBusMessage)));
+    m_bus.connect(QStringLiteral("org.freedesktop.DBus"), QStringLiteral("/org/freedesktop/DBus"),
+                  QStringLiteral("org.freedesktop.DBus"), QStringLiteral("NameOwnerChanged"), this,
+                  SLOT(onNameOwnerChanged(QString, QString, QString)));
     refreshNow();
 }
 
@@ -188,6 +200,26 @@ QString MprisController::current() const
             best = it.key();
     }
     return best;
+}
+
+void MprisController::setPollIntervals(int namesMs, int stateMs)
+{
+    m_namesTimer.setInterval(namesMs);
+    m_stateTimer.setInterval(stateMs);
+}
+
+void MprisController::onPropertiesChanged(const QDBusMessage &message)
+{
+    // Only the player interface matters; a track change sends several of these
+    // at once, so they are joined and the players are read one time.
+    if (message.arguments().value(0).toString() == PlayerInterface && !m_players.isEmpty())
+        m_changeTimer.start();
+}
+
+void MprisController::onNameOwnerChanged(const QString &name, const QString &, const QString &)
+{
+    if (name.startsWith(m_prefix))
+        refreshNames();
 }
 
 void MprisController::refreshNow()

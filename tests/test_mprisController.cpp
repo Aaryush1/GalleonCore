@@ -4,6 +4,7 @@
 #include <MprisController.h>
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QDBusAbstractAdaptor>
 #include <QDir>
 #include <QFile>
@@ -82,6 +83,17 @@ public:
     void setMetadata(const QVariantMap &metadata) { m_metadata = metadata; }
     [[nodiscard]] qlonglong position() const { return m_position; }
     void setPosition(qlonglong microseconds) { m_position = microseconds; }
+
+    // What a real player sends when its track or status changes.
+    void notifyChanged()
+    {
+        auto bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, m_connectionName);
+        QDBusMessage signal = QDBusMessage::createSignal(QStringLiteral("/org/mpris/MediaPlayer2"),
+                                                         QStringLiteral("org.freedesktop.DBus.Properties"),
+                                                         QStringLiteral("PropertiesChanged"));
+        signal << QStringLiteral("org.mpris.MediaPlayer2.Player") << QVariantMap{{"PlaybackStatus", m_status}} << QStringList();
+        bus.send(signal);
+    }
 
     int playPauseCount = 0;
     int nextCount = 0;
@@ -344,6 +356,60 @@ private Q_SLOTS:
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("m11"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
         QVERIFY(controller.nowPlaying().isEmpty());
+    }
+
+    void aChangeOfTrackIsSeenAtOnceThroughTheNotification()
+    {
+        FakePlayer player(uniqueName("n1"), QStringLiteral("Playing"));
+        player.setMetadata({{"xesam:title", "First"}});
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("n1"));
+        controller.setPollIntervals(60000, 60000); // the polling cannot be what sees the change
+        QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().title, QStringLiteral("First"), 4000);
+
+        QElapsedTimer clock;
+        clock.start();
+        player.setMetadata({{"xesam:title", "Second"}});
+        player.notifyChanged();
+        QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().title, QStringLiteral("Second"), 500);
+        QVERIFY2(clock.elapsed() < 500, qPrintable(QString::number(clock.elapsed())));
+    }
+
+    void aStatusChangeIsSeenAtOnce()
+    {
+        FakePlayer player(uniqueName("n2"), QStringLiteral("Playing"));
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("n2"));
+        controller.setPollIntervals(60000, 60000);
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
+        QSignalSpy changed(&controller, &MediaController::stateChanged);
+        player.setStatus(QStringLiteral("Paused"));
+        player.notifyChanged();
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Paused), 500);
+        QVERIFY(changed.count() >= 1);
+    }
+
+    void aPlayerThatStartsOrQuitsIsSeenAtOnce()
+    {
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("n3"));
+        controller.setPollIntervals(60000, 60000);
+        QTest::qWait(100);
+        QCOMPARE(int(controller.state()), int(MediaController::State::NoPlayer));
+
+        auto player = std::make_unique<FakePlayer>(uniqueName("n3"), QStringLiteral("Playing"));
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 800); // found without polling
+        player.reset();
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::NoPlayer), 800);
+    }
+
+    void aBurstOfNotificationsIsReadOnce()
+    {
+        FakePlayer player(uniqueName("n4"), QStringLiteral("Playing"));
+        MprisController controller(QDBusConnection::sessionBus(), uniqueName("n4"));
+        controller.setPollIntervals(60000, 60000);
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
+        for (int i = 0; i < 50; ++i)
+            player.notifyChanged(); // a flood must not make the controller misbehave
+        QTest::qWait(200);
+        QCOMPARE(int(controller.state()), int(MediaController::State::Playing));
     }
 
     void withoutAPlayerTheTrackIsEmpty()
