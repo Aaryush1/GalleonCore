@@ -249,6 +249,37 @@ private Q_SLOTS:
         QVERIFY(!withAction({{"type", "back"}, {"page", "p"}}).config.has_value());
     }
 
+    void anApplicationActionNamesADesktopFile()
+    {
+        const auto withAction = [](const QJsonObject &action) {
+            return parseObject(fileWithKeys({QJsonObject{{"key", 0}, {"action", action}}}));
+        };
+        auto ok = withAction({{"type", "app"}, {"desktop", "firefox.desktop"}});
+        QVERIFY2(ok.errors.isEmpty(), qPrintable(ok.errors.join('\n')));
+        QCOMPARE(int(ok.config->pages.value("p").keys[0]->action.type), int(ActionType::App));
+        QCOMPARE(ok.config->pages.value("p").keys[0]->action.desktop, QStringLiteral("firefox.desktop"));
+        QVERIFY(withAction({{"type", "app"}, {"desktop", "/usr/share/applications/vlc.desktop"}}).config.has_value());
+
+        // No command can be written here: only the name of a .desktop file.
+        QVERIFY(!withAction({{"type", "app"}, {"command", "rm -rf ~"}}).config.has_value());
+        QVERIFY(!withAction({{"type", "app"}, {"desktop", "firefox.desktop"}, {"command", "x"}}).config.has_value());
+        QVERIFY(!withAction({{"type", "app"}}).config.has_value());
+        QVERIFY(!withAction({{"type", "app"}, {"desktop", "firefox"}}).config.has_value());
+        QVERIFY(!withAction({{"type", "app"}, {"desktop", "../../bin/sh.desktop"}}).config.has_value());
+        QVERIFY(!withAction({{"type", "app"}, {"desktop", "relative/path.desktop"}}).config.has_value());
+        QVERIFY(!withAction({{"type", "app"}, {"desktop", 7}}).config.has_value());
+        QVERIFY(!withAction({{"type", "app"}, {"desktop", QString(300, QLatin1Char('a')) + ".desktop"}}).config.has_value());
+    }
+
+    void aDialTurnCannotLaunchAnApplication()
+    {
+        QJsonObject object = fileWithKeys({});
+        object.insert("dials", QJsonObject{{"0", QJsonObject{{"turn", QJsonObject{{"type", "app"}, {"desktop", "a.desktop"}}}}}});
+        QVERIFY(!parseObject(object).config.has_value());
+        object.insert("dials", QJsonObject{{"0", QJsonObject{{"press", QJsonObject{{"type", "app"}, {"desktop", "a.desktop"}}}}}});
+        QVERIFY(parseObject(object).config.has_value()); // a press may
+    }
+
     void dialsAreChecked()
     {
         const auto withDials = [](const QJsonObject &dials) {

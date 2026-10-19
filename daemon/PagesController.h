@@ -3,17 +3,21 @@
 
 #pragma once
 
+#include "DesktopEntries.h"
 #include "MediaController.h"
 #include "PagesConfig.h"
 #include "TileRenderer.h"
 
+#include <QElapsedTimer>
 #include <QFileSystemWatcher>
+#include <QHash>
 #include <QImage>
 #include <QObject>
 #include <QStringList>
 #include <QTimer>
 
 #include <array>
+#include <functional>
 
 namespace galleon {
 class StreamDeck;
@@ -43,6 +47,11 @@ public:
     // error: the default pages are used until it appears.
     void loadFile(const QString &path);
 
+    // How an application is started; the tests replace it. The default asks the
+    // desktop's launcher (gio launch) to start the .desktop file.
+    using AppLauncher = std::function<bool(const DesktopApp &)>;
+    void setAppLauncher(AppLauncher launcher) { m_launcher = std::move(launcher); }
+
     [[nodiscard]] const ScreenConfig &screenConfig() const { return m_config.screen; }
     [[nodiscard]] QString currentPage() const { return m_stack.isEmpty() ? QString() : m_stack.last(); }
     [[nodiscard]] QStringList pageStack() const { return m_stack; }
@@ -64,6 +73,9 @@ private:
     void onDialRotated(int dial, int steps);
     void onDialPressed(int dial);
     void perform(const Action &action, int times = 1);
+    void launchApp(const QString &desktop);
+    // The application behind a reference of the pages file (looked up once).
+    [[nodiscard]] DesktopApp appFor(const QString &desktop);
     void drawKey(int key, bool force);
     void reload();
     void watch(const QString &path);
@@ -75,6 +87,12 @@ private:
     QStringList m_stack; // opened pages, the current one last
     std::array<bool, galleon::protocol::KeyCount> m_pressed{};
     std::array<QImage, galleon::protocol::KeyCount> m_sent; // what the keys show now
+
+    AppLauncher m_launcher;
+    QHash<QString, DesktopApp> m_apps; // looked-up references, a handful: cleared on every reload
+    QHash<QString, bool> m_warned;     // what was already said once in the log
+    bool m_appsAllowed = true;
+    QElapsedTimer m_lastLaunch;
 
     QString m_file;
     QFileSystemWatcher m_watcher;

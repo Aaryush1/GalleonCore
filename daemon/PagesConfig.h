@@ -26,6 +26,7 @@ enum class ActionType : std::uint8_t {
     Media, // a command for the music player (MPRIS)
     Page,  // open another page
     Back,  // return to the previous page
+    App,   // start an application, named by its .desktop file
 };
 
 enum class MediaCommand : std::uint8_t {
@@ -44,6 +45,7 @@ struct Action
     int step = 0;    // Volume: -100..100, never 0
     int seconds = 0; // Seek: -3600..3600, never 0
     QString page;    // Page: the name of a page of the file
+    QString desktop; // App: a desktop file ID ("firefox.desktop") or the path of a .desktop file
 
     friend bool operator==(const Action &, const Action &) = default;
 };

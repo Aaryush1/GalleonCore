@@ -7,14 +7,19 @@
 
 #include <QDebug>
 #include <QDir>
+#include <QFileDevice>
 #include <QFile>
 #include <QFileInfo>
+
+#include <unistd.h>
 
 namespace galleond {
 
 namespace {
 
 constexpr int ReloadDelayMs = 250; // editors write a file in several steps
+constexpr int MinLaunchIntervalMs = 700; // a double press must not start an application twice
+constexpr int MaxLookedUpApps = 64;
 
 } // namespace
 
@@ -23,6 +28,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     , m_deck(deck)
     , m_media(media)
     , m_tiles(std::move(tiles))
+    , m_launcher([](const DesktopApp &app) { return DesktopEntries::launch(app); })
 {
     // The built-in pages: always valid, so there is always something to show.
     if (const auto fallback = parsePagesConfig(defaultPagesJson()); fallback.config)
@@ -43,6 +49,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
 
 void PagesController::setConfig(const PagesConfig &config)
 {
+    m_apps.clear();
     const bool screenChanged = !(config.screen == m_config.screen);
     m_config = config;
     m_stack = {config.home};
@@ -86,6 +93,13 @@ void PagesController::reload()
         qWarning() << "galleond: cannot read the pages file" << m_file << file.errorString();
         return;
     }
+    // Applications are started from this file, so it must be the user's own and
+    // not writable by anyone else (as for a shell startup file).
+    const QFileInfo fileInfo(m_file);
+    const bool owned = fileInfo.ownerId() == getuid() && !fileInfo.permissions().testFlag(QFileDevice::WriteOther);
+    if (!owned && m_appsAllowed)
+        qWarning() << "galleond: the pages file" << m_file << "is not owned by you or is writable by others: its application keys are disabled";
+    m_appsAllowed = owned;
     const QByteArray bytes = file.read(MaxPagesFileBytes + 1);
     const PagesParseResult result = parsePagesConfig(bytes);
     if (!result.config) {
@@ -117,10 +131,19 @@ void PagesController::drawKey(int key, bool force)
     const KeyConfig *configured = keyConfig(key);
 
     QImage image;
-    if (configured)
-        image = m_tiles.render(*configured, MediaController::stateName(m_media->state()), m_pressed[index]);
-    else
+    if (configured) {
+        KeyConfig effective = *configured;
+        // An application key without a label or an icon takes the application's own.
+        if (effective.action.type == ActionType::App && effective.label.isEmpty() && effective.icon.name.isEmpty()
+            && effective.icon.byState.isEmpty()) {
+            const DesktopApp app = appFor(effective.action.desktop);
+            effective.label = (app.isValid() ? app.name : effective.action.desktop.section(QLatin1Char('.'), 0, -2)).left(MaxLabelLength);
+            effective.icon.name = app.icon;
+        }
+        image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index]);
+    } else {
         image = m_tiles.blank();
+    }
 
     if (!force && image == m_sent[index])
         return;
@@ -153,6 +176,9 @@ void PagesController::perform(const Action &action, int times)
             redraw();
         }
         return;
+    case ActionType::App:
+        launchApp(action.desktop);
+        return;
     case ActionType::Media:
         break;
     }
@@ -177,6 +203,36 @@ void PagesController::perform(const Action &action, int times)
         m_media->seek(action.seconds * times);
         break;
     }
+}
+
+DesktopApp PagesController::appFor(const QString &desktop)
+{
+    if (const auto known = m_apps.constFind(desktop); known != m_apps.constEnd())
+        return known.value();
+    if (m_apps.size() >= MaxLookedUpApps)
+        m_apps.clear();
+    const DesktopApp app = DesktopEntries::lookup(desktop);
+    m_apps.insert(desktop, app);
+    return app;
+}
+
+void PagesController::launchApp(const QString &desktop)
+{
+    if (!m_appsAllowed)
+        return;
+    if (m_lastLaunch.isValid() && m_lastLaunch.elapsed() < MinLaunchIntervalMs)
+        return;
+    const DesktopApp app = appFor(desktop);
+    if (!app.isValid()) {
+        if (!m_warned.value(desktop)) { // once, not at every press
+            m_warned.insert(desktop, true);
+            qWarning() << "galleond: no application named" << desktop;
+        }
+        return;
+    }
+    m_lastLaunch.start();
+    if (!m_launcher(app))
+        qWarning() << "galleond: could not start" << app.name;
 }
 
 void PagesController::onKeyPressed(int key)

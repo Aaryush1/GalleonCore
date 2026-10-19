@@ -135,11 +135,63 @@ QJsonObject page(const QJsonArray &keys)
 
 bool writeFile(const QString &path, const QByteArray &bytes)
 {
+    QDir().mkpath(QFileInfo(path).absolutePath());
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;
     file.write(bytes);
     return true;
+}
+
+// The XDG data folders point at a throw-away folder for one test.
+struct DataFolders
+{
+    QTemporaryDir dir;
+    QByteArray oldHome = qgetenv("XDG_DATA_HOME");
+    QByteArray oldDirs = qgetenv("XDG_DATA_DIRS");
+    DataFolders()
+    {
+        qputenv("XDG_DATA_HOME", dir.filePath("home").toUtf8());
+        qputenv("XDG_DATA_DIRS", dir.filePath("system").toUtf8());
+    }
+    ~DataFolders()
+    {
+        qputenv("XDG_DATA_HOME", oldHome);
+        qputenv("XDG_DATA_DIRS", oldDirs);
+    }
+    QString addApp(const QString &file, const QString &name, const QString &icon = {})
+    {
+        const QString path = dir.filePath("system/applications/" + file);
+        const QByteArray text = "[Desktop Entry]\nType=Application\nName=" + name.toUtf8() + "\nExec=/usr/bin/true\n"
+                                + (icon.isEmpty() ? QByteArray() : "Icon=" + icon.toUtf8() + "\n");
+        if (!writeFile(path, text))
+            qFatal("cannot write the desktop file");
+        return path;
+    }
+};
+
+// The picture last sent to a key, as the bytes of its JPEG.
+QByteArray lastKeyJpeg(const FakeTransport &transport, int key)
+{
+    const auto &writes = transport.writes;
+    qsizetype last = -1;
+    for (qsizetype i = static_cast<qsizetype>(writes.size()) - 1; i >= 0; --i) {
+        const auto &r = writes[static_cast<std::size_t>(i)];
+        if (r.size() > 3 && r[0] == 0x02 && r[1] == 0x07 && r[2] == key && r[3] == 1) {
+            last = i;
+            break;
+        }
+    }
+    QByteArray jpeg;
+    for (qsizetype i = last; i >= 0; --i) {
+        const auto &r = writes[static_cast<std::size_t>(i)];
+        if (r.size() < 8 || r[1] != 0x07 || r[2] != key)
+            break;
+        jpeg.prepend(reinterpret_cast<const char *>(r.data()) + 8, r[4] | (r[5] << 8));
+        if ((r[6] | (r[7] << 8)) == 0)
+            break;
+    }
+    return jpeg;
 }
 
 bool saveColour(const QString &path, QColor colour)
@@ -357,6 +409,119 @@ private Q_SLOTS:
         f.pressKey(2, true);
         f.pressKey(2, false);
         QCOMPARE(f.media.nextCount, 1);
+    }
+
+    void anApplicationKeyStartsItsApplication()
+    {
+        DataFolders data;
+        const QString desktop = data.addApp("tool.desktop", "The Tool", "tool-icon");
+        const QString file = data.dir.filePath("pages.json");
+        QVERIFY(writeFile(file, pagesFile({{"main", page({QJsonObject{{"key", 4}, {"action", QJsonObject{{"type", "app"}, {"desktop", "tool.desktop"}}}}})}})));
+        Fixture f;
+        QStringList launched;
+        f.controller->setAppLauncher([&launched](const DesktopApp &app) {
+            launched << app.file;
+            return true;
+        });
+        f.controller->loadFile(file);
+
+        f.pressKey(4, true);
+        QCOMPARE(launched, QStringList{desktop});
+        f.pressKey(4, false);
+        QCOMPARE(launched.size(), 1); // a release starts nothing
+    }
+
+    void anUnknownApplicationStartsNothing()
+    {
+        DataFolders data;
+        const QString file = data.dir.filePath("pages.json");
+        QVERIFY(writeFile(file, pagesFile({{"main", page({QJsonObject{{"key", 4}, {"label", "Ghost"}, {"action", QJsonObject{{"type", "app"}, {"desktop", "absent.desktop"}}}}})}})));
+        Fixture f;
+        int launched = 0;
+        f.controller->setAppLauncher([&launched](const DesktopApp &) {
+            ++launched;
+            return true;
+        });
+        f.controller->loadFile(file);
+        f.pressKey(4, true);
+        f.pressKey(4, false);
+        QCOMPARE(launched, 0);
+    }
+
+    void anApplicationKeyTakesTheLabelAndIconOfTheDesktopFile()
+    {
+        DataFolders data;
+        data.addApp("tool.desktop", "The Tool", "tool-icon");
+        const QString applicationFile = data.dir.filePath("app.json");
+        const QString explicitFile = data.dir.filePath("explicit.json");
+        QVERIFY(writeFile(applicationFile, pagesFile({{"main", page({QJsonObject{{"key", 4}, {"action", QJsonObject{{"type", "app"}, {"desktop", "tool.desktop"}}}}})}})));
+        // The same key written out by hand: the application's name and icon.
+        QVERIFY(writeFile(explicitFile, pagesFile({{"main", page({QJsonObject{{"key", 4}, {"label", "The Tool"}, {"icon", "tool-icon"},
+                                                                          {"action", QJsonObject{{"type", "app"}, {"desktop", "tool.desktop"}}}}})}})));
+        Fixture f;
+        f.controller->loadFile(applicationFile);
+        const QByteArray byDefault = lastKeyJpeg(*f.transport, 4);
+        QVERIFY(!byDefault.isEmpty());
+        f.controller->loadFile(explicitFile);
+        QCOMPARE(lastKeyJpeg(*f.transport, 4), byDefault);
+
+        // And a label given by the user wins over the application's name.
+        QVERIFY(writeFile(explicitFile, pagesFile({{"main", page({QJsonObject{{"key", 4}, {"label", "Mine"}, {"icon", "tool-icon"},
+                                                                          {"action", QJsonObject{{"type", "app"}, {"desktop", "tool.desktop"}}}}})}})));
+        f.controller->loadFile(explicitFile);
+        QVERIFY(lastKeyJpeg(*f.transport, 4) != byDefault);
+    }
+
+    void aDoublePressStartsTheApplicationOnce()
+    {
+        DataFolders data;
+        data.addApp("tool.desktop", "The Tool");
+        const QString file = data.dir.filePath("pages.json");
+        QVERIFY(writeFile(file, pagesFile({{"main", page({QJsonObject{{"key", 4}, {"action", QJsonObject{{"type", "app"}, {"desktop", "tool.desktop"}}}}})}})));
+        Fixture f;
+        int launched = 0;
+        f.controller->setAppLauncher([&launched](const DesktopApp &) {
+            ++launched;
+            return true;
+        });
+        f.controller->loadFile(file);
+        f.pressKey(4, true);
+        f.pressKey(4, false);
+        f.pressKey(4, true); // straight away: ignored
+        f.pressKey(4, false);
+        QCOMPARE(launched, 1);
+        QTest::qWait(800);
+        f.pressKey(4, true);
+        f.pressKey(4, false);
+        QCOMPARE(launched, 2);
+    }
+
+    void aPagesFileOthersCanWriteDisablesApplications()
+    {
+        DataFolders data;
+        data.addApp("tool.desktop", "The Tool");
+        const QString file = data.dir.filePath("pages.json");
+        QVERIFY(writeFile(file, pagesFile({{"main", page({QJsonObject{{"key", 4}, {"action", QJsonObject{{"type", "app"}, {"desktop", "tool.desktop"}}}}})}})));
+        QFile pages(file);
+        QVERIFY(pages.setPermissions(pages.permissions() | QFileDevice::WriteOther));
+
+        Fixture f;
+        int launched = 0;
+        f.controller->setAppLauncher([&launched](const DesktopApp &) {
+            ++launched;
+            return true;
+        });
+        f.controller->loadFile(file);
+        f.pressKey(4, true);
+        f.pressKey(4, false);
+        QCOMPARE(launched, 0); // writable by others: not trusted to start programs
+
+        QVERIFY(pages.setPermissions(pages.permissions() & ~QFileDevice::WriteOther));
+        f.controller->loadFile(file);
+        QTest::qWait(800);
+        f.pressKey(4, true);
+        f.pressKey(4, false);
+        QCOMPARE(launched, 1); // trusted again
     }
 
     void aChangeOnDiskIsReloaded()

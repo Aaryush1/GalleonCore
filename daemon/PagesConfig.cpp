@@ -3,6 +3,8 @@
 
 #include "PagesConfig.h"
 
+#include "DesktopEntries.h"
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -125,6 +127,22 @@ struct Parser
             out.type = ActionType::Back;
             return;
         }
+        if (type == QLatin1String("app")) {
+            rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("desktop")}, path);
+            if (turnAction)
+                error(path, QStringLiteral("a dial turn needs a media volume or seek action"));
+            QString desktop;
+            if (text(object.value(QStringLiteral("desktop")), path + QStringLiteral(".desktop"), 200, desktop)) {
+                if (!DesktopEntries::isValidReference(desktop)) {
+                    error(path + QStringLiteral(".desktop"),
+                          QStringLiteral("must be a desktop file name such as firefox.desktop, or the absolute path of a .desktop file"));
+                } else {
+                    out.type = ActionType::App;
+                    out.desktop = desktop;
+                }
+            }
+            return;
+        }
         if (type == QLatin1String("page")) {
             rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("page")}, path);
             if (turnAction)
@@ -138,7 +156,7 @@ struct Parser
             return;
         }
         if (type != QLatin1String("media")) {
-            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back"));
+            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app"));
             return;
         }
 

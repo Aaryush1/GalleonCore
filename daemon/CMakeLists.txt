@@ -4,6 +4,7 @@
 # The daemon's logic, as a library so that the tests can use it.
 add_library(galleond_core STATIC
     CoverLoader.h CoverLoader.cpp
+    DesktopEntries.h DesktopEntries.cpp
     MediaController.h
     MprisController.h MprisController.cpp
     PagesConfig.h PagesConfig.cpp
