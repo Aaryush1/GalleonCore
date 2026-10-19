@@ -4,6 +4,7 @@
 #include <PageOrder.h>
 
 #include <QTest>
+#include <QTimeZone>
 
 using namespace galleond;
 

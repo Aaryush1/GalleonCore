@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimeZone>
 
 using namespace galleond;
 
