@@ -179,6 +179,19 @@ private Q_SLOTS:
         frame = nowPlaying.render(properties, QSize(Width, Height));
         QCOMPARE(redPixels(), 0);
 
+        // The same on the wallpaper screen (what shows when no track plays).
+        frame = clock.render({{"themeName", "Son"}, {"themeColor", red}, {"themeChoosing", true},
+                              {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))}},
+                             QSize(Width, Height));
+        if (!qEnvironmentVariableIsEmpty("GALLEON_SAVE_FRAMES"))
+            frame.save(qEnvironmentVariable("GALLEON_SAVE_FRAMES") + "/wallpaper-choosing.png");
+        int bandPixels = 0;
+        for (int y = Height - 82; y < Height - 18; ++y) {
+            for (int x = Width / 2 - 150; x < Width / 2 + 150; ++x)
+                bandPixels += similar(frame.pixel(x, y), red.rgb(), 12) ? 1 : 0;
+        }
+        QVERIFY2(bandPixels > 150, "the band with the theme name is drawn on the wallpaper screen too");
+
         // No theme: no line.
         properties.insert("themeName", "");
         frame = nowPlaying.render(properties, QSize(Width, Height));

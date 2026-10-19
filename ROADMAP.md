@@ -29,6 +29,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 | Écran de veille animé : vidéo verticale (FFmpeg → images brutes) découpée pour l'écran 720×384 et les 12 touches 160×160, boucle, délai d'inactivité, réveil par touche/molette/début de piste, suspension des autres contrôleurs ; section `screensaver` du JSON (géométrie en mm exigée) | oui (découpage, FFmpeg réel, réveil, médias) | non : en attente des mesures en mm et d'une vidéo |
 | Débit du module mesuré (`--measure-throughput`) : écran 44,7 i/s, touches 35 tours/s, écran + touches 20 tours/s | — | oui (mesuré le 19 octobre) |
 | Thème « Pavé numérique » (touches = clavier virtuel uinput, liste fixe de touches, touche maintenue tant qu'on appuie) choisi tout seul quand aucun média ne joue, Contrôle quand un lecteur joue (`"when"`) ; touches teintées d'une version sombre de la couleur du thème | oui | à confirmer (retour de l'utilisateur) |
+| Test de bout en bout des molettes (`test_modes_flow` : vrais widgets, faux module, même câblage que `galleond` via `connectPagesToScreen`) : thème sans média, rotation, volume rendu à la sortie du mode, choix du fond validé | oui | — |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 
 ## 2. En cours
@@ -43,7 +44,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 - **Stabilité du démon** : exécution longue (heures), reprise après veille, débranchement/rebranchement du module (le redessin complet est déjà prévu sur `deckAvailableChanged`), fuites : caches bornés (images, icônes, applications) mais pas mesurés sur la durée.
 - **Rechargement à chaud** : confirmé pour un déplacement de touche ; à vérifier : fichier remplacé par un éditeur (écriture en plusieurs étapes), fichier invalide pendant l'exécution (les anciennes pages doivent rester), changement de thèmes pendant qu'un mode est actif (le mode est remis à zéro, voulu).
 - **Conflits entre instances** : deux `galleond` sont maintenant exclus (le second quitte). OpenRGB (plugin) et `galleond` écrivent tous deux les anneaux : à ne pas lancer ensemble sans règle (non résolu).
-- **Fond de test** : `galleond.conf` était écrasé par les tests (corrigé : les tests utilisent `XDG_CONFIG_HOME` dans `build/`). Vérifier qu'aucun autre test n'écrit dans le vrai `~/.config` ou `~/.cache`.
+- **Isolation des tests** : les tests écrasaient `galleond.conf` (corrigé : `XDG_CONFIG_HOME` isolé, dans le code des tests et par ctest) et leurs faux lecteurs MPRIS apparaissaient sur le bus de l'utilisateur, ce qui perturbait un `galleond` en marche (corrigé : ctest lance chaque test sous `dbus-run-session`). Ne lancer les tests que par `ctest`. Vérifier qu'aucun autre test n'écrit dans le vrai `~/.config` ou `~/.cache`.
 - Ligne fantôme sous les étiquettes des touches sur les photos : probablement optique, jamais confirmé.
 - Vignette vidéo FFmpeg, anti-rebond et lancement Kdenlive/Steam : construits et testés, pas rapportés sur le module.
 - Fuzzing sur le matériel réel (le sandbox de libFuzzer bloque ~90 s ici).

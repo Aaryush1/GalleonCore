@@ -17,6 +17,7 @@ add_library(galleond_core STATIC
     TileRenderer.h TileRenderer.cpp
     VideoThumbnails.h VideoThumbnails.cpp
     ScreenController.h ScreenController.cpp
+    Wiring.h Wiring.cpp
     ScreensaverSplitter.h ScreensaverSplitter.cpp
     ScreensaverController.h ScreensaverController.cpp
 )

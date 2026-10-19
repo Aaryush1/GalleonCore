@@ -3,10 +3,22 @@
 
 find_package(Qt6 REQUIRED COMPONENTS Test)
 
+# The tests put fake music players and services on the D-Bus session bus. Run on
+# the user's own bus, they would be seen by a galleond that is running (it took
+# them for real players and changed theme). A private bus keeps them apart.
+find_program(GALLEON_DBUS_RUN_SESSION dbus-run-session)
+if(NOT GALLEON_DBUS_RUN_SESSION)
+    message(WARNING "dbus-run-session not found: the tests will use the session bus of the user running them")
+endif()
+
 function(galleon_add_test name)
     add_executable(${name} ${name}.cpp ${ARGN})
     target_link_libraries(${name} PRIVATE galleon galleon_warnings Qt6::Test)
-    add_test(NAME ${name} COMMAND ${name})
+    if(GALLEON_DBUS_RUN_SESSION)
+        add_test(NAME ${name} COMMAND ${GALLEON_DBUS_RUN_SESSION} -- $<TARGET_FILE:${name}>)
+    else()
+        add_test(NAME ${name} COMMAND ${name})
+    endif()
     set_tests_properties(${name} PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config;ASAN_OPTIONS=detect_leaks=1;LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/lsan.supp"
     )
@@ -41,3 +53,4 @@ galleond_add_test(test_screencontroller FakeTransport.h)
 galleond_add_test(test_videothumbnails)
 galleond_add_test(test_nowplaying_flow FakeTransport.h)
 galleond_add_test(test_screensaver FakeTransport.h)
+galleond_add_test(test_modes_flow FakeTransport.h)
