@@ -106,6 +106,7 @@ struct ScreenConfig
 {
     NowPlayingMode nowPlaying = NowPlayingMode::Playing;
     bool remoteCovers = true; // download https covers; false: local files only
+    int wallpaperHoldSeconds = 4; // how long a chosen wallpaper stays before a playing track takes the screen (1..600)
     bool videoThumbnails = true; // a picture of a local video made with FFmpeg when there is no cover
 
     friend bool operator==(const ScreenConfig &, const ScreenConfig &) = default;

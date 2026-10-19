@@ -177,6 +177,7 @@ void ScreenController::setScreenConfig(const ScreenConfig &config)
     const bool changed = !(config == m_screenConfig);
     m_screenConfig = config;
     m_cover.setRemoteAllowed(config.remoteCovers);
+    m_holdTimer.setInterval(config.wallpaperHoldSeconds * 1000);
     if (changed && !m_wallpaper.isEmpty())
         draw();
 }

@@ -332,6 +332,11 @@ private Q_SLOTS:
         QVERIFY(!withScreen(QJsonObject{{"now_playing", 1}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"remote_covers", "yes"}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"colour", "red"}}).config.has_value());
+        QCOMPARE(withScreen(QJsonObject{}).config->screen.wallpaperHoldSeconds, 4);
+        QCOMPARE(withScreen(QJsonObject{{"wallpaper_hold_seconds", 12}}).config->screen.wallpaperHoldSeconds, 12);
+        QVERIFY(!withScreen(QJsonObject{{"wallpaper_hold_seconds", 0}}).config.has_value());
+        QVERIFY(!withScreen(QJsonObject{{"wallpaper_hold_seconds", 601}}).config.has_value());
+        QVERIFY(!withScreen(QJsonObject{{"wallpaper_hold_seconds", "long"}}).config.has_value());
         QVERIFY(!withScreen("playing").config.has_value());
     }
 

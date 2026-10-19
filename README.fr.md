@@ -189,6 +189,8 @@ Une action `{ "type": "key", "key": "kp7" }` appuie sur une touche de clavier pa
 
 Un thème peut se choisir tout seul avec `"when": "media"` (un lecteur démarre) ou `"when": "no-media"` (il n'y en a plus : arrêté ou absent ; un lecteur en pause compte encore). Seulement à ces moments : votre choix à la molette reste jusqu'au changement suivant. Un thème au plus par déclencheur. Les touches de la page d'un thème sont dessinées sur une teinte plus sombre de sa couleur, plus claire pendant l'appui.
 
+La section `screen` a aussi `wallpaper_hold_seconds` (de 1 à 600, 4 par défaut) : combien de temps un fond choisi à la molette droite, ou affiché au démarrage, reste à l'écran avant qu'une piste en cours reprenne la main.
+
 ### Écran de veille animé
 
 Après un temps sans utilisation, une vidéo verticale peut défiler sur l'écran et les 12 touches ensemble, découpée comme si l'image était vue à travers elles (les espaces entre les touches sont laissés de côté). Une touche, une molette, ou le début d'une piste (sauf si `while_playing` vaut true) ramène l'écran normal ; l'appui qui réveille le module ne fait rien d'autre.
