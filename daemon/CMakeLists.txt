@@ -6,6 +6,7 @@ add_library(galleond_core STATIC
     PagesConfig.h PagesConfig.cpp
     WallpaperCatalog.h WallpaperCatalog.cpp
     ScreenRenderer.h ScreenRenderer.cpp
+    TileRenderer.h TileRenderer.cpp
     ScreenController.h ScreenController.cpp
 )
 target_include_directories(galleond_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
