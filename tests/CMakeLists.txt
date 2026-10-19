@@ -56,3 +56,7 @@ galleond_add_test(test_screensaver FakeTransport.h)
 galleond_add_test(test_modes_flow FakeTransport.h)
 galleond_add_test(test_usage)
 galleond_add_test(test_pageorder)
+
+# Galleon Bosun, the settings window.
+galleon_add_test(test_bosun)
+target_link_libraries(test_bosun PRIVATE bosun_core)

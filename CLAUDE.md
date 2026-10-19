@@ -42,7 +42,7 @@ CXX=clang++ cmake -B build-asan -DGALLEON_SANITIZE=ON -DGALLEON_FUZZ=ON
 cmake --build build-asan && ctest --test-dir build-asan
 ./build-asan/fuzz/fuzz_input_report -max_total_time=60
 # Lint:
-run-clang-tidy -p build '(lib/src|daemon|tests)/[^/]+\.cpp$'
-/usr/lib/qt6/bin/qmllint widgets/*.qml
+run-clang-tidy -p build '(lib/src|daemon|bosun|tests)/[^/]+\.cpp$'
+/usr/lib/qt6/bin/qmllint widgets/*.qml bosun/qml/*.qml
 reuse lint
 ```
