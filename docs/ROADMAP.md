@@ -216,3 +216,13 @@ Fait : fond d'écran avec l'heure sur l'écran du Galleon, validé sur le matér
 4. Service systemd utilisateur pour lancer `galleond` à la connexion.
 
 Les icônes affichées par les touches en mode hôte viennent de la mémoire du module, pas de `galleond` : elles seront remplacées par celles des pages de boutons.
+
+### Contrôle de la musique : Linux (MPRIS) et Windows (SMTC)
+
+Source : le dépôt de l'utilisateur, https://github.com/Bit-Scripts/MusicLocal-Discord-Presence (MIT, Python ; `backends/mpris.py` et `backends/smtc.py` lus le 19 octobre 2026). Seuls des faits d'API sont retenus, aucun code n'est copié.
+
+- **Linux, MPRIS** (`org.mpris.MediaPlayer2.*`, objet `/org/mpris/MediaPlayer2`) : état, `Metadata` (`xesam:title`, `xesam:artist` = liste, `mpris:artUrl` = `file://` ou `http(s)://`, `mpris:length` en microsecondes) et `Position` en microsecondes. C'est déjà ce que `MprisController` utilise (état, commandes) ; le projet source choisit simplement le premier lecteur trouvé, alors que `MprisController` préfère celui qui joue.
+- **Windows, SMTC** (`GlobalSystemMediaTransportControlsSessionManager`) : la session « courante » du système (`get_current_session`) donne titre, artiste, miniature (flux à lire), `source_app_user_model_id` et la chronologie (position, fin). Les commandes existent dans l'API (lecture/pause, suivant, précédent, arrêt, changement de position) mais **pas le volume** : sous Windows le volume doit passer par l'audio du système (Core Audio), pas par SMTC.
+- VLC : le projet source passe par l'API HTTP de VLC. Sous Linux, VLC expose MPRIS : ce détour n'est pas nécessaire.
+
+Conséquence pour l'architecture : l'interface `MediaController` reste la frontière. Une classe `SmtcController` (C++/WinRT) s'y ajoutera pendant la phase Windows ; les pages de boutons n'ont rien à changer. À ajouter ensuite à l'interface : les **métadonnées** (titre, artiste, pochette, position, durée) pour un widget « en cours de lecture » sur l'écran du haut.
