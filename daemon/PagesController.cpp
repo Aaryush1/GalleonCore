@@ -289,8 +289,27 @@ void PagesController::drawKey(int key, bool force)
             *configured, configured->action.type == ActionType::App ? appFor(configured->action.desktop) : DesktopApp{}, iconFile);
         if (configured->action.type == ActionType::Steam && configured->icon.name.isEmpty())
             iconFile = SteamLibrary::coverImage(configured->action.appid); // the game's cover from Steam's own cache
-        image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index], iconFile, tint,
-                               key == m_highlightKey);
+        // Shuffle and repeat show their state in words, and a lighter key when it is on.
+        KeyConfig shown = effective;
+        bool active = false;
+        if (configured->action.type == ActionType::Media
+            && (configured->action.command == MediaCommand::Shuffle || configured->action.command == MediaCommand::Repeat)) {
+            const bool shuffle = configured->action.command == MediaCommand::Shuffle;
+            const int level = shuffle ? (m_media->shuffleOn() ? 1 : 0)
+                                      : (m_media->loopMode() == MediaController::Loop::None       ? 0
+                                         : m_media->loopMode() == MediaController::Loop::Playlist ? 1
+                                                                                                    : 2);
+            active = level > 0;
+            QStringList words = configured->stateLabels;
+            if (words.isEmpty())
+                words = shuffle ? QStringList{QStringLiteral("off"), QStringLiteral("on")}
+                                : QStringList{QStringLiteral("off"), QStringLiteral("list"), QStringLiteral("track")};
+            // Two words for a three-state key: off, and on.
+            const QString word = words.value(std::min<qsizetype>(level, words.size() - 1));
+            shown.label = (configured->label.isEmpty() ? word : configured->label + QLatin1Char(' ') + word).left(MaxLabelLength);
+        }
+        image = m_tiles.render(shown, MediaController::stateName(m_media->state()), m_pressed[index], iconFile, tint,
+                               key == m_highlightKey, active);
     } else {
         image = m_tiles.blank(tint);
     }

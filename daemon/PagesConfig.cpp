@@ -247,7 +247,8 @@ struct Parser
         }
         const QJsonObject object = value.toObject();
         rejectUnknown(object,
-                      {QStringLiteral("key"), QStringLiteral("label"), QStringLiteral("icon"), QStringLiteral("action")},
+                      {QStringLiteral("key"), QStringLiteral("label"), QStringLiteral("icon"), QStringLiteral("action"),
+                       QStringLiteral("state_labels")},
                       path);
 
         KeyConfig config;
@@ -264,6 +265,19 @@ struct Parser
             icon(object.value(QStringLiteral("icon")), path + QStringLiteral(".icon"), config.icon);
         if (object.contains(QStringLiteral("action")))
             action(object.value(QStringLiteral("action")), path + QStringLiteral(".action"), config.action);
+        if (object.contains(QStringLiteral("state_labels"))) {
+            const QJsonValue labels = object.value(QStringLiteral("state_labels"));
+            const QString lpath = path + QStringLiteral(".state_labels");
+            if (!labels.isArray() || labels.toArray().size() < 2 || labels.toArray().size() > 3) {
+                error(lpath, QStringLiteral("must be a list of 2 or 3 words (shuffle: off, on; repeat: none, list, track)"));
+            } else {
+                for (qsizetype i = 0; i < labels.toArray().size(); ++i) {
+                    QString word;
+                    if (text(labels.toArray().at(i), QStringLiteral("%1[%2]").arg(lpath).arg(i), 10, word))
+                        config.stateLabels.append(word);
+                }
+            }
+        }
         page.keys[static_cast<std::size_t>(config.key)] = config;
     }
 

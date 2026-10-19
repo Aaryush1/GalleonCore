@@ -62,6 +62,13 @@ public:
         Playing,
     };
 
+    // The repeat mode of a player, as MPRIS has it: it does not tell an album from a playlist.
+    enum class Loop : std::uint8_t {
+        None,
+        Playlist,
+        Track,
+    };
+
     using QObject::QObject;
 
     [[nodiscard]] virtual State state() const = 0;
@@ -81,6 +88,9 @@ public:
     // fake or a limited controller needs no change): shuffle on/off, repeat none/playlist/track,
     // mute the system sound, bring the player's window to the front, full screen on/off (a video
     // player), and back to the start of the track.
+    // What the player says now (false and none without a player or when it does not say).
+    [[nodiscard]] virtual bool shuffleOn() const { return false; }
+    [[nodiscard]] virtual Loop loopMode() const { return Loop::None; }
     virtual void toggleShuffle() {}
     virtual void cycleRepeat() {}
     virtual void toggleMute() {}

@@ -223,18 +223,28 @@ private Q_SLOTS:
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("ctl"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
 
+        QSignalSpy changed(&controller, &MediaController::stateChanged);
+        QVERIFY(!controller.shuffleOn());
         controller.toggleShuffle();
         QTRY_VERIFY_WITH_TIMEOUT(player.shuffle(), 3000);
+        // The state is read again at once: the key shows it, and the keys are told to redraw.
+        QTRY_VERIFY_WITH_TIMEOUT(controller.shuffleOn(), 3000);
+        QVERIFY(changed.count() >= 1);
         controller.toggleShuffle();
         QTRY_VERIFY_WITH_TIMEOUT(!player.shuffle(), 3000);
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.shuffleOn(), 3000);
 
         // Repeat goes round: none, the playlist, the track, none.
+        QCOMPARE(int(controller.loopMode()), int(MediaController::Loop::None));
         controller.cycleRepeat();
         QTRY_COMPARE_WITH_TIMEOUT(player.loopStatus(), QStringLiteral("Playlist"), 3000);
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.loopMode()), int(MediaController::Loop::Playlist), 3000);
         controller.cycleRepeat();
         QTRY_COMPARE_WITH_TIMEOUT(player.loopStatus(), QStringLiteral("Track"), 3000);
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.loopMode()), int(MediaController::Loop::Track), 3000);
         controller.cycleRepeat();
         QTRY_COMPARE_WITH_TIMEOUT(player.loopStatus(), QStringLiteral("None"), 3000);
+        QTRY_COMPARE_WITH_TIMEOUT(int(controller.loopMode()), int(MediaController::Loop::None), 3000);
 
         controller.toggleFullscreen();
         QTRY_VERIFY_WITH_TIMEOUT(player.root()->fullscreen(), 3000);

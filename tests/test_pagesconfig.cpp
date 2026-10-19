@@ -554,6 +554,29 @@ private Q_SLOTS:
         QVERIFY(!turn.config.has_value()); // a dial turn needs a volume or a seek
     }
 
+    void stateLabelsAreTwoOrThreeShortWords()
+    {
+        const auto withLabels = [](const QJsonValue &labels) {
+            return parseEdited([&](QJsonObject &object) {
+                QJsonObject pages = object.value("pages").toObject();
+                QJsonObject main = pages.value("main").toObject();
+                QJsonArray keys = main.value("keys").toArray();
+                keys.append(QJsonObject{{"key", 4}, {"label", "Mix"}, {"state_labels", labels},
+                                        {"action", QJsonObject{{"type", "media"}, {"command", "shuffle"}}}});
+                main.insert("keys", keys);
+                pages.insert("main", main);
+                object.insert("pages", pages);
+            });
+        };
+        QVERIFY(withLabels(QJsonArray{"NON", "OUI"}).config.has_value());
+        QVERIFY(withLabels(QJsonArray{"NON", "LISTE", "PISTE"}).config.has_value());
+        QVERIFY(!withLabels(QJsonArray{"OUI"}).config.has_value());
+        QVERIFY(!withLabels(QJsonArray{"a", "b", "c", "d"}).config.has_value());
+        QVERIFY(!withLabels(QJsonArray{"NON", QString(11, 'x')}).config.has_value());
+        QVERIFY(!withLabels(QJsonArray{"NON", 3}).config.has_value());
+        QVERIFY(!withLabels("OUI").config.has_value());
+    }
+
     void errorsAndConfigAreMutuallyExclusive()
     {
         // Every single-byte change of the default file: never a crash, and

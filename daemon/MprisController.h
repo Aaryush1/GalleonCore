@@ -47,6 +47,8 @@ public:
     void stop() override;
     void changeVolume(int percent) override;
     void seek(int seconds) override;
+    [[nodiscard]] bool shuffleOn() const override;
+    [[nodiscard]] Loop loopMode() const override;
     void toggleShuffle() override;
     void cycleRepeat() override;
     void toggleMute() override;
@@ -77,6 +79,8 @@ private:
         State state = State::Stopped;
         NowPlaying track;
         QString iconName; // from the root interface, read once
+        bool shuffle = false;
+        Loop loop = Loop::None;
         qint64 lastPlaying = 0; // ordering: the highest was playing most recently
     };
 
@@ -98,6 +102,8 @@ private:
     QTimer m_changeTimer; // joins the bursts of notifications a player sends at a track change
     QElapsedTimer m_clock;
     State m_reported = State::NoPlayer;
+    bool m_reportedShuffle = false;
+    Loop m_reportedLoop = Loop::None;
     NowPlaying m_reportedTrack;
     // Volume steps arrive faster than a D-Bus round trip: they add up here and
     // one read-then-write at a time applies them, so none is lost.

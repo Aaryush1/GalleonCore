@@ -126,7 +126,7 @@ QImage TileRenderer::blank(qint64 tint) const
 }
 
 QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pressed, const QString &fallbackIconFile,
-                            qint64 tint, bool highlight) const
+                            qint64 tint, bool highlight, bool active) const
 {
     QImage image(Size, Size, QImage::Format_RGB32);
     image.fill(Qt::black);
@@ -142,6 +142,8 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
         if (pressed)
             background = background.lighter(220);
     }
+    if (active)
+        background = background.lighter(190);
     painter.fillPath(shape, background);
 
     const bool hasLabel = !key.label.isEmpty();

@@ -321,6 +321,9 @@ void MprisController::refreshState(const QString &name)
             const QVariantMap properties = reply.value();
             player->state = stateFromStatus(properties.value(QStringLiteral("PlaybackStatus")).toString());
             player->track = trackFrom(properties);
+            player->shuffle = properties.value(QStringLiteral("Shuffle")).toBool();
+            const QString loop = properties.value(QStringLiteral("LoopStatus")).toString();
+            player->loop = loop == QLatin1String("Track") ? Loop::Track : loop == QLatin1String("Playlist") ? Loop::Playlist : Loop::None;
         }
         if (player->state == State::Playing)
             player->lastPlaying = m_clock.elapsed();
@@ -335,10 +338,13 @@ void MprisController::refreshState(const QString &name)
             qInfo().noquote() << "galleond: player" << names[static_cast<int>(now)] << "-" << track.artist << "-" << track.title
                               << (track.artUrl.isEmpty() ? QStringLiteral("(no cover address)") : QStringLiteral("cover: ") + track.artUrl.left(100));
         }
+        const bool extrasChanged = shuffleOn() != m_reportedShuffle || loopMode() != m_reportedLoop;
         m_reported = now;
         m_reportedTrack = track;
-        if (stateChanged)
-            Q_EMIT this->stateChanged();
+        m_reportedShuffle = shuffleOn();
+        m_reportedLoop = loopMode();
+        if (stateChanged || extrasChanged)
+            Q_EMIT this->stateChanged(); // the keys that show shuffle and repeat follow
         if (stateChanged || trackChanged)
             Q_EMIT nowPlayingChanged();
     });
@@ -400,12 +406,25 @@ void MprisController::changeProperty(const QString &interface, const QString &pr
         QDBusMessage set = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("Set"));
         set << interface << property << QVariant::fromValue(QDBusVariant(value));
         auto *setWatcher = new QDBusPendingCallWatcher(m_bus.asyncCall(set, CallTimeoutMs), this);
-        connect(setWatcher, &QDBusPendingCallWatcher::finished, this, [name, property](QDBusPendingCallWatcher *done) {
+        connect(setWatcher, &QDBusPendingCallWatcher::finished, this, [this, name, property](QDBusPendingCallWatcher *done) {
             done->deleteLater();
             if (done->isError())
                 qWarning() << "galleond: the player" << name << "refused to change" << property << done->error().message();
+            refreshState(name); // the key shows the new state at once, without waiting for the player to say so
         });
     });
+}
+
+bool MprisController::shuffleOn() const
+{
+    const auto it = m_players.constFind(current());
+    return it != m_players.constEnd() && it->shuffle;
+}
+
+MediaController::Loop MprisController::loopMode() const
+{
+    const auto it = m_players.constFind(current());
+    return it == m_players.constEnd() ? Loop::None : it->loop;
 }
 
 void MprisController::toggleShuffle()

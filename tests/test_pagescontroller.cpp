@@ -42,6 +42,16 @@ public:
     void raisePlayer() override { ++raiseCount; }
     void toggleFullscreen() override { ++fullscreenCount; }
     void restartTrack() override { ++restartCount; }
+    [[nodiscard]] bool shuffleOn() const override { return shuffle; }
+    [[nodiscard]] Loop loopMode() const override { return loop; }
+    void setExtras(bool shuffleState, Loop loopState)
+    {
+        shuffle = shuffleState;
+        loop = loopState;
+        Q_EMIT stateChanged();
+    }
+    bool shuffle = false;
+    Loop loop = Loop::None;
 
     void setState(State state)
     {
@@ -1154,6 +1164,36 @@ private Q_SLOTS:
         QCOMPARE(f.media.fullscreenCount, 1);
         QCOMPARE(f.media.restartCount, 1);
         QCOMPARE(f.media.playPauseCount, 0); // nothing else was pressed
+    }
+
+    void shuffleAndRepeatKeysShowTheirStateWithTheUsersWords()
+    {
+        const auto shuffle = keyJson(0, "Mix", mediaAction("shuffle"));
+        QJsonObject withWords = keyJson(1, "Rep", mediaAction("repeat"));
+        withWords.insert("state_labels", QJsonArray{"NON", "LISTE", "PISTE"});
+        QJsonObject shuffleWords = shuffle;
+        shuffleWords.insert("state_labels", QJsonArray{"NON", "OUI"});
+        const auto parsed = parsePagesConfig(pagesFile({{"main", page({shuffleWords, withWords})}}));
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        QCOMPARE(parsed.config->pages.value("main").keys[0]->stateLabels, (QStringList{"NON", "OUI"}));
+
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        const auto background = [&f](int key) {
+            QImage image;
+            image.loadFromData(lastKeyJpeg(*f.transport, key), "JPEG");
+            return image.pixel(20, 20);
+        };
+        const QRgb offShuffle = background(0);
+        const QRgb offRepeat = background(1);
+        QVERIFY(qGray(offShuffle) == qGray(offRepeat) || qAbs(qGray(offShuffle) - qGray(offRepeat)) < 6);
+
+        f.media.setExtras(true, MediaController::Loop::Track); // both are on: the keys are lighter
+        QTRY_VERIFY_WITH_TIMEOUT(qGray(background(0)) > qGray(offShuffle) + 15, 2000);
+        QTRY_VERIFY_WITH_TIMEOUT(qGray(background(1)) > qGray(offRepeat) + 15, 2000);
+        f.media.setExtras(false, MediaController::Loop::None); // and back
+        QTRY_VERIFY_WITH_TIMEOUT(qGray(background(0)) <= qGray(offShuffle) + 6, 2000);
+        QTRY_VERIFY_WITH_TIMEOUT(qGray(background(1)) <= qGray(offRepeat) + 6, 2000);
     }
 };
 

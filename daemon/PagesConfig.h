@@ -84,6 +84,8 @@ struct KeyConfig
     QString label;
     IconSpec icon;
     Action action;
+    // The words shown for the state of a shuffle or repeat key. Shuffle: off, on. Repeat: none, list, track.
+    QStringList stateLabels;
 
     friend bool operator==(const KeyConfig &, const KeyConfig &) = default;
 };
