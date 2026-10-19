@@ -24,6 +24,8 @@ Styles are free to use: manga, cyberpunk, space western, cinematic lighting. Cha
 
 Wallpapers go in [`public/wallpaper/`](public/wallpaper/), one folder per style, with a `PROVENANCE.md` listing each file. That folder is CC-BY-SA-4.0 as a whole.
 
+Screensaver videos go in [`public/Screensavers/`](public/Screensavers/), with a `PROVENANCE.md` (tool, date, exact prompts). Same rules, same licence. A video is checked frame by frame for logos, brands and existing characters before it is added.
+
 ## AI-generated assets
 
 - Do not name an existing work, character or artist in the prompt.

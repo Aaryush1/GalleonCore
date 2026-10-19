@@ -9,3 +9,8 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 path = "public/wallpaper/**"
 SPDX-FileCopyrightText = "2026 Paul Woisard"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+[[annotations]]
+path = "public/Screensavers/**"
+SPDX-FileCopyrightText = "2026 Paul Woisard"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
