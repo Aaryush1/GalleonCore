@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "DesktopEntries.h"
 #include "PagesConfig.h"
 
 #include <QImage>
@@ -28,7 +29,23 @@ public:
 
     // `state` is "playing", "paused" or "stopped" (or empty) and picks the icon
     // of a key that has one per state; `pressed` is the feedback while held.
-    [[nodiscard]] QImage render(const KeyConfig &key, const QString &state, bool pressed) const;
+    // `fallbackIconFile`: the absolute path of an image to use when the key's icon
+    // name gives nothing: an application's own icon, from its .desktop file. It
+    // never comes from the pages file (which only allows names), and gets the
+    // same checks as any icon file.
+    [[nodiscard]] QImage render(const KeyConfig &key, const QString &state, bool pressed,
+                                const QString &fallbackIconFile = {}) const;
+
+    // What is drawn for a key: its configuration, where an application key that
+    // has no label and no icon takes the name and the icon of `app` (the
+    // application it starts; invalid when it was not found). `iconFile` gets the
+    // application's icon when that one is given by path. Used by the daemon and
+    // by the offline preview, so that both show the same keys.
+    [[nodiscard]] static KeyConfig effectiveKey(const KeyConfig &key, const DesktopApp &app, QString &iconFile);
+
+    // An image file as an icon of at most `size` pixels: a regular file (a link
+    // is followed), a PNG, JPEG or SVG of a sane size; a null image otherwise.
+    [[nodiscard]] static QImage loadIconFile(const QString &path, int size);
 
     // The 160 x 160 picture of an empty key.
     [[nodiscard]] QImage blank() const;

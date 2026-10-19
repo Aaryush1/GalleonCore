@@ -132,15 +132,10 @@ void PagesController::drawKey(int key, bool force)
 
     QImage image;
     if (configured) {
-        KeyConfig effective = *configured;
-        // An application key without a label or an icon takes the application's own.
-        if (effective.action.type == ActionType::App && effective.label.isEmpty() && effective.icon.name.isEmpty()
-            && effective.icon.byState.isEmpty()) {
-            const DesktopApp app = appFor(effective.action.desktop);
-            effective.label = (app.isValid() ? app.name : effective.action.desktop.section(QLatin1Char('.'), 0, -2)).left(MaxLabelLength);
-            effective.icon.name = app.icon;
-        }
-        image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index]);
+        QString iconFile; // an application's icon given by path
+        const KeyConfig effective = TileRenderer::effectiveKey(
+            *configured, configured->action.type == ActionType::App ? appFor(configured->action.desktop) : DesktopApp{}, iconFile);
+        image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index], iconFile);
     } else {
         image = m_tiles.blank();
     }

@@ -36,6 +36,37 @@ TileRenderer::TileRenderer(QString iconFolder)
 {
 }
 
+KeyConfig TileRenderer::effectiveKey(const KeyConfig &key, const DesktopApp &app, QString &iconFile)
+{
+    KeyConfig effective = key;
+    iconFile.clear();
+    if (key.action.type == ActionType::App && key.label.isEmpty() && key.icon.name.isEmpty() && key.icon.byState.isEmpty()) {
+        // The name of the file when the application was not found, so that the key says what is wrong.
+        effective.label = (app.isValid() ? app.name : key.action.desktop.section(QLatin1Char('.'), 0, -2)).left(MaxLabelLength);
+        effective.icon.name = app.icon;
+        iconFile = app.iconPath;
+    }
+    return effective;
+}
+
+QImage TileRenderer::loadIconFile(const QString &path, int size)
+{
+    const QFileInfo info(path);
+    if (!info.isFile() || info.size() <= 0 || info.size() > MaxIconFileBytes || !hasImageExtension(info.fileName()))
+        return {};
+    QImageReader reader(info.absoluteFilePath());
+    reader.setDecideFormatFromContent(true);
+    const QSize original = reader.size();
+    if (original.isValid()) {
+        if (original.width() > MaxIconDimension || original.height() > MaxIconDimension)
+            return {};
+        reader.setScaledSize(original.scaled(size, size, Qt::KeepAspectRatio));
+    } else {
+        reader.setScaledSize(QSize(size, size)); // a vector image has no size of its own
+    }
+    return reader.read();
+}
+
 QImage TileRenderer::loadIcon(const QString &name, int size) const
 {
     if (name.isEmpty())
@@ -74,7 +105,7 @@ QImage TileRenderer::blank() const
     return image;
 }
 
-QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pressed) const
+QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pressed, const QString &fallbackIconFile) const
 {
     QImage image(Size, Size, QImage::Format_RGB32);
     image.fill(Qt::black);
@@ -88,7 +119,9 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
 
     const bool hasLabel = !key.label.isEmpty();
     const int iconSize = hasLabel ? 84 : 112;
-    const QImage icon = loadIcon(key.icon.forState(state), iconSize);
+    QImage icon = loadIcon(key.icon.forState(state), iconSize);
+    if (icon.isNull() && !fallbackIconFile.isEmpty())
+        icon = loadIconFile(fallbackIconFile, iconSize);
 
     // Icon in the upper part, label under it; a lone label is centered.
     const QRectF iconArea(0, hasLabel ? 14 : (Size - iconSize) / 2.0, Size, iconSize);

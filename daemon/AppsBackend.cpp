@@ -5,6 +5,7 @@
 
 #include "PagesConfig.h"
 #include "PagesEditor.h"
+#include "TileRenderer.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -22,12 +23,18 @@ ThemeIconProvider::ThemeIconProvider()
 QPixmap ThemeIconProvider::requestPixmap(const QString &id, QSize *size, const QSize &requestedSize)
 {
     const int side = requestedSize.isValid() && requestedSize.width() > 0 ? qMin(requestedSize.width(), 256) : 48;
-    // `id` is the name of an icon of the theme; anything that is not one gives
-    // the generic application icon.
-    QIcon icon = QIcon::fromTheme(id);
-    if (icon.isNull())
-        icon = QIcon::fromTheme(QStringLiteral("application-x-executable"));
-    QPixmap pixmap = icon.pixmap(side, side);
+    // `id` is the name of an icon of the theme, or the absolute path of an
+    // application's own image (checked like any picture); anything that is
+    // neither gives the generic application icon.
+    QPixmap pixmap;
+    if (id.startsWith(QLatin1Char('/'))) {
+        pixmap = QPixmap::fromImage(TileRenderer::loadIconFile(id, side));
+    } else {
+        QIcon icon = QIcon::fromTheme(id);
+        if (icon.isNull())
+            icon = QIcon::fromTheme(QStringLiteral("application-x-executable"));
+        pixmap = icon.pixmap(side, side);
+    }
     if (pixmap.isNull()) {
         pixmap = QPixmap(side, side);
         pixmap.fill(QColor(0x40, 0x46, 0x50));
@@ -44,7 +51,7 @@ AppsBackend::AppsBackend(QString pagesFile, QObject *parent)
     for (const DesktopApp &app : DesktopEntries::list()) {
         m_apps.append(QVariantMap{{QStringLiteral("name"), app.name},
                                   {QStringLiteral("id"), app.id},
-                                  {QStringLiteral("icon"), app.icon}});
+                                  {QStringLiteral("icon"), app.icon.isEmpty() ? app.iconPath : app.icon}});
     }
     reload();
 }
@@ -99,7 +106,7 @@ void AppsBackend::reload()
                 if (label.isEmpty())
                     label = app.isValid() ? app.name : key->action.desktop;
                 if (icon.isEmpty())
-                    icon = app.icon;
+                    icon = app.icon.isEmpty() ? app.iconPath : app.icon;
                 break;
             }
             case ActionType::Media:

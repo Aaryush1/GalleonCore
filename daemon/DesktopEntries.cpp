@@ -78,8 +78,17 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
         app.name = info.completeBaseName();
 
     const QString icon = settings.value(QStringLiteral("Icon")).toString().trimmed();
-    if (IconPattern.match(icon).hasMatch()) // a theme name; a path is not used
-        app.icon = icon;
+    if (IconPattern.match(icon).hasMatch()) {
+        app.icon = icon; // a name of the icon theme
+    } else if (icon.startsWith(QLatin1Char('/')) && icon.size() <= 400 && !icon.contains(QStringLiteral(".."))
+               && std::none_of(icon.begin(), icon.end(), [](QChar c) { return c.unicode() < 0x20; })) {
+        // An image given by path (Snap packages do this). It is only ever
+        // decoded as an image, with the same checks as any picture.
+        const QString suffix = QFileInfo(icon).suffix().toLower();
+        if (suffix == QLatin1String("png") || suffix == QLatin1String("svg") || suffix == QLatin1String("jpg")
+            || suffix == QLatin1String("jpeg"))
+            app.iconPath = icon;
+    }
     return app;
 }
 

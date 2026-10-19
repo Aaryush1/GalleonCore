@@ -14,7 +14,8 @@ struct DesktopApp
     QString file; // absolute path of the .desktop file
     QString id;   // "firefox.desktop"
     QString name; // in the user's language when the file has it
-    QString icon; // icon theme name; empty if the file has none or names a path
+    QString icon;     // icon theme name; empty if the file has none or gives a path
+    QString iconPath; // absolute path of an image, when the file gives a path (Snap packages do)
 
     [[nodiscard]] bool isValid() const { return !file.isEmpty(); }
 };

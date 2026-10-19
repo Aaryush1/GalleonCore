@@ -105,6 +105,75 @@ private Q_SLOTS:
         QVERIFY(close(renderer.render(config, {}, false).pixel(80, 80), qRgb(0, 255, 0)));
     }
 
+    void anApplicationIconGivenByPathIsUsedAsAFallback()
+    {
+        QTemporaryDir dir;
+        QTemporaryDir other;
+        QVERIFY(saveColour(other.filePath("app.png"), QColor(200, 100, 0)));
+        const QString link = dir.filePath("current.png"); // like /snap/firefox/current/...
+        QVERIFY(QFile::link(other.filePath("app.png"), link));
+        const TileRenderer renderer;
+
+        // No icon name on the key: the file of the application.
+        const QImage viaLink = renderer.render(key("", ""), {}, false, link);
+        QVERIFY(close(viaLink.pixel(80, 80), qRgb(200, 100, 0)));
+        // An icon name that works wins over the fallback.
+        QVERIFY(saveColour(dir.filePath("mine.png"), Qt::blue));
+        const TileRenderer withFolder(dir.path());
+        QVERIFY(close(withFolder.render(key("", "mine.png"), {}, false, link).pixel(80, 80), qRgb(0, 0, 255)));
+    }
+
+    void anApplicationKeyTakesTheApplicationsLabelAndIcon()
+    {
+        galleond::KeyConfig plain;
+        plain.action.type = galleond::ActionType::App;
+        plain.action.desktop = "tool.desktop";
+        galleond::DesktopApp app;
+        app.file = "/x/tool.desktop";
+        app.name = "The Tool";
+        app.icon = "tool-icon";
+        app.iconPath = "/x/icon.png";
+        QString iconFile;
+
+        const galleond::KeyConfig effective = TileRenderer::effectiveKey(plain, app, iconFile);
+        QCOMPARE(effective.label, QStringLiteral("The Tool"));
+        QCOMPARE(effective.icon.name, QStringLiteral("tool-icon"));
+        QCOMPARE(iconFile, QStringLiteral("/x/icon.png"));
+
+        // A label or an icon of the user's own is kept as it is.
+        galleond::KeyConfig mine = plain;
+        mine.label = "Mine";
+        QCOMPARE(TileRenderer::effectiveKey(mine, app, iconFile).label, QStringLiteral("Mine"));
+        QVERIFY(TileRenderer::effectiveKey(mine, app, iconFile).icon.name.isEmpty());
+        QVERIFY(iconFile.isEmpty());
+
+        // An application that was not found: the key says which file is wrong.
+        QCOMPARE(TileRenderer::effectiveKey(plain, galleond::DesktopApp{}, iconFile).label, QStringLiteral("tool"));
+
+        // Other actions are never touched.
+        galleond::KeyConfig media;
+        media.action.type = galleond::ActionType::Media;
+        QVERIFY(TileRenderer::effectiveKey(media, app, iconFile).label.isEmpty());
+    }
+
+    void anIconFileMustStillBeASaneImage()
+    {
+        QTemporaryDir dir;
+        QFile bad(dir.filePath("bad.png"));
+        QVERIFY(bad.open(QIODevice::WriteOnly));
+        bad.write("not an image");
+        bad.close();
+        QVERIFY(saveColour(dir.filePath("huge.png"), Qt::red, TileRenderer::MaxIconDimension + 1));
+        QVERIFY(saveColour(dir.filePath("ok.png"), Qt::green));
+        QVERIFY(TileRenderer::loadIconFile(dir.filePath("bad.png"), 64).isNull());
+        QVERIFY(TileRenderer::loadIconFile(dir.filePath("huge.png"), 64).isNull());
+        QVERIFY(TileRenderer::loadIconFile(dir.filePath("missing.png"), 64).isNull());
+        QVERIFY(TileRenderer::loadIconFile(dir.path(), 64).isNull());
+        QVERIFY(TileRenderer::loadIconFile("/etc/passwd", 64).isNull()); // not an image extension
+        QVERIFY(!TileRenderer::loadIconFile(dir.filePath("ok.png"), 64).isNull());
+        QVERIFY(TileRenderer::loadIconFile(dir.filePath("ok.png"), 64).width() <= 64);
+    }
+
     void iconsCannotLeaveTheFolder()
     {
         QTemporaryDir outer;

@@ -139,13 +139,22 @@ private Q_SLOTS:
             QVERIFY2(!DesktopEntries::lookup(name + ".desktop").isValid(), qPrintable(name));
     }
 
-    void anIconPathIsNotUsedAsAnIconName()
+    void anIconGivenByPathIsKeptAsAPath()
     {
         Environment env;
-        QVERIFY(writeFile(env.systemApp("path.desktop"), entry("Path Icon", "/usr/share/pixmaps/x.png")));
+        QVERIFY(writeFile(env.systemApp("path.desktop"), entry("Path Icon", "/snap/firefox/current/default256.png")));
         const DesktopApp app = DesktopEntries::lookup("path.desktop");
         QVERIFY(app.isValid());
-        QVERIFY(app.icon.isEmpty());
+        QVERIFY(app.icon.isEmpty()); // not a theme name
+        QCOMPARE(app.iconPath, QStringLiteral("/snap/firefox/current/default256.png"));
+
+        for (const QString &bad : {QStringLiteral("/usr/share/../../etc/passwd.png"), QStringLiteral("/tmp/not-an-image.sh"),
+                                   QStringLiteral("relative/icon.png")}) {
+            QVERIFY(writeFile(env.systemApp("bad.desktop"), entry("Bad", bad)));
+            const DesktopApp odd = DesktopEntries::lookup("bad.desktop");
+            QVERIFY(odd.isValid());
+            QVERIFY2(odd.iconPath.isEmpty() && odd.icon.isEmpty(), qPrintable(bad));
+        }
     }
 
     void theNameIsInTheUsersLanguage()

@@ -138,6 +138,25 @@ private Q_SLOTS:
         QCOMPARE(backend.page(), QStringLiteral("main"));
     }
 
+    void anApplicationIconByPathReachesTheWindow()
+    {
+        Environment env;
+        QImage icon(64, 64, QImage::Format_RGB32);
+        icon.fill(QColor(200, 100, 0));
+        QVERIFY(icon.save(env.dir.filePath("snap-icon.png")));
+        QVERIFY(writeFile(env.dir.filePath("system/applications/snappy.desktop"),
+                          "[Desktop Entry]\nType=Application\nName=Snappy\nExec=/usr/bin/true\nIcon=" + env.dir.filePath("snap-icon.png").toUtf8() + "\n"));
+        AppsBackend backend(env.pages());
+        QCOMPARE(backend.assign("snappy.desktop", 2), QString());
+        QCOMPARE(key(backend, 2).value("icon").toString(), env.dir.filePath("snap-icon.png")); // the path reaches the window
+
+        galleond::ThemeIconProvider provider;
+        QSize size;
+        const QPixmap pixmap = provider.requestPixmap(env.dir.filePath("snap-icon.png"), &size, QSize(32, 32));
+        QVERIFY(!pixmap.isNull());
+        QCOMPARE(pixmap.toImage().pixelColor(16, 16), QColor(200, 100, 0));
+    }
+
     void theIconProviderAlwaysAnswers()
     {
         galleond::ThemeIconProvider provider;

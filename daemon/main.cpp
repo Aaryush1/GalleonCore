@@ -99,7 +99,15 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
     const galleond::Page &page = parsed.config->pages.value(parsed.config->home);
     for (int key = 0; key < galleon::protocol::KeyCount; ++key) {
         const auto &configured = page.keys[static_cast<std::size_t>(key)];
-        const QImage image = configured ? tiles.render(*configured, state, false) : tiles.blank();
+        QImage image = tiles.blank();
+        if (configured) {
+            QString iconFile;
+            const galleond::KeyConfig effective = galleond::TileRenderer::effectiveKey(
+                *configured, configured->action.type == galleond::ActionType::App
+                                 ? galleond::DesktopEntries::lookup(configured->action.desktop) : galleond::DesktopApp{},
+                iconFile);
+            image = tiles.render(effective, state, false, iconFile);
+        }
         painter.drawImage((key % 3) * (tile + gap), (key / 3) * (tile + gap), image);
     }
     painter.end();
