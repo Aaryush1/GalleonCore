@@ -68,6 +68,9 @@ public:
     // draws the screen again.
     void setSuspended(bool suspended);
 
+    // The seconds left of the validation of the wallpaper choice, shown in a circle (0: none).
+    void setCountdown(int secondsLeft);
+
     // How long the chosen wallpaper stays on the screen, before a playing track
     // takes it back: after choosing a wallpaper, and at start. For the tests.
     void setWallpaperHoldMs(int ms) { m_holdTimer.setInterval(ms); }
@@ -92,6 +95,8 @@ public Q_SLOTS:
     [[nodiscard]] QStringList Wallpapers() const;
 
 Q_SIGNALS:
+    // The screen with the name and place of the wallpaper being chosen was sent to the module.
+    void choosingLabelShown();
     void wallpaperChanged();
     void deckAvailableChanged();
 
@@ -141,10 +146,9 @@ private:
     QTimer m_minuteTimer;
     QTimer m_holdTimer;   // the wallpaper is kept for a moment, then the track returns
     bool m_holding = false;
-    void startHold(bool countdown = false);
+    void startHold();
     [[nodiscard]] QString choosingLabel() const;
-    QTimer m_countTimer; // ticks each second of the hold after a choice
-    int m_countdown = 0; // seconds left, shown over the wallpaper; 0 = none
+    int m_countdown = 0; // seconds left of the validation, shown over the wallpaper; 0 = none
     QTimer m_previewTimer; // groups the wallpaper steps of a turning dial into few pictures
     void showStepped();
     [[nodiscard]] int previewRest() const;

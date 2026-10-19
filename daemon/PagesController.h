@@ -82,12 +82,19 @@ public:
     // True while a dial is set to choosing the wallpaper (its press toggles it).
     [[nodiscard]] bool wallpaperMode() const { return m_wallpaperDial >= 0; }
 
+    // The screen says the name and place of the wallpaper are shown: from now on a turn of
+    // the dial chooses (before, it is ignored, so that a turn is never made blind).
+    void wallpaperLabelShown();
+
     // Lights the left dial ring with the current theme's colour (off without
     // a theme) and the right one white. Also done by every theme change; call it again
     // when the module was plugged in again.
     void applyRings();
 
 Q_SIGNALS:
+    // The validation countdown of the wallpaper choice: seconds left (N .. 1), then 0 when it
+    // is over or the mode is left. The screen shows it.
+    void wallpaperCountdown(int secondsLeft);
     // The dial in wallpaper mode turned: `steps` wallpapers forward (negative: back).
     void wallpaperStep(int steps);
     // Theme mode was entered or left.
@@ -160,7 +167,11 @@ private:
 
     int m_pressedDial = -1; // the dial whose press is being performed
     int m_wallpaperDial = -1; // the dial that chooses the wallpaper, -1 = none
-    QTimer m_wallpaperTimeout;
+    QTimer m_wallpaperTimeout; // ticks each second of the validation countdown
+    int m_wallpaperLeft = 0;   // seconds of the countdown left
+    bool m_wallpaperReady = false; // the name and place of the wallpaper are on the screen: turns count
+    QTimer m_wallpaperReadyFallback;
+    void restartWallpaperCountdown();
     int m_theme = -1; // index in m_config.themes, -1 = none
     QStringList m_stack; // opened pages, the current one last
     std::array<bool, galleon::protocol::KeyCount> m_pressed{};

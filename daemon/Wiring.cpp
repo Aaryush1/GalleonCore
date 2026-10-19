@@ -24,6 +24,8 @@ void connectPagesToScreen(PagesController &pages, ScreenController &screen)
         QObject::connect(p, signal, s, showState);
     QObject::connect(p, &PagesController::wallpaperStep, s, [s](int steps) { s->stepWallpaper(steps); });
     QObject::connect(p, &PagesController::screenConfigChanged, s, [p, s] { s->setScreenConfig(p->screenConfig()); });
+    QObject::connect(p, &PagesController::wallpaperCountdown, s, [s](int left) { s->setCountdown(left); });
+    QObject::connect(s, &ScreenController::choosingLabelShown, p, [p] { p->wallpaperLabelShown(); });
     showState();
     s->setScreenConfig(p->screenConfig());
 }

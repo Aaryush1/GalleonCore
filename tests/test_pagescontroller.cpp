@@ -692,6 +692,7 @@ private Q_SLOTS:
         f.pressDial(1, true);
         f.pressDial(1, false);
         QVERIFY(f.controller->wallpaperMode());
+        f.controller->wallpaperLabelShown(); // the screen shows the name: turns count now
         QCOMPARE(rightRing(), (std::array<int, 3>{255, 0, 255})); // magenta
         f.turnDial(1, 3);
         QCOMPARE(steps.count(), 1);
@@ -856,9 +857,12 @@ private Q_SLOTS:
         f.controller->setConfig(*parsed.config);
         QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
 
+        QSignalSpy countdown(f.controller.get(), &PagesController::wallpaperCountdown);
         f.pressDial(1, true);
         f.pressDial(1, false);
         QVERIFY(f.controller->wallpaperMode());
+        f.controller->wallpaperLabelShown();
+        QCOMPARE(countdown.last().first().toInt(), 2); // the countdown starts at the validation time
         // Turning keeps the mode: the time starts again at each step.
         for (int i = 0; i < 3; ++i) {
             QTest::qWait(500);
@@ -866,8 +870,12 @@ private Q_SLOTS:
             QVERIFY(f.controller->wallpaperMode());
         }
         QCOMPARE(steps.count(), 3);
-        // Left alone for the time: validated, the dial is the player control again.
-        QTRY_VERIFY_WITH_TIMEOUT(!f.controller->wallpaperMode(), 5000);
+        // Left alone: the countdown runs with the dial still in the choice, then it is validated.
+        countdown.clear();
+        QTRY_VERIFY_WITH_TIMEOUT(countdown.count() >= 1 && countdown.last().first().toInt() == 1, 3000);
+        QVERIFY(f.controller->wallpaperMode()); // still choosing while it counts
+        QTRY_VERIFY_WITH_TIMEOUT(!f.controller->wallpaperMode(), 5000); // over: validated, the ring goes white
+        QCOMPARE(countdown.last().first().toInt(), 0);
     }
 
     void turnsDuringTheStepDelayAreIgnoredNotQueued()
@@ -884,6 +892,7 @@ private Q_SLOTS:
         QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
+        f.controller->wallpaperLabelShown();
         QTest::qWait(400);
 
         f.turnDial(1, 3);  // taken, and as one place
@@ -897,6 +906,47 @@ private Q_SLOTS:
         f.turnDial(1, -2); // taken again
         QCOMPARE(steps.count(), 2);
         QCOMPARE(steps.last().first().toInt(), -1);
+    }
+
+    void turnsAreIgnoredUntilTheWallpaperNameIsShown()
+    {
+        const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
+            {"version", 1},
+            {"home", "main"},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 0}}},
+            {"pages", QJsonObject{{"main", page({})}}},
+            {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
+        QVERIFY(parsed.config.has_value());
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        f.pressDial(1, true);
+        f.pressDial(1, false);
+        QVERIFY(f.controller->wallpaperMode());
+        f.turnDial(1, 1); // the name is not on the screen yet: nothing happens
+        QCOMPARE(steps.count(), 0);
+        f.controller->wallpaperLabelShown();
+        f.turnDial(1, 1);
+        QCOMPARE(steps.count(), 1);
+    }
+
+    void withoutTheScreenSayingSoTurnsCountAfterAMoment()
+    {
+        const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
+            {"version", 1},
+            {"home", "main"},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 0}}},
+            {"pages", QJsonObject{{"main", page({})}}},
+            {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
+        QVERIFY(parsed.config.has_value());
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        f.pressDial(1, true);
+        f.pressDial(1, false);
+        QTest::qWait(1700); // the safety delay: a screen that never answers cannot block the dial for good
+        f.turnDial(1, 1);
+        QCOMPARE(steps.count(), 1);
     }
 };
 

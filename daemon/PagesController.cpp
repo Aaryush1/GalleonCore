@@ -57,9 +57,20 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
         redraw();
     });
 
-    m_wallpaperTimeout.setSingleShot(true);
-    m_wallpaperTimeout.setInterval(4000); // replaced by screen.wallpaper_validate_seconds when a file is applied
-    connect(&m_wallpaperTimeout, &QTimer::timeout, this, [this] { setWallpaperMode(-1); });
+    m_wallpaperTimeout.setInterval(1000);
+    connect(&m_wallpaperTimeout, &QTimer::timeout, this, [this] {
+        // The countdown: the dial stays in the choice, magenta, until it is over.
+        if (m_wallpaperLeft > 1) {
+            Q_EMIT wallpaperCountdown(--m_wallpaperLeft);
+        } else {
+            m_wallpaperTimeout.stop();
+            setWallpaperMode(-1); // validated: the ring goes white and the choice is closed
+        }
+    });
+    // If the screen never says the label is shown, the turns count after a moment all the same.
+    m_wallpaperReadyFallback.setSingleShot(true);
+    m_wallpaperReadyFallback.setInterval(1500);
+    connect(&m_wallpaperReadyFallback, &QTimer::timeout, this, [this] { m_wallpaperReady = true; });
 
     m_themeApply.setSingleShot(true);
     m_themeApply.setInterval(ThemeApplyMs);
@@ -106,7 +117,7 @@ void PagesController::setConfig(const PagesConfig &config)
     m_pressed.fill(false);
     m_wallpaperDial = -1; // a new file: back to the player control
     m_wallpaperTimeout.stop();
-    m_wallpaperTimeout.setInterval(config.screen.wallpaperValidateSeconds * 1000);
+    Q_EMIT wallpaperCountdown(0);
     m_themeDial = -1;
     m_themeTimeout.stop();
     redraw(true);
@@ -366,6 +377,21 @@ void PagesController::stepTheme(int steps)
     selectTheme((((m_theme < 0 ? -1 : m_theme) + steps) % count + count) % count);
 }
 
+void PagesController::restartWallpaperCountdown()
+{
+    m_wallpaperLeft = std::max(1, m_config.screen.wallpaperValidateSeconds);
+    m_wallpaperTimeout.start();
+    Q_EMIT wallpaperCountdown(m_wallpaperLeft);
+}
+
+void PagesController::wallpaperLabelShown()
+{
+    if (!wallpaperMode() || m_wallpaperReady)
+        return;
+    m_wallpaperReady = true;
+    m_wallpaperReadyFallback.stop();
+}
+
 void PagesController::setThemeMode(int dial)
 {
     // A press toggles: the dial that is in the mode leaves it, any other enters it.
@@ -434,10 +460,15 @@ void PagesController::setWallpaperMode(int dial)
         setThemeMode(-1); // one choice at a time: the screen shows one of them
     m_wallpaperDial = wanted;
     qInfo() << "galleond: wallpaper mode" << (wallpaperMode() ? "on, dial" : "off") << (wallpaperMode() ? m_wallpaperDial : -1);
-    if (wallpaperMode())
-        m_wallpaperTimeout.start();
-    else
+    if (wallpaperMode()) {
+        m_wallpaperReady = false; // turns are ignored until the screen shows the label
+        m_wallpaperReadyFallback.start();
+        restartWallpaperCountdown();
+    } else {
         m_wallpaperTimeout.stop();
+        m_wallpaperReadyFallback.stop();
+        Q_EMIT wallpaperCountdown(0);
+    }
     applyRings();
     Q_EMIT wallpaperModeChanged();
 }
@@ -527,7 +558,11 @@ void PagesController::onDialRotated(int dial, int steps)
         // A wallpaper takes a moment to show: turns that come before it is up are
         // not queued, they are ignored, so that the screen never runs behind the
         // dial. One place at a time, then.
-        m_wallpaperTimeout.start(); // the dial is being touched: the choice is not validated yet
+        if (!m_wallpaperReady) {
+            qInfo() << "galleond: dial" << dial << "step" << steps << "ignored: the wallpaper name is not shown yet";
+            return;
+        }
+        restartWallpaperCountdown(); // the dial is being touched: the choice is not validated yet
         if (now - m_lastWallpaperStepAt < m_config.screen.wallpaperStepDelayMs)
             return;
         m_lastWallpaperStepAt = now;
@@ -542,7 +577,11 @@ void PagesController::onDialRotated(int dial, int steps)
         return;
     }
     if (dial == m_wallpaperDial) {
-        m_wallpaperTimeout.start(); // in use: keep the mode
+        if (!m_wallpaperReady) {
+            qInfo() << "galleond: dial" << dial << "step" << steps << "ignored: the wallpaper name is not shown yet";
+            return;
+        }
+        restartWallpaperCountdown(); // in use: keep the mode
         Q_EMIT wallpaperStep(counted);
         return;
     }

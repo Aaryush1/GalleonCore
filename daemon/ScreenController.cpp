@@ -79,20 +79,8 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
     }
     m_holdTimer.setSingleShot(true);
     m_holdTimer.setInterval(WallpaperHoldMs);
-    m_countTimer.setInterval(1000);
-    connect(&m_countTimer, &QTimer::timeout, this, [this] {
-        if (m_countdown > 1) {
-            --m_countdown;
-            if (!m_wallpaper.isEmpty())
-                draw();
-        } else {
-            m_countTimer.stop();
-        }
-    });
     connect(&m_holdTimer, &QTimer::timeout, this, [this] {
         m_holding = false;
-        m_countdown = 0;
-        m_countTimer.stop();
         if (!m_wallpaper.isEmpty())
             draw(); // a playing track takes the screen now
     });
@@ -238,16 +226,19 @@ QString ScreenController::choosingLabel() const
     return {};
 }
 
-void ScreenController::startHold(bool countdown)
+void ScreenController::setCountdown(int secondsLeft)
+{
+    secondsLeft = std::clamp(secondsLeft, 0, 99);
+    if (secondsLeft == m_countdown)
+        return;
+    m_countdown = secondsLeft;
+    if (!m_wallpaper.isEmpty() && m_choosingWallpaper)
+        draw();
+}
+
+void ScreenController::startHold()
 {
     m_holding = true;
-    m_countdown = 0;
-    m_countTimer.stop();
-    if (countdown) {
-        // The seconds left are shown over the wallpaper while it is kept.
-        m_countdown = std::max(1, m_holdTimer.interval() / 1000);
-        m_countTimer.start();
-    }
     qInfo() << "galleond: the chosen wallpaper stays on the screen for" << m_holdTimer.interval() / 1000 << "s";
     m_holdTimer.start();
 }
@@ -258,11 +249,9 @@ void ScreenController::setBottomBar(std::uint32_t rgb, bool choosingWallpaper)
         return;
     if (m_choosingWallpaper && !choosingWallpaper) {
         persistWallpaper();
-        startHold(true); // the choice is made: show it with a countdown, then back to the track
+        startHold(); // the choice is made: keep it on the screen for a while, then back to the track
     } else if (choosingWallpaper) {
         m_holdTimer.stop();
-        m_countTimer.stop();
-        m_countdown = 0;
         m_holding = false;
     }
     m_barRgb = rgb;
@@ -422,6 +411,8 @@ bool ScreenController::sendScreen(const QImage &frame)
         qInfo() << "galleond: sending the screen picture took" << took.elapsed() << "ms";
     if (!sent && (m_failedSends++ % 20) == 0)
         qWarning() << "galleond: the screen picture could not be sent to the module";
+    if (sent && m_choosingWallpaper)
+        Q_EMIT choosingLabelShown();
     return sent;
 }
 

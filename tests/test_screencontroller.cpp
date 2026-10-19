@@ -12,6 +12,7 @@
 #include <QImage>
 #include <QTemporaryDir>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QTest>
 
 #include <memory>
@@ -519,15 +520,11 @@ private Q_SLOTS:
         QCOMPARE(settings.value("wallpaper").toString(), QStringLiteral("style/red.png"));
     }
 
-    void aCountdownIsShownWhileAChosenWallpaperIsKept()
+    void theCountdownIsShownWhileTheChoiceIsBeingValidated()
     {
         Fixture f;
-        ScreenConfig config;
-        config.wallpaperHoldSeconds = 3;
-        f.controller->setScreenConfig(config);
         QVERIFY(f.controller->SetWallpaper(f.wallpaper()));
-        f.controller->setBottomBar(0xff00ff, true);  // choosing
-        f.controller->setBottomBar(0xffffff, false); // validated: kept 3 s, with the seconds shown
+        f.controller->setBottomBar(0xff00ff, true); // choosing
         const auto magenta = [&f] {
             const QImage image = f.lastScreen();
             int count = 0;
@@ -537,10 +534,15 @@ private Q_SLOTS:
             }
             return count;
         };
+        QSignalSpy shown(f.controller.get(), &ScreenController::choosingLabelShown);
+        f.controller->setCountdown(3);
         QTRY_VERIFY_WITH_TIMEOUT(magenta() > 150, 2000);
-        QTest::qWait(1200); // the number goes down: the picture is sent again
+        QVERIFY(shown.count() >= 1); // the screen with the label went to the module
+        f.controller->setCountdown(2);
+        QTest::qWait(200);
         QVERIFY(magenta() > 150);
-        QTRY_COMPARE_WITH_TIMEOUT(magenta(), 0, 4000); // and it goes when the time is over
+        f.controller->setCountdown(0);
+        QTRY_COMPARE_WITH_TIMEOUT(magenta(), 0, 2000);
     }
 
     void whileChoosingTheScreenShowsTheNameAndPlaceOfTheWallpaper()
