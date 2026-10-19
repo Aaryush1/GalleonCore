@@ -3,6 +3,8 @@
 
 #include "PagesController.h"
 
+#include "PageOrder.h"
+
 #include <algorithm>
 #include <vector>
 
@@ -235,22 +237,6 @@ void PagesController::recordUse(const QString &id)
     redraw();
 }
 
-double PagesController::scoreOf(const KeyConfig &key) const
-{
-    if (key.action.type == ActionType::App)
-        return m_usage->score(key.action.desktop);
-    if (key.action.type != ActionType::Steam)
-        return 0.0;
-    double score = m_usage->score(QStringLiteral("steam:%1").arg(key.action.appid));
-    for (const SteamGame &game : m_steamCache) {
-        if (game.appid == key.action.appid) {
-            score += SteamLibrary::score(game);
-            break;
-        }
-    }
-    return score;
-}
-
 void PagesController::rebuildPage()
 {
     m_dynamic.reset();
@@ -258,69 +244,16 @@ void PagesController::rebuildPage()
     const auto found = m_config.pages.constFind(currentPage());
     if (found == m_config.pages.constEnd() || (found->sort == PageSort::None && found->steamMax == 0))
         return;
-    Page page = *found;
 
     // The installed Steam games, read from the user's Steam folder at most once a minute.
-    if (page.steamMax > 0 && (!m_steamCacheValid || !m_steamCacheAge.isValid() || m_steamCacheAge.elapsed() > 60000)) {
+    if (found->steamMax > 0 && (!m_steamCacheValid || !m_steamCacheAge.isValid() || m_steamCacheAge.elapsed() > 60000)) {
         m_steamCache = m_steamGames ? m_steamGames() : QList<SteamGame>{};
         m_steamCacheValid = true;
         m_steamCacheAge.start();
     }
-
-    // Free keys get the most played games that are not on the page already.
-    if (page.steamMax > 0) {
-        QSet<int> present;
-        for (const auto &key : page.keys) {
-            if (key && key->action.type == ActionType::Steam)
-                present.insert(key->action.appid);
-        }
-        QList<std::pair<double, SteamGame>> candidates;
-        for (const SteamGame &game : std::as_const(m_steamCache)) {
-            if (!present.contains(game.appid)) {
-                KeyConfig probe;
-                probe.action.type = ActionType::Steam;
-                probe.action.appid = game.appid;
-                candidates.append({scoreOf(probe), game});
-            }
-        }
-        std::stable_sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b) {
-            return a.first != b.first ? a.first > b.first : a.second.name.compare(b.second.name, Qt::CaseInsensitive) < 0;
-        });
-        int added = 0;
-        for (std::size_t slot = 0; slot < page.keys.size() && added < page.steamMax && added < candidates.size(); ++slot) {
-            if (page.keys[slot])
-                continue;
-            const SteamGame &game = candidates.at(added++).second;
-            KeyConfig key;
-            key.key = static_cast<int>(slot);
-            key.label = game.name.left(MaxLabelLength);
-            key.action.type = ActionType::Steam;
-            key.action.appid = game.appid;
-            page.keys[slot] = key;
-        }
-    }
-
-    // The application keys in order of use: the same places, the most used in the first one.
-    if (page.sort == PageSort::Usage) {
-        std::vector<std::size_t> places;
-        std::vector<KeyConfig> keys;
-        for (std::size_t slot = 0; slot < page.keys.size(); ++slot) {
-            const auto &key = page.keys[slot];
-            if (key && (key->action.type == ActionType::App || key->action.type == ActionType::Steam)) {
-                places.push_back(slot);
-                keys.push_back(*key);
-            }
-        }
-        std::stable_sort(keys.begin(), keys.end(),
-                         [this](const KeyConfig &a, const KeyConfig &b) { return scoreOf(a) > scoreOf(b); });
-        for (std::size_t i = 0; i < places.size(); ++i) {
-            keys[i].key = static_cast<int>(places[i]);
-            page.keys[places[i]] = keys[i];
-        }
-        if (!keys.empty() && scoreOf(keys.front()) > 0.0)
-            m_highlightKey = static_cast<int>(places.front());
-    }
-    m_dynamic = page;
+    const ArrangedPage arranged = arrangePage(*found, *m_usage, m_steamCache);
+    m_dynamic = arranged.page;
+    m_highlightKey = arranged.highlightKey;
     m_dynamicFor = currentPage();
 }
 

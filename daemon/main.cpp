@@ -7,6 +7,7 @@
 #include "PagesConfig.h"
 #include "PagesController.h"
 #include "KeyInjector.h"
+#include "PageOrder.h"
 #include "PagesEditor.h"
 #include "ScreensaverController.h"
 #include "ScreensaverSplitter.h"
@@ -342,7 +343,13 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
     sheet.fill(QColor(0x10, 0x10, 0x10));
     QPainter painter(&sheet);
     const QString shown = pageName.isEmpty() ? parsed.config->home : pageName;
-    const galleond::Page &page = parsed.config->pages.value(shown);
+    // The page as the module shows it: in order of use, with the Steam games, from the real usage file.
+    const galleond::UsageStats usage(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+                                     + QStringLiteral("/galleoncore/usage.json"));
+    const galleond::ArrangedPage arranged = galleond::arrangePage(
+        parsed.config->pages.value(shown), usage,
+        parsed.config->pages.value(shown).steamMax > 0 ? galleond::SteamLibrary::installedGames() : QList<galleond::SteamGame>{});
+    const galleond::Page &page = arranged.page;
     // The theme of that page tints the keys, as on the module.
     qint64 tint = -1;
     for (const galleond::Theme &theme : parsed.config->themes) {
@@ -360,7 +367,7 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
                 *configured, configured->action.type == galleond::ActionType::App
                                  ? galleond::DesktopEntries::lookup(configured->action.desktop) : galleond::DesktopApp{},
                 iconFile);
-            image = tiles.render(effective, state, false, iconFile, tint);
+            image = tiles.render(effective, state, false, iconFile, tint, key == arranged.highlightKey);
         }
         painter.drawImage((key % 3) * (tile + gap), (key / 3) * (tile + gap), image);
     }

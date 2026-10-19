@@ -9,6 +9,7 @@ add_library(galleond_core STATIC
     DesktopEntries.h DesktopEntries.cpp
     MediaController.h
     MprisController.h MprisController.cpp
+    PageOrder.h PageOrder.cpp
     PagesConfig.h PagesConfig.cpp
     PagesEditor.h PagesEditor.cpp
     PagesController.h PagesController.cpp

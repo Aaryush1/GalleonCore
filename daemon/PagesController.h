@@ -150,7 +150,6 @@ private:
     // the installed Steam games added, when the page asks for it.
     void rebuildPage();
     [[nodiscard]] const Page *effectivePage() const;
-    [[nodiscard]] double scoreOf(const KeyConfig &key) const;
     void launchSteam(int appid);
     void recordUse(const QString &id);
     void onMediaChanged();
