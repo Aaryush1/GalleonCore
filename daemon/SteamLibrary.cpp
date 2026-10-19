@@ -284,6 +284,19 @@ QList<SteamGame> SteamLibrary::installedGames(const QString &root)
     return games;
 }
 
+QString SteamLibrary::coverImage(int appid, const QString &root)
+{
+    if (root.isEmpty() || appid <= 0)
+        return {};
+    const QString folder = QStringLiteral("%1/appcache/librarycache/%2/").arg(root).arg(appid);
+    for (const char *name : {"library_600x900.jpg", "logo.png"}) {
+        const QFileInfo info(folder + QLatin1String(name));
+        if (info.isFile() && !info.isSymLink())
+            return info.absoluteFilePath();
+    }
+    return {};
+}
+
 double SteamLibrary::score(const SteamGame &game, const QDateTime &now)
 {
     return (static_cast<double>(game.playtimeMinutes) / 60.0) * UsageStats::fade(game.lastPlayed, now.toSecsSinceEpoch());

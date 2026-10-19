@@ -367,6 +367,8 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
                 *configured, configured->action.type == galleond::ActionType::App
                                  ? galleond::DesktopEntries::lookup(configured->action.desktop) : galleond::DesktopApp{},
                 iconFile);
+            if (configured->action.type == galleond::ActionType::Steam && configured->icon.name.isEmpty())
+                iconFile = galleond::SteamLibrary::coverImage(configured->action.appid);
             image = tiles.render(effective, state, false, iconFile, tint, key == arranged.highlightKey);
         }
         painter.drawImage((key % 3) * (tile + gap), (key / 3) * (tile + gap), image);

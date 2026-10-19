@@ -67,6 +67,9 @@ public:
     [[nodiscard]] static QList<SteamGame> installedGames(const QString &root = defaultRoot());
     [[nodiscard]] static QString defaultRoot();
 
+    // The cover picture of a game that Steam keeps in its cache (a regular file, not a link), or empty.
+    [[nodiscard]] static QString coverImage(int appid, const QString &root = defaultRoot());
+
     // Play time in hours, faded by the time since the last launch (see UsageStats::fade).
     [[nodiscard]] static double score(const SteamGame &game, const QDateTime &now = QDateTime::currentDateTimeUtc());
 };

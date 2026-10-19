@@ -160,15 +160,29 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
 
     if (hasLabel) {
         QFont font = painter.font();
-        // A lone short label (a digit of the keypad) is drawn large.
-        font.setPixelSize(icon.isNull() ? (key.label.size() <= 2 ? 72 : 30) : 22);
         font.setBold(true);
-        painter.setFont(font);
         painter.setPen(Foreground);
-        const QFontMetrics metrics(font);
-        const QString text = metrics.elidedText(key.label, Qt::ElideRight, Size - 16);
-        const QRectF labelArea(8, icon.isNull() ? 0 : Size - 46, Size - 16, icon.isNull() ? Size : 38);
-        painter.drawText(labelArea, Qt::AlignCenter, text);
+        if (icon.isNull()) {
+            // A label alone fills the tile: a short one (a digit of the keypad) is drawn very large; a
+            // longer one is wrapped on its words, in the largest size that fits.
+            const QRectF area(10, 10, Size - 20, Size - 20);
+            int pixelSize = key.label.size() <= 2 ? 72 : 34;
+            for (; pixelSize > 16; pixelSize -= 2) {
+                font.setPixelSize(pixelSize);
+                const QRectF needed = QFontMetricsF(font).boundingRect(area, Qt::AlignCenter | Qt::TextWordWrap, key.label);
+                if (needed.height() <= area.height() && needed.width() <= area.width() + 0.5)
+                    break;
+            }
+            font.setPixelSize(pixelSize);
+            painter.setFont(font);
+            painter.drawText(area, Qt::AlignCenter | Qt::TextWordWrap, key.label);
+        } else {
+            font.setPixelSize(22);
+            painter.setFont(font);
+            const QFontMetrics metrics(font);
+            const QString text = metrics.elidedText(key.label, Qt::ElideRight, Size - 16);
+            painter.drawText(QRectF(8, Size - 46, Size - 16, 38), Qt::AlignCenter, text);
+        }
     }
     if (highlight) {
         // A five-point star in the top right corner, drawn as a shape so that it needs no font.

@@ -272,6 +272,8 @@ void PagesController::drawKey(int key, bool force)
         QString iconFile; // an application's icon given by path
         const KeyConfig effective = TileRenderer::effectiveKey(
             *configured, configured->action.type == ActionType::App ? appFor(configured->action.desktop) : DesktopApp{}, iconFile);
+        if (configured->action.type == ActionType::Steam && configured->icon.name.isEmpty())
+            iconFile = SteamLibrary::coverImage(configured->action.appid); // the game's cover from Steam's own cache
         image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index], iconFile, tint,
                                key == m_highlightKey);
     } else {
