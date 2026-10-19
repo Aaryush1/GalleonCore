@@ -12,6 +12,8 @@
 #include <QPainter>
 #include <QPainterPath>
 
+#include <algorithm>
+
 namespace galleond {
 
 namespace {
@@ -98,14 +100,32 @@ QImage TileRenderer::loadIcon(const QString &name, int size) const
     return icon.pixmap(size, size).toImage();
 }
 
-QImage TileRenderer::blank() const
+QColor TileRenderer::tintBackground(std::uint32_t rgb)
+{
+    const QColor colour = QColor::fromRgb(rgb);
+    // Same hue and saturation, a third of the brightness (but never pitch black,
+    // so that the theme can still be told apart): the icons and labels stay readable.
+    const float hue = colour.hsvHueF() < 0 ? 0.0F : static_cast<float>(colour.hsvHueF());
+    return QColor::fromHsvF(hue, static_cast<float>(colour.hsvSaturationF()),
+                            std::max(0.22F, static_cast<float>(colour.valueF()) * 0.35F));
+}
+
+QImage TileRenderer::blank(qint64 tint) const
 {
     QImage image(Size, Size, QImage::Format_RGB32);
     image.fill(Qt::black);
+    if (tint >= 0) {
+        QPainter painter(&image);
+        painter.setRenderHint(QPainter::Antialiasing);
+        QPainterPath shape;
+        shape.addRoundedRect(QRectF(3, 3, Size - 6, Size - 6), CornerRadius, CornerRadius);
+        painter.fillPath(shape, tintBackground(static_cast<std::uint32_t>(tint)).darker(150));
+    }
     return image;
 }
 
-QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pressed, const QString &fallbackIconFile) const
+QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pressed, const QString &fallbackIconFile,
+                            qint64 tint) const
 {
     QImage image(Size, Size, QImage::Format_RGB32);
     image.fill(Qt::black);
@@ -115,7 +135,13 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
 
     QPainterPath shape;
     shape.addRoundedRect(QRectF(3, 3, Size - 6, Size - 6), CornerRadius, CornerRadius);
-    painter.fillPath(shape, pressed ? BackgroundPressed : Background);
+    QColor background = pressed ? BackgroundPressed : Background;
+    if (tint >= 0) {
+        background = tintBackground(static_cast<std::uint32_t>(tint));
+        if (pressed)
+            background = background.lighter(220);
+    }
+    painter.fillPath(shape, background);
 
     const bool hasLabel = !key.label.isEmpty();
     const int iconSize = hasLabel ? 84 : 112;
@@ -133,7 +159,8 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
 
     if (hasLabel) {
         QFont font = painter.font();
-        font.setPixelSize(icon.isNull() ? 30 : 22);
+        // A lone short label (a digit of the keypad) is drawn large.
+        font.setPixelSize(icon.isNull() ? (key.label.size() <= 2 ? 72 : 30) : 22);
         font.setBold(true);
         painter.setFont(font);
         painter.setPen(Foreground);

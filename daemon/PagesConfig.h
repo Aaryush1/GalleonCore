@@ -31,6 +31,7 @@ enum class ActionType : std::uint8_t {
     App,   // start an application, named by its .desktop file
     Theme, // go to the next theme (see Theme)
     WallpaperMode, // switch the dial to choosing the screen's wallpaper, and back
+    Key,   // press a keyboard key (the numeric keypad...), held as long as the key is
 };
 
 enum class MediaCommand : std::uint8_t {
@@ -49,6 +50,7 @@ struct Action
     int step = 0;    // Volume: -100..100, never 0
     int seconds = 0; // Seek: -3600..3600, never 0
     QString page;    // Page: the name of a page of the file
+    QString keyName; // Key: a name of the fixed list (see KeyInjector.h)
     QString desktop; // App: a desktop file ID ("firefox.desktop") or the path of a .desktop file
 
     friend bool operator==(const Action &, const Action &) = default;
@@ -111,11 +113,17 @@ struct ScreenConfig
 
 // A theme: a page of keys with a colour, shown as a line on the screen and
 // on the rings around the dials. The `theme` action steps through them.
+// When a theme is chosen by itself: when a player starts ("media") or when
+// there is none left ("no-media"). Only these moments: the user's own choice
+// stays until the next one.
+enum class ThemeTrigger : std::uint8_t { None, Media, NoMedia };
+
 struct Theme
 {
     QString name;          // shown on the screen
     QString page;          // the page it opens (the stack is reset to it)
     std::uint32_t rgb = 0; // 0xRRGGBB
+    ThemeTrigger when = ThemeTrigger::None;
 
     friend bool operator==(const Theme &, const Theme &) = default;
 };

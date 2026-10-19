@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Lets the logged-in user create the virtual keypad that galleond uses for the
+# "key" actions of the pages file (the numeric keypad theme). galleond only
+# ever gives that device the keys of a fixed list (see daemon/KeyInjector.h).
+#
+# The module must be loaded: sudo modprobe uinput, and to keep it across
+# reboots: echo uinput | sudo tee /etc/modules-load.d/uinput.conf
+
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

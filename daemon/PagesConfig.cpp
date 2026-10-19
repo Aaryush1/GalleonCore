@@ -4,6 +4,7 @@
 #include "PagesConfig.h"
 
 #include "DesktopEntries.h"
+#include "KeyInjector.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -129,6 +130,21 @@ struct Parser
             out.type = ActionType::Back;
             return;
         }
+        if (type == QLatin1String("key")) {
+            rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("key")}, path);
+            if (turnAction)
+                error(path, QStringLiteral("a dial turn needs a media volume or seek action"));
+            QString name;
+            if (text(object.value(QStringLiteral("key")), path + QStringLiteral(".key"), 16, name)) {
+                if (!keyCodeForName(name)) {
+                    error(path + QStringLiteral(".key"), QStringLiteral("must be one of %1").arg(allowedKeyNames()));
+                } else {
+                    out.type = ActionType::Key;
+                    out.keyName = name;
+                }
+            }
+            return;
+        }
         if (type == QLatin1String("wallpaper-mode")) {
             rejectUnknown(object, {QStringLiteral("type")}, path);
             if (turnAction)
@@ -172,7 +188,7 @@ struct Parser
             return;
         }
         if (type != QLatin1String("media")) {
-            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app, theme, wallpaper-mode"));
+            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app, theme, wallpaper-mode, key"));
             return;
         }
 
@@ -288,7 +304,7 @@ struct Parser
                 continue;
             }
             const QJsonObject object = array.at(i).toObject();
-            rejectUnknown(object, {QStringLiteral("name"), QStringLiteral("page"), QStringLiteral("color")}, path);
+            rejectUnknown(object, {QStringLiteral("name"), QStringLiteral("page"), QStringLiteral("color"), QStringLiteral("when")}, path);
             Theme theme;
             bool ok = text(object.value(QStringLiteral("name")), path + QStringLiteral(".name"), MaxLabelLength, theme.name);
             if (ok && theme.name.isEmpty()) {
@@ -304,6 +320,22 @@ struct Parser
                 ok = false;
             } else {
                 theme.rgb = color.mid(1).toUInt(nullptr, 16);
+            }
+            if (object.contains(QStringLiteral("when"))) {
+                const QString when = object.value(QStringLiteral("when")).toString();
+                if (!object.value(QStringLiteral("when")).isString() || (when != QLatin1String("media") && when != QLatin1String("no-media"))) {
+                    error(path + QStringLiteral(".when"), QStringLiteral("must be media or no-media"));
+                    ok = false;
+                } else {
+                    theme.when = when == QLatin1String("media") ? ThemeTrigger::Media : ThemeTrigger::NoMedia;
+                    for (const Theme &other : config.themes) {
+                        if (other.when == theme.when) {
+                            error(path + QStringLiteral(".when"), QStringLiteral("another theme already has this trigger"));
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
             }
             if (!ok)
                 continue;

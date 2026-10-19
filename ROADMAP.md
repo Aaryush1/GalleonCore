@@ -28,6 +28,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 | Service systemd utilisateur (`tools/systemd/galleond.service`, variante `galleond-dev.service` pour l'arbre de compilation) | `systemd-analyze verify` | démarre et pilote le module (journal du 19 octobre) ; démarrage à l'ouverture de session et reprise après veille à confirmer |
 | Écran de veille animé : vidéo verticale (FFmpeg → images brutes) découpée pour l'écran 720×384 et les 12 touches 160×160, boucle, délai d'inactivité, réveil par touche/molette/début de piste, suspension des autres contrôleurs ; section `screensaver` du JSON (géométrie en mm exigée) | oui (découpage, FFmpeg réel, réveil, médias) | non : en attente des mesures en mm et d'une vidéo |
 | Débit du module mesuré (`--measure-throughput`) : écran 44,7 i/s, touches 35 tours/s, écran + touches 20 tours/s | — | oui (mesuré le 19 octobre) |
+| Thème « Pavé numérique » (touches = clavier virtuel uinput, liste fixe de touches, touche maintenue tant qu'on appuie) choisi tout seul quand aucun média ne joue, Contrôle quand un lecteur joue (`"when"`) ; touches teintées d'une version sombre de la couleur du thème | oui | à confirmer (retour de l'utilisateur) |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 
 ## 2. En cours
@@ -52,7 +53,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 
 1. **Interface graphique de réglage** (demandée : PyQt6) pour configurer touches, molettes, profils, thèmes et fonds d'écran. Décision à prendre avant de coder : PyQt6 (nouvelle dépendance Python, licence GPL compatible) ou QML dans `galleond` (le sélecteur `--apps` existe déjà en QML : `daemon/qml/Apps.qml`, `PagesEditor`, `AppsBackend`). Dans les deux cas : la GUI ne parle au démon que par D-Bus (`org.galleoncore.Deck`) ou par le fichier JSON validé, jamais directement au matériel ; écriture atomique avec sauvegarde `.bak` (déjà fait par `PagesEditor`).
 2. **Profils** : plusieurs fichiers de pages et bascule (changement de profil selon l'application active ou au choix) ; le fichier JSON unique actuel est le profil de base.
-3. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, raccourcis clavier (uinput, avec validation).
+3. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, autres raccourcis clavier (l'action `key` existe, liste de touches limitée au pavé numérique : à étendre avec validation) ; opérateurs du pavé (+ − × ÷) : pas de place sur 12 touches, à placer sur une seconde page ou les molettes.
 4. **Windows** : backend SMTC derrière `MediaController` (MPRIS est Linux seulement) ; portage hidapi déjà couvert par `Transport`.
 5. **Plasmoids KDE** réutilisant `widgets/` (aperçu de l'écran du clavier sur le bureau).
 6. **RVB du clavier** : reste côté fork d'OpenRGB, bloqué tant que le protocole d'écriture non persistant n'est pas trouvé.

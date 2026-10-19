@@ -183,6 +183,12 @@ The ring colours use the Stream Deck protocol's per-LED feature report (`03 24 <
 
 A dial press with `{ "type": "wallpaper-mode" }` switches that dial from the player control to choosing the wallpaper: turning it steps through the wallpapers of the catalog (remembered, shown even while a track plays), and a second press goes back. After 30 seconds without a turn, it goes back by itself. A thin line along the bottom of the screen and the right dial's ring show the mode: white for the player control, magenta for choosing the wallpaper.
 
+### Keypad theme, automatic themes and tinted keys
+
+A `{ "type": "key", "key": "kp7" }` action presses a keyboard key through a virtual keypad (`/dev/uinput`), held as long as the key is held. Only a fixed list of names is accepted (`kp0` to `kp9`, `kpdot`, `kpenter`, `kpplus`, `kpminus`, `kpasterisk`, `kpslash`, `numlock`, `backspace`), and the virtual device is given no other key. Num Lock must be on for the keypad digits to type digits. The virtual device needs write access to `/dev/uinput` (`tools/udev/71-galleon-uinput.rules`).
+
+A theme can be chosen by itself with `"when": "media"` (a player starts) or `"when": "no-media"` (none is left: stopped or absent; a paused player still counts as one). Only at these moments: your own choice with the dial stays until the next change. At most one theme per trigger. The keys of a theme's page are drawn on a darker shade of the theme's colour, lighter while held.
+
 ### Animated screensaver
 
 After a time without use, a vertical video can play over the screen and the 12 keys together, cut as if the picture were seen through them (the gaps between keys are left out). Any key or dial, or a track starting (unless `while_playing` is true), brings the normal screen back; the press that wakes the module does nothing else.

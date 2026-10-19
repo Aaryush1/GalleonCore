@@ -210,6 +210,44 @@ private Q_SLOTS:
         QVERIFY(!renderer.render(key("Stop", "no-such-theme-icon"), {}, false).isNull());
         QVERIFY(!renderer.render(KeyConfig{}, {}, false).isNull());
     }
+
+    void aThemeTintsTheBackgroundWithADarkShadeOfItsColour()
+    {
+        QGuiApplication::platformName(); // the renderer needs no window, only the application object
+        const TileRenderer renderer;
+        const KeyConfig plain = key("", "");
+        const QRgb normal = renderer.render(plain, "", false).pixel(20, 20);
+        const QRgb red = renderer.render(plain, "", false, {}, 0xe53935).pixel(20, 20);
+        QVERIFY(red != normal);
+        QVERIFY(qRed(red) > qGreen(red) && qRed(red) > qBlue(red)); // still reddish
+        QVERIFY(qRed(red) < 0x80);                                   // much darker than the theme colour
+        const QRgb white = renderer.render(plain, "", false, {}, 0xffffff).pixel(20, 20);
+        QVERIFY(qRed(white) == qGreen(white) && qGreen(white) == qBlue(white)); // grey for a white theme
+        QVERIFY(qRed(white) < 0x80);
+        const QRgb navy = renderer.render(plain, "", false, {}, 0x1a237e).pixel(20, 20);
+        QVERIFY(qBlue(navy) > qRed(navy)); // the hue survives a dark colour
+        // Held: lighter than at rest.
+        const QRgb held = renderer.render(plain, "", true, {}, 0xe53935).pixel(20, 20);
+        QVERIFY(qRed(held) > qRed(red));
+        // An empty key takes the tint too; without a theme it stays black.
+        QCOMPARE(renderer.blank().pixel(80, 80), qRgb(0, 0, 0));
+        QVERIFY(renderer.blank(0xe53935).pixel(80, 80) != qRgb(0, 0, 0));
+    }
+
+    void aSingleDigitIsDrawnLarge()
+    {
+        const TileRenderer renderer;
+        const auto lit = [](const QImage &image) {
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x)
+                    count += qGray(image.pixel(x, y)) > 200 ? 1 : 0;
+            }
+            return count;
+        };
+        QVERIFY(lit(renderer.render(key("7", ""), "", false)) > lit(renderer.render(key("Play", ""), "", false)) / 2);
+        QVERIFY(lit(renderer.render(key("7", ""), "", false)) > 300);
+    }
 };
 
 QTEST_MAIN(TestTileRenderer)

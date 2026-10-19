@@ -4,6 +4,7 @@
 #pragma once
 
 #include "DesktopEntries.h"
+#include "KeyInjector.h"
 #include "MediaController.h"
 #include "PagesConfig.h"
 #include "TileRenderer.h"
@@ -51,6 +52,10 @@ public:
     // desktop's launcher (gio launch) to start the .desktop file.
     using AppLauncher = std::function<bool(const DesktopApp &)>;
     void setAppLauncher(AppLauncher launcher) { m_launcher = std::move(launcher); }
+
+    // Where `key` actions go (not owned, must outlive the controller). Without
+    // one, key actions do nothing.
+    void setKeyInjector(KeyInjector *injector) { m_injector = injector; }
 
     [[nodiscard]] const ScreenConfig &screenConfig() const { return m_config.screen; }
     [[nodiscard]] const ScreensaverConfig &screensaverConfig() const { return m_config.screensaver; }
@@ -117,11 +122,18 @@ private:
     TileRenderer m_tiles;
     PagesConfig m_config;
     void selectTheme(int index);
+    void onMediaChanged();
+    void releaseHeldKeys();
+    [[nodiscard]] static bool hasKeyActions(const PagesConfig &config);
+    [[nodiscard]] int themeFor(ThemeTrigger trigger) const;
     void stepTheme(int steps);
 
     void setWallpaperMode(int dial); // -1 leaves the mode
     void setThemeMode(int dial);     // -1 leaves the mode
 
+    KeyInjector *m_injector = nullptr;
+    std::array<int, galleon::protocol::KeyCount> m_heldKey{}; // key code held for each key, 0 = none
+    bool m_mediaPresent = false;
     bool m_suspended = false;
     int m_themeDial = -1; // the dial that chooses the theme, -1 = none
     QTimer m_themeTimeout;

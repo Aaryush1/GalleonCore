@@ -183,6 +183,12 @@ La couleur des anneaux utilise le rapport de fonctionnalité par LED du protocol
 
 Un appui de molette avec `{ "type": "wallpaper-mode" }` fait passer cette molette du contrôle du lecteur au choix du fond d'écran : la tourner parcourt les fonds du catalogue (le choix est retenu, et le fond s'affiche même pendant qu'une piste joue), un second appui revient en arrière. Après 30 secondes sans rotation, le retour se fait tout seul. Une fine ligne en bas de l'écran et l'anneau de la molette droite indiquent le mode : blanc pour le contrôle du lecteur, magenta pour le choix du fond.
 
+### Thème pavé numérique, thèmes automatiques et touches teintées
+
+Une action `{ "type": "key", "key": "kp7" }` appuie sur une touche de clavier par l'intermédiaire d'un clavier virtuel (`/dev/uinput`), maintenue tant que la touche est maintenue. Seule une liste fixe de noms est acceptée (`kp0` à `kp9`, `kpdot`, `kpenter`, `kpplus`, `kpminus`, `kpasterisk`, `kpslash`, `numlock`, `backspace`), et le périphérique virtuel ne reçoit aucune autre touche. Le verrouillage numérique doit être actif pour que les chiffres du pavé écrivent des chiffres. Le périphérique virtuel demande l'accès en écriture à `/dev/uinput` (`tools/udev/71-galleon-uinput.rules`).
+
+Un thème peut se choisir tout seul avec `"when": "media"` (un lecteur démarre) ou `"when": "no-media"` (il n'y en a plus : arrêté ou absent ; un lecteur en pause compte encore). Seulement à ces moments : votre choix à la molette reste jusqu'au changement suivant. Un thème au plus par déclencheur. Les touches de la page d'un thème sont dessinées sur une teinte plus sombre de sa couleur, plus claire pendant l'appui.
+
 ### Écran de veille animé
 
 Après un temps sans utilisation, une vidéo verticale peut défiler sur l'écran et les 12 touches ensemble, découpée comme si l'image était vue à travers elles (les espaces entre les touches sont laissés de côté). Une touche, une molette, ou le début d'une piste (sauf si `while_playing` vaut true) ramène l'écran normal ; l'appui qui réveille le module ne fait rien d'autre.

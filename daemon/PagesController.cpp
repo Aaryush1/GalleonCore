@@ -20,6 +20,11 @@ namespace {
 constexpr int ReloadDelayMs = 250; // editors write a file in several steps
 constexpr int MinLaunchIntervalMs = 700; // a double press must not start an application twice
 constexpr int MaxLookedUpApps = 64;
+
+bool isMediaPresent(MediaController::State state)
+{
+    return state == MediaController::State::Playing || state == MediaController::State::Paused;
+}
 constexpr int ModeTimeoutMs = 30000; // back to the player control when left alone
 constexpr std::uint32_t WallpaperModeRgb = 0xff00ff; // magenta
 
@@ -32,6 +37,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     , m_tiles(std::move(tiles))
     , m_launcher([](const DesktopApp &app) { return DesktopEntries::launch(app); })
 {
+    m_mediaPresent = isMediaPresent(m_media->state());
     // The built-in pages: always valid, so there is always something to show.
     if (const auto fallback = parsePagesConfig(defaultPagesJson()); fallback.config)
         setConfig(*fallback.config);
@@ -40,7 +46,10 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     connect(m_deck, &galleon::StreamDeck::keyReleased, this, &PagesController::onKeyReleased);
     connect(m_deck, &galleon::StreamDeck::dialRotated, this, &PagesController::onDialRotated);
     connect(m_deck, &galleon::StreamDeck::dialPressed, this, &PagesController::onDialPressed);
-    connect(m_media, &MediaController::stateChanged, this, [this] { redraw(); });
+    connect(m_media, &MediaController::stateChanged, this, [this] {
+        onMediaChanged();
+        redraw();
+    });
 
     m_wallpaperTimeout.setSingleShot(true);
     m_wallpaperTimeout.setInterval(ModeTimeoutMs);
@@ -63,6 +72,7 @@ void PagesController::setConfig(const PagesConfig &config)
     const bool screenChanged = !(config.screen == m_config.screen);
     const bool saverChanged = !(config.screensaver == m_config.screensaver);
     m_config = config;
+    releaseHeldKeys();
     m_stack = {config.home};
     m_theme = -1;
     for (std::size_t i = 0; i < config.themes.size(); ++i) {
@@ -71,6 +81,14 @@ void PagesController::setConfig(const PagesConfig &config)
             break;
         }
     }
+    // A theme tied to the player's presence wins over the home page.
+    if (const int automatic = themeFor(isMediaPresent(m_media->state()) ? ThemeTrigger::Media : ThemeTrigger::NoMedia);
+        automatic >= 0) {
+        m_theme = automatic;
+        m_stack = {config.themes[static_cast<std::size_t>(automatic)].page};
+    }
+    if (m_injector && hasKeyActions(config))
+        m_injector->prepare();
     m_pressed.fill(false);
     m_wallpaperDial = -1; // a new file: back to the player control
     m_wallpaperTimeout.stop();
@@ -158,14 +176,17 @@ void PagesController::drawKey(int key, bool force)
     const auto index = static_cast<std::size_t>(key);
     const KeyConfig *configured = keyConfig(key);
 
+    const Theme *theme = currentTheme();
+    const qint64 tint = theme ? static_cast<qint64>(theme->rgb) : -1;
+
     QImage image;
     if (configured) {
         QString iconFile; // an application's icon given by path
         const KeyConfig effective = TileRenderer::effectiveKey(
             *configured, configured->action.type == ActionType::App ? appFor(configured->action.desktop) : DesktopApp{}, iconFile);
-        image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index], iconFile);
+        image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index], iconFile, tint);
     } else {
-        image = m_tiles.blank();
+        image = m_tiles.blank(tint);
     }
 
     if (!force && image == m_sent[index])
@@ -180,6 +201,7 @@ void PagesController::setSuspended(bool suspended)
         return;
     m_suspended = suspended;
     m_pressed.fill(false);
+    releaseHeldKeys();
     if (suspended) {
         for (int dial = 0; dial < galleon::protocol::DialCount; ++dial)
             m_deck->setDialRing(dial, 0, 0, 0);
@@ -206,6 +228,7 @@ void PagesController::perform(const Action &action, int times)
         if (m_config.pages.contains(action.page) && m_stack.size() < MaxPageDepth) {
             m_stack.append(action.page);
             m_pressed.fill(false);
+            releaseHeldKeys();
             redraw();
         }
         return;
@@ -213,6 +236,7 @@ void PagesController::perform(const Action &action, int times)
         if (m_stack.size() > 1) {
             m_stack.removeLast();
             m_pressed.fill(false);
+            releaseHeldKeys();
             redraw();
         }
         return;
@@ -221,6 +245,15 @@ void PagesController::perform(const Action &action, int times)
         return;
     case ActionType::WallpaperMode:
         setWallpaperMode(m_pressedDial);
+        return;
+    case ActionType::Key:
+        // From a key press the key is held (see onKeyPressed); here, a tap.
+        if (m_injector) {
+            if (const auto code = keyCodeForName(action.keyName)) {
+                m_injector->key(*code, true);
+                m_injector->key(*code, false);
+            }
+        }
         return;
     case ActionType::Theme:
         if (m_pressedDial >= 0)
@@ -251,6 +284,51 @@ void PagesController::perform(const Action &action, int times)
     case MediaCommand::Seek:
         m_media->seek(action.seconds * times);
         break;
+    }
+}
+
+int PagesController::themeFor(ThemeTrigger trigger) const
+{
+    for (std::size_t i = 0; i < m_config.themes.size(); ++i) {
+        if (m_config.themes[i].when == trigger)
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+void PagesController::onMediaChanged()
+{
+    const bool present = isMediaPresent(m_media->state());
+    if (present == m_mediaPresent)
+        return;
+    m_mediaPresent = present;
+    // The theme tied to this moment, unless the user is choosing one right now.
+    const int index = themeFor(present ? ThemeTrigger::Media : ThemeTrigger::NoMedia);
+    if (index >= 0 && index != m_theme && !themeMode() && !m_suspended)
+        selectTheme(index);
+}
+
+bool PagesController::hasKeyActions(const PagesConfig &config)
+{
+    for (const Page &page : config.pages) {
+        for (const auto &key : page.keys) {
+            if (key && key->action.type == ActionType::Key)
+                return true;
+        }
+    }
+    for (const DialConfig &dial : config.dials) {
+        if (dial.press.type == ActionType::Key)
+            return true;
+    }
+    return false;
+}
+
+void PagesController::releaseHeldKeys()
+{
+    for (int &code : m_heldKey) {
+        if (code != 0 && m_injector)
+            m_injector->key(code, false);
+        code = 0;
     }
 }
 
@@ -291,6 +369,7 @@ void PagesController::selectTheme(int index)
     qInfo() << "galleond: theme" << m_config.themes[static_cast<std::size_t>(index)].name;
     m_stack = {m_config.themes[static_cast<std::size_t>(index)].page};
     m_pressed.fill(false);
+    releaseHeldKeys();
     redraw();
     applyRings();
     Q_EMIT themeChanged();
@@ -370,6 +449,14 @@ void PagesController::onKeyPressed(int key)
     const Action action = configured->action; // a copy: performing it may change the page
     m_pressed[static_cast<std::size_t>(key)] = true;
     drawKey(key, false);
+    if (action.type == ActionType::Key) {
+        // Held until the key is released, so a long press repeats as on a keyboard.
+        if (m_injector) {
+            if (const auto code = keyCodeForName(action.keyName); code && m_injector->key(*code, true))
+                m_heldKey[static_cast<std::size_t>(key)] = *code;
+        }
+        return;
+    }
     perform(action); // may change the page: the pressed flags are reset there
 }
 
@@ -380,6 +467,11 @@ void PagesController::onKeyReleased(int key)
     if (key < 0 || key >= galleon::protocol::KeyCount || !m_pressed[static_cast<std::size_t>(key)])
         return;
     m_pressed[static_cast<std::size_t>(key)] = false;
+    if (int &held = m_heldKey[static_cast<std::size_t>(key)]; held != 0) {
+        if (m_injector)
+            m_injector->key(held, false);
+        held = 0;
+    }
     drawKey(key, false);
 }
 

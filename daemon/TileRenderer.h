@@ -33,8 +33,13 @@ public:
     // name gives nothing: an application's own icon, from its .desktop file. It
     // never comes from the pages file (which only allows names), and gets the
     // same checks as any icon file.
+    // `tint`: the colour of the current theme (0xRRGGBB, or -1 for none): the key's
+    // background is a darker shade of it, and lighter while held.
     [[nodiscard]] QImage render(const KeyConfig &key, const QString &state, bool pressed,
-                                const QString &fallbackIconFile = {}) const;
+                                const QString &fallbackIconFile = {}, qint64 tint = -1) const;
+
+    // The key background for a theme colour: the same hue, much darker.
+    [[nodiscard]] static QColor tintBackground(std::uint32_t rgb);
 
     // What is drawn for a key: its configuration, where an application key that
     // has no label and no icon takes the name and the icon of `app` (the
@@ -48,7 +53,7 @@ public:
     [[nodiscard]] static QImage loadIconFile(const QString &path, int size);
 
     // The 160 x 160 picture of an empty key.
-    [[nodiscard]] QImage blank() const;
+    [[nodiscard]] QImage blank(qint64 tint = -1) const;
 
 private:
     [[nodiscard]] QImage loadIcon(const QString &name, int size) const;

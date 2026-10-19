@@ -5,6 +5,7 @@
 add_library(galleond_core STATIC
     AppsBackend.h AppsBackend.cpp
     CoverLoader.h CoverLoader.cpp
+    KeyInjector.h KeyInjector.cpp
     DesktopEntries.h DesktopEntries.cpp
     MediaController.h
     MprisController.h MprisController.cpp

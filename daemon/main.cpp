@@ -6,6 +6,7 @@
 #include "MprisController.h"
 #include "PagesConfig.h"
 #include "PagesController.h"
+#include "KeyInjector.h"
 #include "PagesEditor.h"
 #include "ScreensaverController.h"
 #include "ScreenController.h"
@@ -158,7 +159,7 @@ QString defaultPagesFile(const QString &fromCommandLine)
 
 // The 12 keys of the first page in one PNG (3 columns, 4 rows, like the module),
 // for checking the icons without the hardware.
-bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QString &state)
+bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QString &state, const QString &pageName)
 {
     QByteArray json = galleond::defaultPagesJson();
     QFile file(pagesFile);
@@ -176,17 +177,26 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
     QImage sheet(3 * tile + 2 * gap, 4 * tile + 3 * gap, QImage::Format_RGB32);
     sheet.fill(QColor(0x10, 0x10, 0x10));
     QPainter painter(&sheet);
-    const galleond::Page &page = parsed.config->pages.value(parsed.config->home);
+    const QString shown = pageName.isEmpty() ? parsed.config->home : pageName;
+    const galleond::Page &page = parsed.config->pages.value(shown);
+    // The theme of that page tints the keys, as on the module.
+    qint64 tint = -1;
+    for (const galleond::Theme &theme : parsed.config->themes) {
+        if (theme.page == shown) {
+            tint = theme.rgb;
+            break;
+        }
+    }
     for (int key = 0; key < galleon::protocol::KeyCount; ++key) {
         const auto &configured = page.keys[static_cast<std::size_t>(key)];
-        QImage image = tiles.blank();
+        QImage image = tiles.blank(tint);
         if (configured) {
             QString iconFile;
             const galleond::KeyConfig effective = galleond::TileRenderer::effectiveKey(
                 *configured, configured->action.type == galleond::ActionType::App
                                  ? galleond::DesktopEntries::lookup(configured->action.desktop) : galleond::DesktopApp{},
                 iconFile);
-            image = tiles.render(effective, state, false, iconFile);
+            image = tiles.render(effective, state, false, iconFile, tint);
         }
         painter.drawImage((key % 3) * (tile + gap), (key / 3) * (tile + gap), image);
     }
@@ -348,7 +358,7 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(renderKeysOption)) {
         const bool ok = renderKeysTo(defaultPagesFile(parser.value(pagesOption)), parser.value(renderKeysOption),
-                                     parser.value(stateOption));
+                                     parser.value(stateOption), parser.value(pageOption));
         if (ok)
             qInfo() << "galleond: wrote" << parser.value(renderKeysOption);
         return ok ? 0 : 1;
@@ -472,11 +482,14 @@ int main(int argc, char *argv[])
         qWarning() << "galleond: NowPlaying.qml could not be loaded: the screen keeps the wallpaper";
 
     // The button pages: keys and dials drive the music player (MPRIS).
+    // The virtual keypad for `key` actions: created only when a pages file uses one.
+    galleond::UinputKeyboard keypad;
     std::unique_ptr<galleond::PagesController> pages;
     if (usePages) {
         const QString pagesFile = defaultPagesFile(parser.value(pagesOption));
         pages = std::make_unique<galleond::PagesController>(&deck, media.get(),
                                                             galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
+        pages->setKeyInjector(&keypad);
         QObject::connect(pages.get(), &galleond::PagesController::screenConfigChanged, &controller,
                          [&pages, &controller] { controller.setScreenConfig(pages->screenConfig()); });
         // The theme line along the top; and the line along the bottom: magenta

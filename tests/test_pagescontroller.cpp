@@ -53,6 +53,19 @@ private:
     State m_state = State::Stopped;
 };
 
+class FakeInjector : public KeyInjector
+{
+public:
+    void prepare() override { ++prepared; }
+    bool key(int code, bool down) override
+    {
+        events.push_back({code, down});
+        return true;
+    }
+    int prepared = 0;
+    std::vector<std::pair<int, bool>> events;
+};
+
 struct Fixture
 {
     FakeTransport *transport;
@@ -708,6 +721,94 @@ private Q_SLOTS:
         f.pressKey(1, true);
         f.pressKey(1, false);
         QVERIFY(f.media.playPauseCount > 0);
+    }
+
+    void aKeyActionHoldsTheKeyAsLongAsTheKeyIsHeld()
+    {
+        const auto parsed = parsePagesConfig(pagesFile({{"main", page({keyJson(0, "7", QJsonObject{{"type", "key"}, {"key", "kp7"}}),
+                                                                       keyJson(1, "P", QJsonObject{{"type", "page"}, {"page", "other"}})})},
+                                                        {"other", page({})}}));
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        Fixture f;
+        FakeInjector injector;
+        f.controller->setKeyInjector(&injector);
+        f.controller->setConfig(*parsed.config);
+        QCOMPARE(injector.prepared, 1); // the device is made when the file is applied
+
+        f.pressKey(0, true);
+        QCOMPARE(injector.events.size(), size_t(1));
+        QCOMPARE(injector.events[0].first, 71); // KEY_KP7
+        QVERIFY(injector.events[0].second);
+        f.pressKey(0, false);
+        QCOMPARE(injector.events.size(), size_t(2));
+        QVERIFY(!injector.events[1].second);
+
+        // A key still held when the page changes is released: never stuck down.
+        f.pressKey(0, true);
+        f.controller->setSuspended(true);
+        QVERIFY(!injector.events.back().second);
+        QCOMPARE(injector.events.size(), size_t(4));
+    }
+
+    void withoutAnInjectorKeyActionsDoNothing()
+    {
+        const auto parsed = parsePagesConfig(pagesFile({{"main", page({keyJson(0, "7", QJsonObject{{"type", "key"}, {"key", "kp7"}})})}}));
+        QVERIFY(parsed.config.has_value());
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        f.pressKey(0, true);
+        f.pressKey(0, false); // no crash, nothing to check but that
+    }
+
+    void themesTiedToTheMediaStateAreChosenByThemselves()
+    {
+        QJsonObject config{
+            {"version", 1},
+            {"home", "main"},
+            {"pages", QJsonObject{{"main", page({})}, {"numpad", page({})}, {"other", page({})}}},
+            {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffffff"}, {"when", "media"}},
+                                  QJsonObject{{"name", "Other"}, {"page", "other"}, {"color", "#00bcd4"}},
+                                  QJsonObject{{"name", "Keypad"}, {"page", "numpad"}, {"color", "#ff9800"}, {"when", "no-media"}}}}};
+        const auto parsed = parsePagesConfig(QJsonDocument(config).toJson());
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        Fixture f; // no player: stopped
+        f.controller->setConfig(*parsed.config);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Keypad")); // by default without media
+        QCOMPARE(f.controller->currentPage(), QStringLiteral("numpad"));
+
+        f.media.setState(MediaController::State::Playing);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control"));
+        f.media.setState(MediaController::State::Paused); // still a media: no change
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control"));
+        f.media.setState(MediaController::State::Stopped);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Keypad"));
+    }
+
+    void aThemeChosenByHandStaysUntilTheNextChangeOfMedia()
+    {
+        QJsonObject config{
+            {"version", 1},
+            {"home", "main"},
+            {"pages", QJsonObject{{"main", page({})}, {"numpad", page({})}, {"other", page({})}}},
+            {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffffff"}, {"when", "media"}},
+                                  QJsonObject{{"name", "Other"}, {"page", "other"}, {"color", "#00bcd4"}},
+                                  QJsonObject{{"name", "Keypad"}, {"page", "numpad"}, {"color", "#ff9800"}, {"when", "no-media"}}}},
+            {"dials", QJsonObject{{"0", QJsonObject{{"press", QJsonObject{{"type", "theme"}}}}}}}};
+        const auto parsed = parsePagesConfig(QJsonDocument(config).toJson());
+        QVERIFY(parsed.config.has_value());
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        f.media.setState(MediaController::State::Playing);
+        f.pressDial(0, true); // theme mode
+        f.pressDial(0, false);
+        f.turnDial(0, 1);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Other"));
+        // The state notifies again without changing between present and absent: nothing moves.
+        f.media.setState(MediaController::State::Paused);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Other"));
+        // While the theme is being chosen, a media change does not interfere.
+        f.media.setState(MediaController::State::Stopped);
+        QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Other"));
     }
 };
 

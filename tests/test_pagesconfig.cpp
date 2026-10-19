@@ -414,6 +414,49 @@ private Q_SLOTS:
         QVERIFY(!edit(QJsonObject{{"type", "wallpaper-mode"}, {"x", 1}}, "press").config.has_value());
     }
 
+    void keyActionsNameAKeyOfTheFixedList()
+    {
+        const auto withKey = [](const QJsonObject &action) {
+            return parseEdited([&](QJsonObject &object) {
+                QJsonObject pages = object.value("pages").toObject();
+                QJsonObject main = pages.value("main").toObject();
+                QJsonArray keys = main.value("keys").toArray();
+                keys.append(QJsonObject{{"key", 4}, {"label", "7"}, {"action", action}});
+                main.insert("keys", keys);
+                pages.insert("main", main);
+                object.insert("pages", pages);
+            });
+        };
+        const auto good = withKey({{"type", "key"}, {"key", "kp7"}});
+        QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
+        QVERIFY(withKey({{"type", "key"}, {"key", "kpenter"}}).config.has_value());
+        QVERIFY(!withKey({{"type", "key"}, {"key", "a"}}).config.has_value());
+        QVERIFY(!withKey({{"type", "key"}, {"key", "ctrl"}}).config.has_value());
+        QVERIFY(!withKey({{"type", "key"}, {"key", 7}}).config.has_value());
+        QVERIFY(!withKey({{"type", "key"}}).config.has_value());
+        QVERIFY(!withKey({{"type", "key"}, {"key", "kp7"}, {"code", 71}}).config.has_value());
+    }
+
+    void aThemeCanBeChosenByTheMediaState()
+    {
+        const auto withThemes = [](const QJsonArray &themes) {
+            return parseEdited([&](QJsonObject &object) { object.insert("themes", themes); });
+        };
+        const auto theme = [](const QString &name, const QString &when) {
+            QJsonObject t{{"name", name}, {"page", "main"}, {"color", "#ffffff"}};
+            if (!when.isEmpty())
+                t.insert("when", when);
+            return t;
+        };
+        const auto good = withThemes({theme("A", "media"), theme("B", "no-media"), theme("C", "")});
+        QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
+        QVERIFY(good.config->themes[0].when == ThemeTrigger::Media);
+        QVERIFY(good.config->themes[1].when == ThemeTrigger::NoMedia);
+        QVERIFY(good.config->themes[2].when == ThemeTrigger::None);
+        QVERIFY(!withThemes({theme("A", "media"), theme("B", "media")}).config.has_value()); // one per trigger
+        QVERIFY(!withThemes({theme("A", "sometimes")}).config.has_value());
+    }
+
     void errorsAndConfigAreMutuallyExclusive()
     {
         // Every single-byte change of the default file: never a crash, and
