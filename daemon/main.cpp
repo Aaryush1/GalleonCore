@@ -30,6 +30,7 @@
 #include <QBuffer>
 #include <QElapsedTimer>
 #include <QRandomGenerator>
+#include <QTimer>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -529,6 +530,19 @@ int main(int argc, char *argv[])
     } else {
         controller.restore();
     }
+
+    // Says when the daemon's thread was busy for a long time (it reads the dials too):
+    // a timer that should fire every 50 ms and does not tells how long it was held up.
+    QTimer stallWatch;
+    QElapsedTimer sinceTick;
+    sinceTick.start();
+    stallWatch.setInterval(50);
+    QObject::connect(&stallWatch, &QTimer::timeout, [&sinceTick] {
+        if (sinceTick.elapsed() > 250)
+            qInfo() << "galleond: the main thread was busy for" << sinceTick.elapsed() << "ms";
+        sinceTick.restart();
+    });
+    stallWatch.start();
 
     QQmlApplicationEngine engine;
     if (parser.isSet(previewOption)) {

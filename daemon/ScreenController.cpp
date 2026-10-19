@@ -12,6 +12,7 @@
 
 #include <QColor>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QIcon>
 #include <QDebug>
@@ -402,7 +403,11 @@ void ScreenController::onNowPlayingChanged()
 
 bool ScreenController::sendScreen(const QImage &frame)
 {
+    QElapsedTimer took;
+    took.start();
     const bool sent = m_deck->setScreenImage(frame);
+    if (took.elapsed() > 150) // for finding what makes the dials slow to answer
+        qInfo() << "galleond: sending the screen picture took" << took.elapsed() << "ms";
     if (!sent && (m_failedSends++ % 20) == 0)
         qWarning() << "galleond: the screen picture could not be sent to the module";
     return sent;
