@@ -131,6 +131,11 @@ bool StreamDeck::setBrightness(int percent)
     return m_transport->sendFeatureReport(protocol::brightnessReport(percent));
 }
 
+void StreamDeck::setTraceInput(bool enabled)
+{
+    m_traceInput = enabled;
+}
+
 void StreamDeck::setKeepAliveInterval(int ms)
 {
     m_keepAliveTimer.setInterval(ms);
@@ -156,6 +161,14 @@ void StreamDeck::pollInput()
 
     const auto report = std::span<const std::uint8_t>(buffer).first(static_cast<std::size_t>(read));
     const protocol::InputResult result = protocol::decodeInputReport(report, m_inputState);
+    if (m_traceInput) {
+        static constexpr std::array<const char *, 3> names{"ok", "ignored", "invalid"};
+        qInfo().noquote() << "input report" << names.at(static_cast<std::size_t>(result.status)) << "["
+                          << QByteArray(reinterpret_cast<const char *>(report.data()),
+                                        static_cast<qsizetype>(std::min<std::size_t>(report.size(), 20)))
+                                 .toHex(' ')
+                          << "]";
+    }
     if (result.status == protocol::InputStatus::Invalid) {
         // Dropped, and said: the first ones, then one in a hundred, so that a
         // misbehaving device cannot flood the log.

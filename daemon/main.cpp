@@ -84,7 +84,9 @@ int main(int argc, char *argv[])
     const QCommandLineOption renderOption(QStringLiteral("render-to"),
                                           QStringLiteral("Draw the screen for --wallpaper into this PNG file and exit. Does not touch the hardware."),
                                           QStringLiteral("file"));
-    parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption});
+    const QCommandLineOption traceOption(QStringLiteral("trace-input"),
+                                         QStringLiteral("Print the first bytes of every key and dial report the module sends."));
+    parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
@@ -118,6 +120,7 @@ int main(int argc, char *argv[])
     }
 
     galleon::StreamDeck deck;
+    deck.setTraceInput(parser.isSet(traceOption));
     if (!deck.open())
         qWarning() << "galleond: no Galleon 100 SD found, waiting";
     else

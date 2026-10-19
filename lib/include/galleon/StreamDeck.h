@@ -37,6 +37,10 @@ public:
     bool setScreenImage(const QImage &image);
     bool setBrightness(int percent);
 
+    // Logs the first bytes and the status of every input report. For checking
+    // what the module really sends; off by default (it is chatty).
+    void setTraceInput(bool enabled);
+
     // Exposed for tests; the hardware needs protocol::KeepAliveIntervalMs.
     void setKeepAliveInterval(int ms);
 
@@ -58,6 +62,7 @@ private:
     QTimer m_inputTimer;
     protocol::InputState m_inputState;
     int m_invalidReports = 0;
+    bool m_traceInput = false;
 };
 
 } // namespace galleon
