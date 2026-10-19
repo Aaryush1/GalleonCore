@@ -169,6 +169,7 @@ private:
     int m_wallpaperDial = -1; // the dial that chooses the wallpaper, -1 = none
     QTimer m_wallpaperTimeout; // ticks each second of the validation countdown
     int m_wallpaperLeft = 0;   // seconds of the countdown left
+    bool m_wallpaperBusy = false;  // a step was taken and its picture is not on the screen yet
     bool m_wallpaperReady = false; // the name and place of the wallpaper are on the screen: turns count
     QTimer m_wallpaperReadyFallback;
     void restartWallpaperCountdown();

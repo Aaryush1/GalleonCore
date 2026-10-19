@@ -106,7 +106,7 @@ struct ScreenConfig
 {
     NowPlayingMode nowPlaying = NowPlayingMode::Playing;
     bool remoteCovers = true; // download https covers; false: local files only
-    int wallpaperStepDelayMs = 600;   // while choosing a wallpaper: after a step, turns are ignored for this long (0 = every detent counts)
+    int wallpaperStepDelayMs = 150;   // while choosing a wallpaper: the rest after a step's picture is shown, before the next turn counts (0 = no rule: every detent counts)
     int wallpaperValidateSeconds = 4; // without touching the dial this long while choosing a wallpaper, the choice is made (1..120)
     int wallpaperHoldSeconds = 4; // how long a chosen wallpaper stays before a playing track takes the screen (1..600)
     bool videoThumbnails = true; // a picture of a local video made with FFmpeg when there is no cover

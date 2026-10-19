@@ -878,12 +878,12 @@ private Q_SLOTS:
         QCOMPARE(countdown.last().first().toInt(), 0);
     }
 
-    void turnsDuringTheStepDelayAreIgnoredNotQueued()
+    void theNextTurnIsListenedToOnlyOnceTheStepIsShown()
     {
         const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
             {"version", 1},
             {"home", "main"},
-            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 1500}}},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 300}}},
             {"pages", QJsonObject{{"main", page({})}}},
             {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
@@ -892,20 +892,54 @@ private Q_SLOTS:
         QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
-        f.controller->wallpaperLabelShown();
+        f.controller->wallpaperLabelShown(); // the name is on the screen
         QTest::qWait(400);
 
         f.turnDial(1, 3);  // taken, and as one place
         QCOMPARE(steps.count(), 1);
         QCOMPARE(steps.last().first().toInt(), 1);
-        f.turnDial(1, 1);  // too soon: ignored, not queued
+        f.turnDial(1, 1);  // its picture is not shown yet: ignored, not queued
         f.turnDial(1, 1);
         QCOMPARE(steps.count(), 1);
-        QTest::qWait(1600); // the delay is over, and nothing was waiting
-        QCOMPARE(steps.count(), 1);
-        f.turnDial(1, -2); // taken again
+
+        f.controller->wallpaperLabelShown(); // the screen shows it now
+        f.turnDial(1, 1);  // 350 ms later: the rest (300 ms) is over, so this one counts
         QCOMPARE(steps.count(), 2);
-        QCOMPARE(steps.last().first().toInt(), -1);
+        f.controller->wallpaperLabelShown();
+        QTest::qWait(100); // inside the rest after the picture: ignored
+        {
+            std::vector<std::uint8_t> turn = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x01};
+            f.transport->pendingReads.push_back(turn);
+            QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
+            QTest::qWait(30);
+        }
+        QCOMPARE(steps.count(), 2);
+        QTest::qWait(1700); // nothing was queued
+        QCOMPARE(steps.count(), 2);
+    }
+
+    void aScreenThatNeverAnswersDoesNotBlockTheDialForGood()
+    {
+        const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
+            {"version", 1},
+            {"home", "main"},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 100}}},
+            {"pages", QJsonObject{{"main", page({})}}},
+            {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
+        QVERIFY(parsed.config.has_value());
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        f.pressDial(1, true);
+        f.pressDial(1, false);
+        f.controller->wallpaperLabelShown();
+        f.turnDial(1, 1);
+        QCOMPARE(steps.count(), 1);
+        f.turnDial(1, 1); // no answer from the screen: ignored for now...
+        QCOMPARE(steps.count(), 1);
+        QTest::qWait(1700); // ...but not for ever
+        f.turnDial(1, 1);
+        QCOMPARE(steps.count(), 2);
     }
 
     void turnsAreIgnoredUntilTheWallpaperNameIsShown()

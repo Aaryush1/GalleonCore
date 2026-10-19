@@ -67,13 +67,13 @@ QJsonObject page()
     return {{"keys", QJsonArray{}}};
 }
 
-PagesConfig userLikeConfig()
+PagesConfig userLikeConfig(int stepDelayMs = 0)
 {
     // The same shape as the user's file: Control tied to a playing media, the keypad to none.
     const QJsonObject root{
         {"version", 1},
         {"home", "main"},
-        {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 0}}}, // the tests validate by hand
+        {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", stepDelayMs}}}, // the tests validate by hand
         {"pages", QJsonObject{{"main", page()}, {"son", page()}, {"numpad", page()}}},
         {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffd600"}, {"when", "media"}},
                               QJsonObject{{"name", "Sound"}, {"page", "son"}, {"color", "#e53935"}},
@@ -98,7 +98,7 @@ struct Fixture
     std::unique_ptr<ScreenController> screen;
     std::unique_ptr<PagesController> pages;
 
-    Fixture()
+    explicit Fixture(int stepDelayMs = 0)
     {
         QDir().mkpath(dir.filePath("wall/style"));
         QImage green(1600, 900, QImage::Format_RGB32);
@@ -118,7 +118,7 @@ struct Fixture
                                                     WidgetsDir + "/WallpaperClock.qml", &media, nowPlayingRenderer.get());
         pages = std::make_unique<PagesController>(deck.get(), &media, TileRenderer());
         connectPagesToScreen(*pages, *screen);
-        pages->setConfig(userLikeConfig());
+        pages->setConfig(userLikeConfig(stepDelayMs));
         QVERIFY(screen->SetWallpaper("style/a-green.png"));
     }
 
@@ -265,6 +265,30 @@ private Q_SLOTS:
         QTest::qWait(300);
         QCOMPARE(f.screen->wallpaper(), QStringLiteral("style/b-blue.png"));
         QTRY_VERIFY_WITH_TIMEOUT(near(f.lastScreen().pixel(700, 200), qRgb(40, 60, 200)), 3000);
+    }
+
+    void aFastTurnMovesOnePlaceAtATimeAndTheNextTurnWaitsForTheScreen()
+    {
+        Fixture f(150); // the rule of the real setup: listen again once the picture is shown
+        f.click(1);
+        QTRY_VERIFY_WITH_TIMEOUT(f.pages->wallpaperMode(), 1000);
+        QTest::qWait(400); // the name is on the screen: turns count
+
+        // Eight turn reports arrive at once, as when the dial is spun: one place only.
+        std::vector<std::uint8_t> turn = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x01};
+        for (int i = 0; i < 8; ++i)
+            f.transport->pendingReads.push_back(turn);
+        QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
+        QTest::qWait(400);
+        QCOMPARE(f.screen->wallpaper(), QStringLiteral("style/b-blue.png")); // one place, not eight (even: it would be back to green)
+        QTRY_VERIFY_WITH_TIMEOUT(near(f.lastScreen().pixel(700, 200), qRgb(40, 60, 200)), 3000);
+
+        // Slowly, each turn is taken once the previous picture is shown.
+        f.turn(1, 1);
+        QCOMPARE(f.screen->wallpaper(), QStringLiteral("style/a-green.png"));
+        QTest::qWait(300);
+        f.turn(1, 1);
+        QCOMPARE(f.screen->wallpaper(), QStringLiteral("style/b-blue.png"));
     }
 
     void turningSeveralStepsThenLeavingQuicklyKeepsTheLastWallpaper()

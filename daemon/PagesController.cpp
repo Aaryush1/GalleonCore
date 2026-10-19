@@ -70,7 +70,11 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     // If the screen never says the label is shown, the turns count after a moment all the same.
     m_wallpaperReadyFallback.setSingleShot(true);
     m_wallpaperReadyFallback.setInterval(1500);
-    connect(&m_wallpaperReadyFallback, &QTimer::timeout, this, [this] { m_wallpaperReady = true; });
+    connect(&m_wallpaperReadyFallback, &QTimer::timeout, this, [this] {
+        m_wallpaperReady = true;
+        m_wallpaperBusy = false;
+        m_lastWallpaperStepAt = m_clock.elapsed();
+    });
 
     m_themeApply.setSingleShot(true);
     m_themeApply.setInterval(ThemeApplyMs);
@@ -386,10 +390,19 @@ void PagesController::restartWallpaperCountdown()
 
 void PagesController::wallpaperLabelShown()
 {
-    if (!wallpaperMode() || m_wallpaperReady)
+    if (!wallpaperMode())
         return;
-    m_wallpaperReady = true;
-    m_wallpaperReadyFallback.stop();
+    if (!m_wallpaperReady) {
+        m_wallpaperReady = true; // the name was not shown yet: now it is
+        m_wallpaperReadyFallback.stop();
+        return;
+    }
+    if (m_wallpaperBusy) {
+        // The picture of the last step is on the screen: the rest before the next turn starts now.
+        m_wallpaperBusy = false;
+        m_lastWallpaperStepAt = m_clock.elapsed();
+        m_wallpaperReadyFallback.stop();
+    }
 }
 
 void PagesController::setThemeMode(int dial)
@@ -462,6 +475,7 @@ void PagesController::setWallpaperMode(int dial)
     qInfo() << "galleond: wallpaper mode" << (wallpaperMode() ? "on, dial" : "off") << (wallpaperMode() ? m_wallpaperDial : -1);
     if (wallpaperMode()) {
         m_wallpaperReady = false; // turns are ignored until the screen shows the label
+        m_wallpaperBusy = false;
         m_wallpaperReadyFallback.start();
         restartWallpaperCountdown();
     } else {
@@ -555,18 +569,20 @@ void PagesController::onDialRotated(int dial, int steps)
     }
     int counted = steps; // as many places as the dial counts detents
     if (dial == m_wallpaperDial && m_config.screen.wallpaperStepDelayMs > 0) {
-        // A wallpaper takes a moment to show: turns that come before it is up are
-        // not queued, they are ignored, so that the screen never runs behind the
-        // dial. One place at a time, then.
+        // One place at a time, and the next turn is listened to only once the wallpaper
+        // of this one is really on the screen (the screen says so, see wallpaperLabelShown)
+        // and has been there for a short rest. Turns before that are ignored, not queued:
+        // the screen never runs behind the dial, and the index never jumps by several.
         if (!m_wallpaperReady) {
             qInfo() << "galleond: dial" << dial << "step" << steps << "ignored: the wallpaper name is not shown yet";
             return;
         }
         restartWallpaperCountdown(); // the dial is being touched: the choice is not validated yet
-        if (now - m_lastWallpaperStepAt < m_config.screen.wallpaperStepDelayMs)
+        if (m_wallpaperBusy || now - m_lastWallpaperStepAt < m_config.screen.wallpaperStepDelayMs)
             return;
-        m_lastWallpaperStepAt = now;
         counted = std::clamp(steps, -1, 1);
+        m_wallpaperBusy = true;
+        m_wallpaperReadyFallback.start(); // if the screen never answers, listen again after a moment
     }
     auto &recent = m_recentTurns[index];
     std::rotate(recent.begin(), recent.begin() + 1, recent.end()); // the oldest slot is reused

@@ -334,7 +334,7 @@ private Q_SLOTS:
         QVERIFY(!withScreen(QJsonObject{{"colour", "red"}}).config.has_value());
         QCOMPARE(withScreen(QJsonObject{}).config->screen.wallpaperHoldSeconds, 4);
         QCOMPARE(withScreen(QJsonObject{{"wallpaper_hold_seconds", 12}}).config->screen.wallpaperHoldSeconds, 12);
-        QCOMPARE(withScreen(QJsonObject{}).config->screen.wallpaperStepDelayMs, 600);
+        QCOMPARE(withScreen(QJsonObject{}).config->screen.wallpaperStepDelayMs, 150);
         QCOMPARE(withScreen(QJsonObject{{"wallpaper_step_delay_ms", 0}}).config->screen.wallpaperStepDelayMs, 0);
         QVERIFY(!withScreen(QJsonObject{{"wallpaper_step_delay_ms", -1}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"wallpaper_step_delay_ms", 5001}}).config.has_value());
