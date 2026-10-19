@@ -11,6 +11,7 @@
 #include <QIcon>
 #include <QImage>
 #include <QTemporaryDir>
+#include <QSettings>
 #include <QTest>
 
 #include <memory>
@@ -444,6 +445,36 @@ private Q_SLOTS:
         QVERIFY(near(f.lastScreen().pixel(360, 382), qRgb(255, 0, 255), 50));                       // the magenta line
         f.controller->setBottomBar(0xffffff, false);
         QTRY_VERIFY_WITH_TIMEOUT(f.lastScreen().pixelColor(690, 200) != QColor(30, 160, 60), 3000);
+    }
+
+    void theSavedWallpaperIsShownAtOnceThenTheTrackTakesOverIfOnePlays()
+    {
+        Fixture f;
+        QVERIFY(f.controller->SetWallpaper(f.wallpaper())); // remembered in the settings
+
+        // A new start: nothing drawn yet, then restore() puts the wallpaper on the screen.
+        Fixture g;
+        QCOMPARE(g.frames(), size_t(0));
+        g.controller->restore();
+        QCOMPARE(g.controller->wallpaper(), f.wallpaper());
+        QVERIFY(g.frames() >= 1);
+        QVERIFY(near(g.lastScreen().pixel(690, 200), qRgb(30, 160, 60)));
+
+        // The player answers a moment later: the track screen replaces it.
+        g.media.set(MediaController::State::Playing, Fixture::track());
+        QTRY_VERIFY_WITH_TIMEOUT(!near(g.lastScreen().pixel(690, 200), qRgb(30, 160, 60)), 3000);
+    }
+
+    void aSavedWallpaperThatIsGoneLeavesTheScreenAlone()
+    {
+        {
+            QSettings settings(QStringLiteral("galleoncore"), QStringLiteral("galleond"));
+            settings.setValue(QStringLiteral("wallpaper"), QStringLiteral("style/gone.png"));
+        }
+        Fixture f;
+        f.controller->restore();
+        QVERIFY(f.controller->wallpaper().isEmpty());
+        QCOMPARE(f.frames(), size_t(0));
     }
 };
 

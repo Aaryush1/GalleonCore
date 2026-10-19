@@ -109,8 +109,13 @@ QStringList ScreenController::Wallpapers() const
 void ScreenController::restore()
 {
     const QString name = settings().value(SettingWallpaper).toString();
-    if (!name.isEmpty() && m_catalog.find(name))
-        SetWallpaper(name);
+    if (name.isEmpty())
+        return;
+    if (!m_catalog.find(name)) {
+        qWarning() << "galleond: the saved wallpaper" << name << "is not in the catalog: the screen is left as it is";
+        return;
+    }
+    SetWallpaper(name); // drawn at once; a track already playing takes the screen when the player reports it
 }
 
 bool ScreenController::SetWallpaper(const QString &name)
