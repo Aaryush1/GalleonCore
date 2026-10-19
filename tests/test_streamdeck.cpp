@@ -9,6 +9,7 @@
 #include <QTest>
 
 #include <memory>
+#include <utility>
 
 using galleon::StreamDeck;
 
@@ -173,8 +174,7 @@ private Q_SLOTS:
 
         QVERIFY(!f.transport->writes.empty());
         QByteArray joined;
-        for (std::size_t i = 0; i < f.transport->writes.size(); ++i) {
-            const auto &r = f.transport->writes[i];
+        for (const auto & r : f.transport->writes) {
             QCOMPARE(r.size(), galleon::protocol::OutputReportSize);
             QCOMPARE(int(r[0]), 0x02);
             QCOMPARE(int(r[1]), 0x0c);
@@ -251,7 +251,7 @@ private Q_SLOTS:
         const auto count = [&f](int command) {
             std::size_t n = 0;
             for (const auto &r : f.transport->writes) {
-                if (r.size() > 3 && r[0] == 0x02 && r[1] == command)
+                if (r.size() > 3 && r[0] == 0x02 && std::cmp_equal(r[1], command))
                     ++n;
             }
             return n;

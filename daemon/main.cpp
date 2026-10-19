@@ -87,7 +87,7 @@ int measureThroughput(galleon::StreamDeck &deck)
     timer.restart();
     for (int i = 0; i < KeyRounds; ++i) {
         for (int k = 0; k < galleon::protocol::KeyCount; ++k) {
-            if (!deck.setKeyImage(k, throughputImage(key, i * 12 + k)))
+            if (!deck.setKeyImage(k, throughputImage(key, (i * 12) + k)))
                 return 1;
         }
     }
@@ -98,7 +98,7 @@ int measureThroughput(galleon::StreamDeck &deck)
         if (!deck.setScreenImage(throughputImage(screen, i)))
             return 1;
         for (int k = 0; k < galleon::protocol::KeyCount; ++k) {
-            if (!deck.setKeyImage(k, throughputImage(key, i * 12 + k)))
+            if (!deck.setKeyImage(k, throughputImage(key, (i * 12) + k)))
                 return 1;
         }
     }
@@ -244,14 +244,14 @@ bool renderSaverTo(const QString &pagesFile, const QString &pngFile, int videoNu
 
     constexpr int tile = galleon::protocol::KeyImageSize;
     constexpr int gap = 14;
-    const int gridWidth = 3 * tile + 2 * gap;
-    QImage sheet(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight + 24 + 4 * tile + 3 * gap, QImage::Format_RGB32);
+    const int gridWidth = (3 * tile) + (2 * gap);
+    QImage sheet(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight + 24 + (4 * tile) + (3 * gap), QImage::Format_RGB32);
     sheet.fill(QColor(0x10, 0x10, 0x10));
     QPainter painter(&sheet);
     painter.drawImage(0, 0, parts.screen);
     const int left = (sheet.width() - gridWidth) / 2;
     for (int key = 0; key < galleon::protocol::KeyCount; ++key)
-        painter.drawImage(left + (key % 3) * (tile + gap), galleon::protocol::ScreenHeight + 24 + (key / 3) * (tile + gap),
+        painter.drawImage(left + ((key % 3) * (tile + gap)), galleon::protocol::ScreenHeight + 24 + ((key / 3) * (tile + gap)),
                           parts.keys[static_cast<std::size_t>(key)]);
     painter.end();
     return sheet.save(pngFile);
@@ -339,7 +339,7 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
     const galleond::TileRenderer tiles(QFileInfo(pagesFile).absolutePath());
     constexpr int tile = galleon::protocol::KeyImageSize;
     constexpr int gap = 12;
-    QImage sheet(3 * tile + 2 * gap, 4 * tile + 3 * gap, QImage::Format_RGB32);
+    QImage sheet((3 * tile) + (2 * gap), (4 * tile) + (3 * gap), QImage::Format_RGB32);
     sheet.fill(QColor(0x10, 0x10, 0x10));
     QPainter painter(&sheet);
     const QString shown = pageName.isEmpty() ? parsed.config->home : pageName;

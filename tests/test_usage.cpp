@@ -99,7 +99,7 @@ private Q_SLOTS:
 
     void theScoresAreKeptInTheFile()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString file = dir.filePath("share/usage.json");
         {
             UsageStats stats(file);
@@ -127,7 +127,7 @@ private Q_SLOTS:
 
     void aBadFileIsIgnoredEntryByEntry()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString file = dir.filePath("usage.json");
         QVERIFY(writeFile(file, "{\"version\":1,\"entries\":{"
                                 "\"good.desktop\":{\"score\":2,\"at\":1700000000},"
@@ -235,7 +235,7 @@ private Q_SLOTS:
 
     void installedGamesJoinManifestsAndPlayData()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString root = dir.filePath("Steam");
         const QString second = dir.filePath("Library2");
         QVERIFY(writeFile(root + "/userdata/12345/config/localconfig.vdf", LocalConfig));

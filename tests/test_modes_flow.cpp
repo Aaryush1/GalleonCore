@@ -46,7 +46,7 @@ public:
     void previous() override {}
     void stop() override {}
     void changeVolume(int percent) override { volume += percent; }
-    void seek(int) override {}
+    void seek(int /*seconds*/) override {}
     void setState(State state)
     {
         m_state = state;
@@ -254,7 +254,7 @@ private Q_SLOTS:
         turn[6] = 1; // dial 1, one step
         f.transport->pendingReads.push_back(turn);
         QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
-        std::vector<std::uint8_t> press = {0x01, 0x03, 0x03, 0x00, 0x00, 0x00, 0x01};
+        std::vector<std::uint8_t> const press = {0x01, 0x03, 0x03, 0x00, 0x00, 0x00, 0x01};
         f.transport->pendingReads.push_back(press);
         QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
         QTest::qWait(60);
@@ -277,7 +277,7 @@ private Q_SLOTS:
         QTest::qWait(400); // the name is on the screen: turns count
 
         // Eight turn reports arrive at once, as when the dial is spun: one place only.
-        std::vector<std::uint8_t> turn = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x01};
+        std::vector<std::uint8_t> const turn = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x01};
         for (int i = 0; i < 8; ++i)
             f.transport->pendingReads.push_back(turn);
         QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);

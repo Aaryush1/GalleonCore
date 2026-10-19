@@ -25,7 +25,7 @@ bool VideoThumbnails::isVideoFile(const QString &path)
     return extensions.contains(QFileInfo(path).suffix().toLower());
 }
 
-VideoThumbnails::VideoThumbnails(QString cacheFolder, QString ffmpeg, QObject *parent)
+VideoThumbnails::VideoThumbnails(QString cacheFolder, const QString& ffmpeg, QObject *parent)
     : QObject(parent)
     , m_folder(std::move(cacheFolder))
 {
@@ -88,7 +88,7 @@ void VideoThumbnails::request(const QString &videoPath, double durationSeconds)
         Q_EMIT thumbnailReady(videoPath, keyFile(videoPath));
         return;
     }
-    const Job job{videoPath, durationSeconds};
+    const Job job{.video=videoPath, .duration=durationSeconds};
     if (m_busy) {
         m_pending = job;
         m_hasPending = true;
@@ -186,7 +186,7 @@ void VideoThumbnails::prune() const
 {
     // Oldest first: drop files until the count and the size are inside the limits.
     QFileInfoList files = QDir(m_folder).entryInfoList({QStringLiteral("*.jpg")}, QDir::Files, QDir::NoSort);
-    std::sort(files.begin(), files.end(), [](const QFileInfo &a, const QFileInfo &b) { return a.lastModified() < b.lastModified(); });
+    std::ranges::sort(files, [](const QFileInfo &a, const QFileInfo &b) { return a.lastModified() < b.lastModified(); });
     qint64 total = 0;
     for (const QFileInfo &file : std::as_const(files))
         total += file.size();

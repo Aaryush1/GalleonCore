@@ -68,14 +68,14 @@ struct ScreenRenderer::Impl
     ProvidedImage *provided = nullptr; // owned by the engine
     bool valid = false;
 
-    Impl()
+    Impl() : provided(new ProvidedImage)
     {
         // Must come before anything that starts the scene graph, which the
         // render control does as soon as it exists.
         QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
         control = std::make_unique<QQuickRenderControl>();
         window = std::make_unique<QQuickWindow>(control.get());
-        provided = new ProvidedImage;
+        
         engine.addImageProvider(QStringLiteral("galleon"), provided);
     }
 };

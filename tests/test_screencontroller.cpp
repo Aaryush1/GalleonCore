@@ -41,8 +41,8 @@ public:
     void next() override {}
     void previous() override {}
     void stop() override {}
-    void changeVolume(int) override {}
-    void seek(int) override {}
+    void changeVolume(int /*percent*/) override {}
+    void seek(int /*seconds*/) override {}
 
     void set(State state, const NowPlaying &track)
     {
@@ -97,7 +97,7 @@ struct Fixture
                                                         &media, nowPlayingRenderer.get());
     }
 
-    QString wallpaper() const { return QStringLiteral("style/green.png"); }
+    [[nodiscard]] QString wallpaper() const { return QStringLiteral("style/green.png"); }
 
     // The last complete screen frame the deck was sent, decoded; null if none.
     [[nodiscard]] QImage lastScreen() const
@@ -427,7 +427,7 @@ private Q_SLOTS:
 
     void steppingChoosesTheNextWallpaperAndWrapsAround()
     {
-        Fixture f;
+        Fixture const f;
         QImage red(1600, 900, QImage::Format_RGB32);
         red.fill(QColor(200, 30, 30));
         QVERIFY(red.save(f.dir.filePath("wall/style/red.png")));
@@ -497,7 +497,7 @@ private Q_SLOTS:
 
     void aFastTurnSendsFewPicturesAndEndsOnTheLastWallpaper()
     {
-        Fixture f;
+        Fixture const f;
         QImage red(1600, 900, QImage::Format_RGB32);
         red.fill(QColor(200, 30, 30));
         QVERIFY(red.save(f.dir.filePath("wall/style/red.png")));
@@ -536,7 +536,7 @@ private Q_SLOTS:
             }
             return count;
         };
-        QSignalSpy shown(f.controller.get(), &ScreenController::choosingLabelShown);
+        QSignalSpy const shown(f.controller.get(), &ScreenController::choosingLabelShown);
         f.controller->setCountdown(3);
         QTRY_VERIFY_WITH_TIMEOUT(magenta() > 150, 2000);
         QVERIFY(shown.count() >= 1); // the screen with the label went to the module

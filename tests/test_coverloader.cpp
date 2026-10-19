@@ -102,7 +102,7 @@ private Q_SLOTS:
 
     void aLocalCoverIsFoundNextToTheFile()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString video = QUrl::fromLocalFile(dir.filePath("My Song.mp4")).toString();
         QVERIFY(CoverLoader::findLocalCover(video).isEmpty()); // nothing there yet
 
@@ -131,7 +131,7 @@ private Q_SLOTS:
 
     void aFoundLocalCoverGoesThroughTheSameChecks()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         writeFile(dir.filePath("cover.jpg"), "this is not an image");
         CoverLoader loader;
         loader.request(CoverLoader::findLocalCover(QUrl::fromLocalFile(dir.filePath("a.mp3")).toString()));
@@ -168,10 +168,10 @@ private Q_SLOTS:
 
     void aLocalFileIsLoaded()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString file = writeFile(dir.filePath("cover.png"), imageBytes(100, 100, "PNG", Qt::green));
         CoverLoader loader;
-        QSignalSpy changed(&loader, &CoverLoader::coverChanged);
+        QSignalSpy const changed(&loader, &CoverLoader::coverChanged);
         loader.request(QUrl::fromLocalFile(file).toString());
         QCOMPARE(changed.count(), 1);
         QVERIFY(!loader.cover().isNull());
@@ -180,7 +180,7 @@ private Q_SLOTS:
 
     void badLocalFilesGiveNoCover()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         CoverLoader loader;
         const auto none = [&](const QString &path) {
             loader.request(QUrl::fromLocalFile(path).toString());
@@ -198,7 +198,7 @@ private Q_SLOTS:
     {
         FakeNetwork network;
         CoverLoader loader(nullptr, network.fetcher());
-        QSignalSpy changed(&loader, &CoverLoader::coverChanged);
+        QSignalSpy const changed(&loader, &CoverLoader::coverChanged);
 
         loader.request("https://covers.example.org/a.png");
         QCOMPARE(network.requests.size(), 1);
@@ -236,7 +236,7 @@ private Q_SLOTS:
 
     void remoteCoversCanBeSwitchedOff()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         FakeNetwork network;
         CoverLoader loader(nullptr, network.fetcher());
         loader.setRemoteAllowed(false);
@@ -248,7 +248,7 @@ private Q_SLOTS:
 
     void aLateAnswerForAnOldTrackIsIgnored()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         FakeNetwork network;
         CoverLoader loader(nullptr, network.fetcher());
         loader.request("https://covers.example.org/slow.png");
@@ -261,11 +261,11 @@ private Q_SLOTS:
 
     void clearingRemovesTheCover()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         CoverLoader loader;
         loader.request(QUrl::fromLocalFile(writeFile(dir.filePath("c.png"), imageBytes(40, 40, "PNG"))).toString());
         QVERIFY(!loader.cover().isNull());
-        QSignalSpy changed(&loader, &CoverLoader::coverChanged);
+        QSignalSpy const changed(&loader, &CoverLoader::coverChanged);
         loader.request({});
         QVERIFY(loader.cover().isNull());
         QCOMPARE(changed.count(), 1);

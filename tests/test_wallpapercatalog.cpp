@@ -36,7 +36,7 @@ private Q_SLOTS:
 
     void listsImagesByStyleInOrder()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QVERIFY(writeImage(dir.filePath("b-style/b-02.jpg"), 32, 18, "JPEG"));
         QVERIFY(writeImage(dir.filePath("b-style/b-01.jpg"), 32, 18, "JPEG"));
         QVERIFY(writeImage(dir.filePath("a-style/a-01.png"), 32, 18, "PNG"));
@@ -52,7 +52,7 @@ private Q_SLOTS:
 
     void numbersAreReadAsNumbersAndCaseDoesNotMatter()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         for (const char *name : {"x-10.jpg", "x-2.jpg", "x-1.jpg", "X-3.jpg"})
             QVERIFY(writeImage(dir.filePath(QStringLiteral("style/") + name), 32, 18, "JPEG"));
         QVERIFY(writeImage(dir.filePath("style-10/y-1.jpg"), 32, 18, "JPEG"));
@@ -70,7 +70,7 @@ private Q_SLOTS:
 
     void onlyListedNamesAreFound()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QVERIFY(writeImage(dir.filePath("s/one.jpg"), 32, 18, "JPEG"));
         const WallpaperCatalog catalog(dir.path());
         QVERIFY(catalog.find(QStringLiteral("s/one.jpg")) != nullptr);
@@ -82,7 +82,7 @@ private Q_SLOTS:
 
     void contentDecidesNotTheExtension()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QDir().mkpath(dir.filePath("s"));
         QFile fake(dir.filePath("s/fake.jpg"));
         QVERIFY(fake.open(QIODevice::WriteOnly));
@@ -100,7 +100,7 @@ private Q_SLOTS:
 
     void otherExtensionsAreIgnored()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QVERIFY(writeImage(dir.filePath("s/pic.bmp"), 16, 16, "BMP"));
         QVERIFY(writeImage(dir.filePath("s/pic.jpg.txt"), 16, 16, "JPEG"));
         QVERIFY(WallpaperCatalog(dir.path()).entries().isEmpty());
@@ -108,8 +108,8 @@ private Q_SLOTS:
 
     void symbolicLinksAreIgnored()
     {
-        QTemporaryDir dir;
-        QTemporaryDir outside;
+        QTemporaryDir const dir;
+        QTemporaryDir const outside;
         QVERIFY(writeImage(outside.filePath("secret.jpg"), 16, 16, "JPEG"));
         QDir().mkpath(dir.filePath("s"));
         QVERIFY(QFile::link(outside.filePath("secret.jpg"), dir.filePath("s/link.jpg")));
@@ -119,7 +119,7 @@ private Q_SLOTS:
 
     void absurdDimensionsAreRejected()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         // A tiny file that claims a huge picture (decompression bomb): a PNG
         // 9000 x 9000 of one colour compresses to a few kilobytes.
         QVERIFY(writeImage(dir.filePath("s/huge.png"), WallpaperCatalog::MaxDimension + 1, 16, "PNG"));

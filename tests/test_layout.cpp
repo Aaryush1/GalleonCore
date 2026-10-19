@@ -44,7 +44,7 @@ private Q_SLOTS:
     void oneRectPerKeyRowByRow()
     {
         // 1 px per mm, so pixels equal millimetres.
-        const auto rects = keyRects(testGrid(), Rect{0.0, 0.0, 46.0, 34.0});
+        const auto rects = keyRects(testGrid(), Rect{.x=0.0, .y=0.0, .width=46.0, .height=34.0});
         QCOMPARE(rects.size(), std::size_t{12});
         QCOMPARE(rects.front(), (Rect{0.0, 0.0, 10.0, 10.0}));
         QCOMPARE(rects[1], (Rect{12.0, 0.0, 10.0, 10.0}));
@@ -54,7 +54,7 @@ private Q_SLOTS:
 
     void lastKeyEndsAtFrameEdge()
     {
-        const Rect frame{100.0, 50.0, 920.0, 680.0}; // 20 px per mm
+        const Rect frame{.x=100.0, .y=50.0, .width=920.0, .height=680.0}; // 20 px per mm
         const auto rects = keyRects(testGrid(), frame);
         const auto &last = rects.back();
         QCOMPARE(last.x + last.width, frame.x + frame.width);
@@ -66,7 +66,7 @@ private Q_SLOTS:
         auto grid = testGrid();
         grid.gapXMm = 0.0;
         grid.gapYMm = 0.0;
-        const auto rects = keyRects(grid, Rect{0.0, 0.0, 40.0, 30.0});
+        const auto rects = keyRects(grid, Rect{.x=0.0, .y=0.0, .width=40.0, .height=30.0});
         QCOMPARE(rects[1].x, rects[0].x + rects[0].width);
         QCOMPARE(rects[4].y, rects[0].y + rects[0].height);
     }

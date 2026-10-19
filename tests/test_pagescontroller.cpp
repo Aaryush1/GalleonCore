@@ -19,6 +19,8 @@
 #include <QTest>
 
 #include <memory>
+#include <ranges>
+#include <utility>
 
 using namespace galleond;
 using galleon::StreamDeck;
@@ -82,7 +84,7 @@ public:
     void prepare() override { ++prepared; }
     bool key(int code, bool down) override
     {
-        events.push_back({code, down});
+        events.emplace_back(code, down);
         return true;
     }
     int prepared = 0;
@@ -217,7 +219,7 @@ QByteArray lastKeyJpeg(const FakeTransport &transport, int key)
     qsizetype last = -1;
     for (qsizetype i = static_cast<qsizetype>(writes.size()) - 1; i >= 0; --i) {
         const auto &r = writes[static_cast<std::size_t>(i)];
-        if (r.size() > 3 && r[0] == 0x02 && r[1] == 0x07 && r[2] == key && r[3] == 1) {
+        if (r.size() > 3 && r[0] == 0x02 && r[1] == 0x07 && std::cmp_equal(r[2], key) && r[3] == 1) {
             last = i;
             break;
         }
@@ -225,7 +227,7 @@ QByteArray lastKeyJpeg(const FakeTransport &transport, int key)
     QByteArray jpeg;
     for (qsizetype i = last; i >= 0; --i) {
         const auto &r = writes[static_cast<std::size_t>(i)];
-        if (r.size() < 8 || r[1] != 0x07 || r[2] != key)
+        if (r.size() < 8 || r[1] != 0x07 || std::cmp_not_equal(r[2], key))
             break;
         jpeg.prepend(reinterpret_cast<const char *>(r.data()) + 8, r[4] | (r[5] << 8));
         if ((r[6] | (r[7] << 8)) == 0)
@@ -347,7 +349,7 @@ private Q_SLOTS:
 
     void aStateChangeRedrawsOnlyTheKeysThatDependOnIt()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QVERIFY(saveColour(dir.filePath("play.png"), Qt::green));
         QVERIFY(saveColour(dir.filePath("pause.png"), Qt::blue));
         const QJsonObject states{{"playing", "pause.png"}, {"paused", "play.png"}, {"stopped", "play.png"}};
@@ -369,7 +371,7 @@ private Q_SLOTS:
 
     void pagesOpenAndCloseWithBack()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString file = dir.filePath("pages.json");
         QVERIFY(writeFile(file, pagesFile({{"main", page({keyJson(0, "More", {{"type", "page"}, {"page", "sub"}})})},
                                            {"sub", page({keyJson(0, "Back", {{"type", "back"}}), keyJson(1, "Stop", mediaAction("stop"))})}})));
@@ -397,7 +399,7 @@ private Q_SLOTS:
 
     void backOnTheHomePageStays()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString file = dir.filePath("pages.json");
         QVERIFY(writeFile(file, pagesFile({{"main", page({keyJson(0, "Back", {{"type", "back"}})})}})));
         Fixture f;
@@ -409,7 +411,7 @@ private Q_SLOTS:
 
     void pageDepthIsBounded()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString file = dir.filePath("pages.json");
         QVERIFY(writeFile(file, pagesFile({{"main", page({keyJson(0, "Loop", {{"type", "page"}, {"page", "main"}})})}})));
         Fixture f;
@@ -423,7 +425,7 @@ private Q_SLOTS:
 
     void aFileWithErrorsKeepsTheCurrentPages()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString file = dir.filePath("pages.json");
         QVERIFY(writeFile(file, pagesFile({{"main", page({keyJson(0, "Good", mediaAction("next"))})}})));
         Fixture f;
@@ -442,7 +444,7 @@ private Q_SLOTS:
 
     void aMissingFileUsesTheBuiltInPages()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         Fixture f;
         f.controller->loadFile(dir.filePath("absent.json"));
         QCOMPARE(f.controller->currentPage(), QStringLiteral("main"));
@@ -473,7 +475,7 @@ private Q_SLOTS:
 
     void anUnknownApplicationStartsNothing()
     {
-        DataFolders data;
+        DataFolders const data;
         const QString file = data.dir.filePath("pages.json");
         QVERIFY(writeFile(file, pagesFile({{"main", page({QJsonObject{{"key", 4}, {"label", "Ghost"}, {"action", QJsonObject{{"type", "app"}, {"desktop", "absent.desktop"}}}}})}})));
         Fixture f;
@@ -566,7 +568,7 @@ private Q_SLOTS:
 
     void aChangeOnDiskIsReloaded()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString file = dir.filePath("pages.json");
         QVERIFY(writeFile(file, pagesFile({{"main", page({keyJson(0, "A", mediaAction("next"))})}})));
         Fixture f;
@@ -597,7 +599,7 @@ private Q_SLOTS:
 
     void aDialPressStepsThroughTheThemes()
     {
-        QJsonObject config{
+        QJsonObject const config{
             {"version", 1},
             {"home", "main"},
             {"pages", QJsonObject{{"main", page({keyJson(0, "A", mediaAction("previous"))})},
@@ -610,7 +612,7 @@ private Q_SLOTS:
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
 
         Fixture f;
-        QSignalSpy changed(f.controller.get(), &PagesController::themeChanged);
+        QSignalSpy const changed(f.controller.get(), &PagesController::themeChanged);
         f.controller->setConfig(*parsed.config);
         QVERIFY(f.controller->currentTheme());
         QCOMPARE(f.controller->currentTheme()->name, QStringLiteral("Control"));
@@ -696,12 +698,12 @@ private Q_SLOTS:
         Fixture f;
         f.controller->setConfig(*parsed.config);
         QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
-        QSignalSpy modes(f.controller.get(), &PagesController::wallpaperModeChanged);
+        QSignalSpy const modes(f.controller.get(), &PagesController::wallpaperModeChanged);
 
         const auto rightRing = [&] {
-            for (auto it = f.transport->featureReports.rbegin(); it != f.transport->featureReports.rend(); ++it) {
-                if (it->size() > 5 && (*it)[1] == 0x24 && (*it)[2] < 4)
-                    return std::array<int, 3>{(*it)[3], (*it)[4], (*it)[5]};
+            for (auto & featureReport : std::ranges::reverse_view(f.transport->featureReports)) {
+                if (featureReport.size() > 5 && featureReport[1] == 0x24 && featureReport[2] < 4)
+                    return std::array<int, 3>{featureReport[3], featureReport[4], featureReport[5]};
             }
             return std::array<int, 3>{-1, -1, -1};
         };
@@ -793,7 +795,7 @@ private Q_SLOTS:
 
     void themesTiedToTheMediaStateAreChosenByThemselves()
     {
-        QJsonObject config{
+        QJsonObject const config{
             {"version", 1},
             {"home", "main"},
             {"pages", QJsonObject{{"main", page({})}, {"numpad", page({})}, {"other", page({})}}},
@@ -817,7 +819,7 @@ private Q_SLOTS:
 
     void aThemeChosenByHandStaysUntilTheNextChangeOfMedia()
     {
-        QJsonObject config{
+        QJsonObject const config{
             {"version", 1},
             {"home", "main"},
             {"pages", QJsonObject{{"main", page({})}, {"numpad", page({})}, {"other", page({})}}},
@@ -878,7 +880,7 @@ private Q_SLOTS:
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
         Fixture f;
         f.controller->setConfig(*parsed.config);
-        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        QSignalSpy const steps(f.controller.get(), &PagesController::wallpaperStep);
 
         QSignalSpy countdown(f.controller.get(), &PagesController::wallpaperCountdown);
         f.pressDial(1, true);
@@ -931,7 +933,7 @@ private Q_SLOTS:
         f.controller->wallpaperLabelShown();
         QTest::qWait(100); // inside the rest after the picture: ignored
         {
-            std::vector<std::uint8_t> turn = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x01};
+            std::vector<std::uint8_t> const turn = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x01};
             f.transport->pendingReads.push_back(turn);
             QTRY_VERIFY_WITH_TIMEOUT(f.transport->pendingReads.empty(), 2000);
             QTest::qWait(30);
@@ -952,7 +954,7 @@ private Q_SLOTS:
         QVERIFY(parsed.config.has_value());
         Fixture f;
         f.controller->setConfig(*parsed.config);
-        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        QSignalSpy const steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
         f.controller->wallpaperLabelShown();
@@ -976,7 +978,7 @@ private Q_SLOTS:
         QVERIFY(parsed.config.has_value());
         Fixture f;
         f.controller->setConfig(*parsed.config);
-        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        QSignalSpy const steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
         QVERIFY(f.controller->wallpaperMode());
@@ -998,7 +1000,7 @@ private Q_SLOTS:
         QVERIFY(parsed.config.has_value());
         Fixture f;
         f.controller->setConfig(*parsed.config);
-        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        QSignalSpy const steps(f.controller.get(), &PagesController::wallpaperStep);
         f.pressDial(1, true);
         f.pressDial(1, false);
         QTest::qWait(1700); // the safety delay: a screen that never answers cannot block the dial for good
@@ -1104,7 +1106,7 @@ private Q_SLOTS:
             g.appid = appid;
             g.name = name;
             g.playtimeMinutes = minutes;
-            g.lastPlayed = now - agoDays * 86400;
+            g.lastPlayed = now - (agoDays * 86400);
             return g;
         };
         const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{

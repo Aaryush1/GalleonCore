@@ -82,10 +82,10 @@ private Q_SLOTS:
 
     void withoutFfmpegNothingHappens()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         VideoThumbnails thumbnails(dir.filePath("cache"), "/nonexistent/ffmpeg");
         QVERIFY(!thumbnails.isAvailable());
-        QSignalSpy ready(&thumbnails, &VideoThumbnails::thumbnailReady);
+        QSignalSpy const ready(&thumbnails, &VideoThumbnails::thumbnailReady);
         writeFile(dir.filePath("v.mp4"), "x");
         thumbnails.request(dir.filePath("v.mp4"), 100);
         QVERIFY(thumbnails.cached(dir.filePath("v.mp4")).isEmpty());
@@ -95,7 +95,7 @@ private Q_SLOTS:
 
     void aPictureIsMadeCachedAndNotMadeAgain()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString picture = dir.filePath("frame.jpg");
         writeFile(picture, jpegBytes(320, 180, Qt::darkMagenta));
         const QString log = dir.filePath("args.log");
@@ -106,7 +106,7 @@ private Q_SLOTS:
         writeFile(video, "not really a video");
         QVERIFY(thumbnails.cached(video).isEmpty());
 
-        QSignalSpy ready(&thumbnails, &VideoThumbnails::thumbnailReady);
+        QSignalSpy const ready(&thumbnails, &VideoThumbnails::thumbnailReady);
         thumbnails.request(video, 600); // a tenth of 600 s = 60 s
         QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, 10000);
         QCOMPARE(ready.at(0).at(0).toString(), video);
@@ -114,7 +114,7 @@ private Q_SLOTS:
         QVERIFY(QFile::exists(file));
         QCOMPARE(thumbnails.cached(video), file);
         QVERIFY(file.startsWith(dir.filePath("cache")));
-        QImage image(file);
+        QImage const image(file);
         QVERIFY(!image.isNull());
 
         // The second request is answered from the cache: FFmpeg is not started again.
@@ -127,7 +127,7 @@ private Q_SLOTS:
 
     void ffmpegIsStartedWithTheProtections()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString picture = dir.filePath("frame.jpg");
         writeFile(picture, jpegBytes(64, 64, Qt::red));
         const QString log = dir.filePath("args.log");
@@ -135,7 +135,7 @@ private Q_SLOTS:
         // A name that looks like an option, and a shell trick, are just a file name.
         const QString video = dir.filePath("-i evil; touch pwned $(id).mp4");
         writeFile(video, "x");
-        QSignalSpy ready(&thumbnails, &VideoThumbnails::thumbnailReady);
+        QSignalSpy const ready(&thumbnails, &VideoThumbnails::thumbnailReady);
         thumbnails.request(video, 0);
         QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, 10000);
 
@@ -175,7 +175,7 @@ private Q_SLOTS:
 
     void aFailureOrGarbageGivesNoPicture()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString picture = dir.filePath("frame.jpg");
         writeFile(picture, jpegBytes(64, 64, Qt::red));
         for (const bool garbage : {false, true}) {
@@ -183,7 +183,7 @@ private Q_SLOTS:
                                        fakeFfmpeg(dir.path(), picture, dir.filePath("l.log"), !garbage, garbage));
             const QString video = dir.filePath(garbage ? "g.mp4" : "f.mp4");
             writeFile(video, "x");
-            QSignalSpy ready(&thumbnails, &VideoThumbnails::thumbnailReady);
+            QSignalSpy const ready(&thumbnails, &VideoThumbnails::thumbnailReady);
             thumbnails.request(video, 600);
             QTest::qWait(1500); // first try, then the first-frame retry
             QCOMPARE(ready.count(), 0);
@@ -194,13 +194,13 @@ private Q_SLOTS:
 
     void aReplacedFileGetsANewPicture()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString picture = dir.filePath("frame.jpg");
         writeFile(picture, jpegBytes(64, 64, Qt::red));
         VideoThumbnails thumbnails(dir.filePath("cache"), fakeFfmpeg(dir.path(), picture, dir.filePath("l.log")));
         const QString video = dir.filePath("v.mp4");
         writeFile(video, "first version");
-        QSignalSpy ready(&thumbnails, &VideoThumbnails::thumbnailReady);
+        QSignalSpy const ready(&thumbnails, &VideoThumbnails::thumbnailReady);
         thumbnails.request(video, 0);
         QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, 10000);
         writeFile(video, "a second, longer version of the file");
@@ -209,7 +209,7 @@ private Q_SLOTS:
 
     void thePictureOfAMissingFileIsNeverRequested()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString picture = dir.filePath("frame.jpg");
         writeFile(picture, jpegBytes(64, 64, Qt::red));
         const QString log = dir.filePath("args.log");
@@ -222,12 +222,12 @@ private Q_SLOTS:
 
     void theCacheIsBounded()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString cache = dir.filePath("cache");
         QDir().mkpath(cache);
         for (int i = 0; i < VideoThumbnails::MaxEntries + 20; ++i)
             writeFile(cache + QString("/old%1.jpg").arg(i), "x");
-        VideoThumbnails thumbnails(cache, "/bin/true"); // pruning happens when it starts
+        VideoThumbnails const thumbnails(cache, "/bin/true"); // pruning happens when it starts
         QVERIFY(QDir(cache).entryList({"*.jpg"}, QDir::Files).size() <= VideoThumbnails::MaxEntries);
     }
 
@@ -236,7 +236,7 @@ private Q_SLOTS:
         const QString ffmpeg = QStandardPaths::findExecutable("ffmpeg");
         if (ffmpeg.isEmpty())
             QSKIP("ffmpeg is not installed");
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString video = dir.filePath("test clip.mp4");
         QProcess make;
         make.start(ffmpeg, {"-nostdin", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
@@ -244,7 +244,7 @@ private Q_SLOTS:
         QVERIFY(make.waitForFinished(30000) && make.exitCode() == 0);
 
         VideoThumbnails thumbnails(dir.filePath("cache"));
-        QSignalSpy ready(&thumbnails, &VideoThumbnails::thumbnailReady);
+        QSignalSpy const ready(&thumbnails, &VideoThumbnails::thumbnailReady);
         thumbnails.request(video, 3); // short: the first second
         QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, 30000);
         const QImage image(ready.at(0).at(1).toString());

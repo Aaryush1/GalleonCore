@@ -61,8 +61,8 @@ class TestAppsBackend : public QObject
 private Q_SLOTS:
     void applicationsAreListedByName()
     {
-        Environment env;
-        AppsBackend backend(env.pages());
+        Environment const env;
+        AppsBackend const backend(env.pages());
         QCOMPARE(backend.apps().size(), 2);
         QCOMPARE(backend.apps().at(0).toMap().value("name").toString(), QStringLiteral("alpha"));
         QCOMPARE(backend.apps().at(1).toMap().value("id").toString(), QStringLiteral("zeta.desktop"));
@@ -71,8 +71,8 @@ private Q_SLOTS:
 
     void theKeysOfTheHomePageAreShown()
     {
-        Environment env; // no file yet: the built-in pages
-        AppsBackend backend(env.pages());
+        Environment const env; // no file yet: the built-in pages
+        AppsBackend const backend(env.pages());
         QVERIFY(backend.problem().isEmpty());
         QCOMPARE(backend.page(), QStringLiteral("main"));
         QCOMPARE(backend.keys().size(), 12);
@@ -83,9 +83,9 @@ private Q_SLOTS:
 
     void assigningAnApplicationEditsTheFileAndRefreshesTheKeys()
     {
-        Environment env;
+        Environment const env;
         AppsBackend backend(env.pages());
-        QSignalSpy changed(&backend, &AppsBackend::changed);
+        QSignalSpy const changed(&backend, &AppsBackend::changed);
         QCOMPARE(backend.assign("zeta.desktop", 4), QString());
         QVERIFY(changed.count() >= 1);
         QCOMPARE(key(backend, 4).value("kind").toString(), QStringLiteral("app"));
@@ -99,7 +99,7 @@ private Q_SLOTS:
 
     void aRefusedEditSaysWhy()
     {
-        Environment env;
+        Environment const env;
         AppsBackend backend(env.pages());
         QVERIFY(!backend.assign("nothing.desktop", 4).isEmpty());
         QVERIFY(!backend.assign("zeta.desktop", 12).isEmpty());
@@ -109,8 +109,8 @@ private Q_SLOTS:
 
     void aFileWithErrorsIsReportedAndNotEdited()
     {
-        Environment env;
-        const QByteArray broken = "{ \"version\": 1, \"home\": \"main\", \"pages\": { \"main\": { \"keys\": [ { \"key\": 99 } ] } } }";
+        Environment const env;
+        const QByteArray broken = R"({ "version": 1, "home": "main", "pages": { "main": { "keys": [ { "key": 99 } ] } } })";
         QVERIFY(writeFile(env.pages(), broken));
         AppsBackend backend(env.pages());
         QVERIFY(backend.problem().contains("keys[0].key"));
@@ -123,7 +123,7 @@ private Q_SLOTS:
 
     void severalPagesCanBeSwitched()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.pages(), "{ \"version\": 1, \"home\": \"main\", \"pages\": { \"main\": { \"keys\": [] }, \"apps\": { \"keys\": [] } } }"));
         AppsBackend backend(env.pages());
         QCOMPARE(backend.pages(), (QStringList{"apps", "main"}));
@@ -140,7 +140,7 @@ private Q_SLOTS:
 
     void anApplicationIconByPathReachesTheWindow()
     {
-        Environment env;
+        Environment const env;
         QImage icon(64, 64, QImage::Format_RGB32);
         icon.fill(QColor(200, 100, 0));
         QVERIFY(icon.save(env.dir.filePath("snap-icon.png")));

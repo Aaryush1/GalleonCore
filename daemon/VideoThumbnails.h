@@ -32,7 +32,7 @@ public:
 
     // `cacheFolder` is created if needed. `ffmpeg` is a program name or path;
     // `useNice` runs it through nice(1) when that exists (tests turn it off).
-    explicit VideoThumbnails(QString cacheFolder, QString ffmpeg = QStringLiteral("ffmpeg"), QObject *parent = nullptr);
+    explicit VideoThumbnails(QString cacheFolder, const QString& ffmpeg = QStringLiteral("ffmpeg"), QObject *parent = nullptr);
     ~VideoThumbnails() override;
 
     [[nodiscard]] bool isAvailable() const { return !m_program.isEmpty(); }

@@ -9,6 +9,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QThread>
+#include <algorithm>
 
 using galleond::DesktopApp;
 using galleond::DesktopEntries;
@@ -97,7 +98,7 @@ private Q_SLOTS:
 
     void anApplicationIsFoundByIdAndByPath()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.systemApp("tool.desktop"), entry("The Tool", "tool-icon")));
         const DesktopApp byId = DesktopEntries::lookup("tool.desktop");
         QVERIFY(byId.isValid());
@@ -114,7 +115,7 @@ private Q_SLOTS:
 
     void theUsersFileHidesTheSystemOne()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.systemApp("tool.desktop"), entry("System Tool")));
         QVERIFY(writeFile(env.userApp("tool.desktop"), entry("My Tool")));
         QCOMPARE(DesktopEntries::lookup("tool.desktop").name, QStringLiteral("My Tool"));
@@ -122,14 +123,14 @@ private Q_SLOTS:
 
     void aVendorDashIdFindsASubFolder()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.systemApp("kde/app.desktop"), entry("KDE App")));
         QCOMPARE(DesktopEntries::lookup("kde-app.desktop").name, QStringLiteral("KDE App"));
     }
 
     void onlyRealApplicationsCount()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.systemApp("link.desktop"), "[Desktop Entry]\nType=Link\nName=A Link\nURL=https://x.org\nExec=true\n"));
         QVERIFY(writeFile(env.systemApp("noexec.desktop"), "[Desktop Entry]\nType=Application\nName=No Exec\n"));
         QVERIFY(writeFile(env.systemApp("empty.desktop"), ""));
@@ -141,7 +142,7 @@ private Q_SLOTS:
 
     void anIconGivenByPathIsKeptAsAPath()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.systemApp("path.desktop"), entry("Path Icon", "/snap/firefox/current/default256.png")));
         const DesktopApp app = DesktopEntries::lookup("path.desktop");
         QVERIFY(app.isValid());
@@ -159,7 +160,7 @@ private Q_SLOTS:
 
     void theNameIsInTheUsersLanguage()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.systemApp("l.desktop"), entry("Files", "f", "/usr/bin/true", "Name[fr]=Fichiers\nName[de]=Dateien\n")));
         const QLocale before = QLocale();
         QLocale::setDefault(QLocale(QLocale::French, QLocale::France));
@@ -171,7 +172,7 @@ private Q_SLOTS:
 
     void theListSkipsHiddenAppsAndIsSorted()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.systemApp("b.desktop"), entry("Banana")));
         QVERIFY(writeFile(env.systemApp("a.desktop"), entry("apple")));
         QVERIFY(writeFile(env.systemApp("h.desktop"), entry("Hidden One", {}, "/usr/bin/true", "Hidden=true\n")));
@@ -188,7 +189,7 @@ private Q_SLOTS:
 
     void theMenuCategoriesAndTheSteamGameOfAShortcutAreRead()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.userApp("Cyberpunk 2077.desktop"),
                           entry("Cyberpunk 2077", {}, "steam steam://rungameid/1091500", "Categories=Game;\n")));
         QVERIFY(writeFile(env.systemApp("kmines.desktop"), entry("KMines", {}, "kmines %U", "Categories=Qt;KDE;Game;StrategyGame;\n")));
@@ -202,20 +203,20 @@ private Q_SLOTS:
         for (const DesktopApp &app : games)
             names << app.name;
         QCOMPARE(names, (QStringList{"Cyberpunk 2077", "KMines", "Weird"}));
-        const auto cyber = std::find_if(games.begin(), games.end(), [](const DesktopApp &a) { return a.name == "Cyberpunk 2077"; });
+        const auto cyber = std::ranges::find_if(games, [](const DesktopApp &a) { return a.name == "Cyberpunk 2077"; });
         QVERIFY(cyber != games.end());
         QCOMPARE(cyber->steamAppId, 1091500);
         QVERIFY(cyber->categories.contains("Game"));
-        const auto weird = std::find_if(games.begin(), games.end(), [](const DesktopApp &a) { return a.name == "Weird"; });
+        const auto weird = std::ranges::find_if(games, [](const DesktopApp &a) { return a.name == "Weird"; });
         QCOMPARE(weird->steamAppId, 0);
-        const auto kmines = std::find_if(games.begin(), games.end(), [](const DesktopApp &a) { return a.name == "KMines"; });
+        const auto kmines = std::ranges::find_if(games, [](const DesktopApp &a) { return a.name == "KMines"; });
         QCOMPARE(kmines->steamAppId, 0);
         QVERIFY(DesktopEntries::listCategory("Education").isEmpty());
     }
 
     void anApplicationWithAnOddIdIsListedByItsPath()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.systemApp("wine/Programs/My App.desktop"), entry("Wine App")));
         QVERIFY(writeFile(env.systemApp("plain.desktop"), entry("Plain")));
         const QList<DesktopApp> apps = DesktopEntries::list();
@@ -224,15 +225,15 @@ private Q_SLOTS:
             QVERIFY2(DesktopEntries::isValidReference(app.id), qPrintable(app.id)); // always usable in a pages file
             QVERIFY(DesktopEntries::lookup(app.id).isValid());
         }
-        const auto wine = std::find_if(apps.begin(), apps.end(), [](const DesktopApp &a) { return a.name == "Wine App"; });
+        const auto wine = std::ranges::find_if(apps, [](const DesktopApp &a) { return a.name == "Wine App"; });
         QVERIFY(wine != apps.end());
         QCOMPARE(wine->id, wine->file); // the path stands for the ID
     }
 
     void anApplicationIsStartedWithOneArgumentAndNoShell()
     {
-        Environment env;
-        QTemporaryDir bin;
+        Environment const env;
+        QTemporaryDir const bin;
         const QString log = bin.filePath("calls.log");
         // A stand-in for gio: it records every argument on its own line.
         QVERIFY(writeFile(bin.filePath("gio"),
@@ -258,8 +259,8 @@ private Q_SLOTS:
 
     void withoutAnyLauncherNothingStarts()
     {
-        Environment env;
-        QTemporaryDir empty;
+        Environment const env;
+        QTemporaryDir const empty;
         qputenv("PATH", empty.path().toUtf8());
         QVERIFY(writeFile(env.systemApp("t.desktop"), entry("T")));
         QVERIFY(!DesktopEntries::launch(DesktopEntries::lookup("t.desktop")));

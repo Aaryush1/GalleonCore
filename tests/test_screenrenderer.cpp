@@ -62,7 +62,7 @@ private Q_SLOTS:
 
     void aWallpaperFillsTheScreenWithItsColour()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QImage red(1600, 900, QImage::Format_RGB32);
         red.fill(QColor(200, 30, 30));
         const QString file = dir.filePath("red.png");
@@ -169,7 +169,7 @@ private Q_SLOTS:
         const auto redPixels = [&frame, &red] {
             int count = 0;
             for (int y = Height - 82; y < Height - 18; ++y) {
-                for (int x = Width / 2 - 150; x < Width / 2 + 150; ++x)
+                for (int x = (Width / 2) - 150; x < (Width / 2) + 150; ++x)
                     count += similar(frame.pixel(x, y), red.rgb(), 12) ? 1 : 0;
             }
             return count;
@@ -187,7 +187,7 @@ private Q_SLOTS:
             frame.save(qEnvironmentVariable("GALLEON_SAVE_FRAMES") + "/wallpaper-choosing.png");
         int bandPixels = 0;
         for (int y = Height - 82; y < Height - 18; ++y) {
-            for (int x = Width / 2 - 150; x < Width / 2 + 150; ++x)
+            for (int x = (Width / 2) - 150; x < (Width / 2) + 150; ++x)
                 bandPixels += similar(frame.pixel(x, y), red.rgb(), 12) ? 1 : 0;
         }
         QVERIFY2(bandPixels > 150, "the band with the theme name is drawn on the wallpaper screen too");
@@ -296,7 +296,7 @@ private Q_SLOTS:
 
     void aBrokenWallpaperGivesNoFrame()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QFile broken(dir.filePath("broken.jpg"));
         QVERIFY(broken.open(QIODevice::WriteOnly));
         broken.write("not an image");

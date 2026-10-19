@@ -235,7 +235,7 @@ void MprisController::onPropertiesChanged(const QDBusMessage &message)
         m_changeTimer.start();
 }
 
-void MprisController::onNameOwnerChanged(const QString &name, const QString &, const QString &)
+void MprisController::onNameOwnerChanged(const QString &name, const QString & /*unused*/, const QString & /*unused*/)
 {
     if (name.startsWith(m_prefix))
         refreshNames();
@@ -334,7 +334,7 @@ void MprisController::refreshState(const QString &name)
         const bool trackChanged = !(track == m_reportedTrack);
         if (stateChanged || track.title != m_reportedTrack.title || track.artist != m_reportedTrack.artist
             || track.artUrl != m_reportedTrack.artUrl) {
-            static const char *names[] = {"no player", "stopped", "paused", "playing"};
+            static const char *const names[] = {"no player", "stopped", "paused", "playing"};
             qInfo().noquote() << "galleond: player" << names[static_cast<int>(now)] << "-" << track.artist << "-" << track.title
                               << (track.artUrl.isEmpty() ? QStringLiteral("(no cover address)") : QStringLiteral("cover: ") + track.artUrl.left(100));
         }
@@ -452,7 +452,7 @@ void MprisController::raisePlayer()
     const QString name = current();
     if (name.isEmpty())
         return;
-    QDBusMessage message = QDBusMessage::createMethodCall(name, PlayerPath, RootInterface, QStringLiteral("Raise"));
+    QDBusMessage const message = QDBusMessage::createMethodCall(name, PlayerPath, RootInterface, QStringLiteral("Raise"));
     auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message, CallTimeoutMs), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [name](QDBusPendingCallWatcher *call) {
         call->deleteLater();

@@ -27,10 +27,10 @@ struct KeyName
 
 // Codes from linux/input-event-codes.h.
 constexpr std::array<KeyName, 18> Names{{
-    {"kp0", KEY_KP0}, {"kp1", KEY_KP1}, {"kp2", KEY_KP2}, {"kp3", KEY_KP3}, {"kp4", KEY_KP4}, {"kp5", KEY_KP5},
-    {"kp6", KEY_KP6}, {"kp7", KEY_KP7}, {"kp8", KEY_KP8}, {"kp9", KEY_KP9}, {"kpdot", KEY_KPDOT},
-    {"kpenter", KEY_KPENTER}, {"kpplus", KEY_KPPLUS}, {"kpminus", KEY_KPMINUS}, {"kpasterisk", KEY_KPASTERISK},
-    {"kpslash", KEY_KPSLASH}, {"numlock", KEY_NUMLOCK}, {"backspace", KEY_BACKSPACE},
+    {.name="kp0", .code=KEY_KP0}, {.name="kp1", .code=KEY_KP1}, {.name="kp2", .code=KEY_KP2}, {.name="kp3", .code=KEY_KP3}, {.name="kp4", .code=KEY_KP4}, {.name="kp5", .code=KEY_KP5},
+    {.name="kp6", .code=KEY_KP6}, {.name="kp7", .code=KEY_KP7}, {.name="kp8", .code=KEY_KP8}, {.name="kp9", .code=KEY_KP9}, {.name="kpdot", .code=KEY_KPDOT},
+    {.name="kpenter", .code=KEY_KPENTER}, {.name="kpplus", .code=KEY_KPPLUS}, {.name="kpminus", .code=KEY_KPMINUS}, {.name="kpasterisk", .code=KEY_KPASTERISK},
+    {.name="kpslash", .code=KEY_KPSLASH}, {.name="numlock", .code=KEY_NUMLOCK}, {.name="backspace", .code=KEY_BACKSPACE},
 }};
 
 } // namespace

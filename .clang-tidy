@@ -25,9 +25,12 @@ Checks: >
   -readability-braces-around-statements,
   -readability-implicit-bool-conversion,
   -readability-function-cognitive-complexity,
-  -readability-make-member-function-const
+  -readability-make-member-function-const,
+  -readability-redundant-access-specifiers
 # make-member-function-const would mark hardware-writing methods const,
 # because the transport is reached through a pointer.
+# redundant-access-specifiers does not know that 'private Q_SLOTS:' changes
+# what the access section means for moc, and its fix breaks the build.
 # Qt-owned QObjects (parent/child) are fine: owning-memory is disabled for
 # that reason. Raw new/delete is still caught by cppcoreguidelines-*.
 WarningsAsErrors: '*'

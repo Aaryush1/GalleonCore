@@ -43,7 +43,7 @@ bool DesktopEntries::isValidReference(const QString &desktop)
         return false;
     if (desktop.contains(QStringLiteral("..")))
         return false;
-    return std::none_of(desktop.begin(), desktop.end(), [](QChar c) { return c.unicode() < 0x20; });
+    return std::ranges::none_of(desktop, [](QChar c) { return c.unicode() < 0x20; });
 }
 
 // The text after `key=` on the first such line of the [Desktop Entry] group, as written.
@@ -113,7 +113,7 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
     if (IconPattern.match(icon).hasMatch()) {
         app.icon = icon; // a name of the icon theme
     } else if (icon.startsWith(QLatin1Char('/')) && icon.size() <= 400 && !icon.contains(QStringLiteral(".."))
-               && std::none_of(icon.begin(), icon.end(), [](QChar c) { return c.unicode() < 0x20; })) {
+               && std::ranges::none_of(icon, [](QChar c) { return c.unicode() < 0x20; })) {
         // An image given by path (Snap packages do this). It is only ever
         // decoded as an image, with the same checks as any picture.
         const QString suffix = QFileInfo(icon).suffix().toLower();
@@ -175,7 +175,7 @@ QList<DesktopApp> DesktopEntries::list()
             }
         }
     }
-    std::sort(apps.begin(), apps.end(), [](const DesktopApp &a, const DesktopApp &b) {
+    std::ranges::sort(apps, [](const DesktopApp &a, const DesktopApp &b) {
         return a.name.compare(b.name, Qt::CaseInsensitive) < 0;
     });
     return apps;

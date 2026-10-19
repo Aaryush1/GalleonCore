@@ -38,7 +38,7 @@ struct ArrangedPage
 [[nodiscard]] double keyScore(const KeyConfig &key, const UsageStats &usage, const ArrangeSources &sources,
                               const QDateTime &now = QDateTime::currentDateTimeUtc());
 
-[[nodiscard]] ArrangedPage arrangePage(const Page &page, const UsageStats &usage, const ArrangeSources &sources,
+[[nodiscard]] ArrangedPage arrangePage(const Page &source, const UsageStats &usage, const ArrangeSources &sources,
                                        const QDateTime &now = QDateTime::currentDateTimeUtc());
 
 } // namespace galleond

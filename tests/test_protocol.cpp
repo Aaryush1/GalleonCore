@@ -115,7 +115,7 @@ private Q_SLOTS:
             QVERIFY(state.keys == before.keys && state.dialButtons == before.dialButtons);
         };
 
-        std::vector<std::uint8_t> shortKeys(good.begin(), good.begin() + 10); // truncated
+        std::vector<std::uint8_t> const shortKeys(good.begin(), good.begin() + 10); // truncated
         invalidReport(shortKeys);
         std::vector<std::uint8_t> wrongCount = good;
         wrongCount[2] = 0x0b; // claims 11 keys
@@ -153,7 +153,7 @@ private Q_SLOTS:
         // No input may read out of bounds or crash, whatever it holds.
         std::vector<std::uint8_t> keys = {0x01, 0x00, 0x0c, 0x00};
         keys.resize(4 + KeyCount, 1);
-        std::vector<std::uint8_t> dials = {0x01, 0x03, 0x03, 0x00, 0x01, 0x02, 0xfe};
+        std::vector<std::uint8_t> const dials = {0x01, 0x03, 0x03, 0x00, 0x01, 0x02, 0xfe};
         InputState state;
         for (const auto &report : {keys, dials}) {
             for (std::size_t n = 0; n <= report.size(); ++n)

@@ -35,7 +35,7 @@ void UsageStats::record(const QString &id, const QDateTime &now)
         return;
     const qint64 at = now.toSecsSinceEpoch();
     Entry &entry = m_entries[id];
-    entry.score = entry.score * fade(entry.at, at) + 1.0;
+    entry.score = (entry.score * fade(entry.at, at)) + 1.0;
     entry.at = at;
     prune(at);
     if (!m_file.isEmpty() && !save())
@@ -89,7 +89,7 @@ void UsageStats::load()
         if (it.key().isEmpty() || it.key().size() > MaxIdLength || !std::isfinite(score) || score < 0 || score > 1e6
             || !std::isfinite(at) || at < 0 || at > static_cast<double>(limit))
             continue;
-        m_entries.insert(it.key(), Entry{score, static_cast<qint64>(at)});
+        m_entries.insert(it.key(), Entry{.score=score, .at=static_cast<qint64>(at)});
     }
 }
 

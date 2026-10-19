@@ -420,7 +420,7 @@ struct Parser
         }
         first = value.toArray().at(0).toDouble();
         second = value.toArray().at(1).toDouble();
-        if (!(first >= min && first <= max && second >= min && second <= max)) {
+        if (first < min || first > max || second < min || second > max) {
             error(path, QStringLiteral("numbers must be from %1 to %2 mm").arg(min).arg(max));
             return false;
         }

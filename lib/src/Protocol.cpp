@@ -18,7 +18,7 @@ constexpr std::size_t InputHeaderSize = 4;
 
 InputResult invalid()
 {
-    return {InputStatus::Invalid, {}};
+    return {.status=InputStatus::Invalid, .events={}};
 }
 
 unsigned int u16le(std::span<const std::uint8_t> report, std::size_t at)
@@ -38,7 +38,7 @@ InputResult decodeKeys(std::span<const std::uint8_t> report, InputState &state)
         pressed[static_cast<std::size_t>(i)] = byte == 1;
     }
 
-    InputResult result{InputStatus::Ok, {}};
+    InputResult result{.status=InputStatus::Ok, .events={}};
     for (int i = 0; i < KeyCount; ++i) {
         const auto index = static_cast<std::size_t>(i);
         if (pressed[index] == state.keys[index])
@@ -57,7 +57,7 @@ InputResult decodeDials(std::span<const std::uint8_t> report, InputState &state)
     const std::uint8_t kind = report[InputHeaderSize];
     const auto data = report.subspan(InputHeaderSize + 1, DialCount);
 
-    InputResult result{InputStatus::Ok, {}};
+    InputResult result{.status=InputStatus::Ok, .events={}};
     if (kind == DialSubButtons) {
         std::array<bool, DialCount> pressed{};
         for (std::size_t i = 0; i < DialCount; ++i) {
@@ -87,7 +87,7 @@ InputResult decodeDials(std::span<const std::uint8_t> report, InputState &state)
         }
         return result;
     }
-    return {InputStatus::Ignored, {}};
+    return {.status=InputStatus::Ignored, .events={}};
 }
 
 } // namespace
@@ -95,7 +95,7 @@ InputResult decodeDials(std::span<const std::uint8_t> report, InputState &state)
 InputResult decodeInputReport(std::span<const std::uint8_t> report, InputState &state)
 {
     if (report.empty() || report[0] != InputReportId)
-        return {InputStatus::Ignored, {}};
+        return {.status=InputStatus::Ignored, .events={}};
     if (report.size() < InputHeaderSize)
         return invalid();
     switch (report[1]) {
@@ -104,7 +104,7 @@ InputResult decodeInputReport(std::span<const std::uint8_t> report, InputState &
     case InputKindDials:
         return decodeDials(report, state);
     default:
-        return {InputStatus::Ignored, {}};
+        return {.status=InputStatus::Ignored, .events={}};
     }
 }
 
@@ -160,7 +160,7 @@ std::vector<std::vector<std::uint8_t>> dialRingReports(int dial, std::uint8_t re
     std::vector<std::vector<std::uint8_t>> reports;
     reports.reserve(DialRingLeds);
     for (int segment = 0; segment < DialRingLeds; ++segment) {
-        auto report = featureReport(DialRingCommand, static_cast<std::uint8_t>((1 - dial) * DialRingLeds + segment));
+        auto report = featureReport(DialRingCommand, static_cast<std::uint8_t>(((1 - dial) * DialRingLeds) + segment));
         report[3] = red;
         report[4] = green;
         report[5] = blue;
@@ -179,7 +179,7 @@ std::vector<std::vector<std::uint8_t>> screenImageReports(std::span<const std::u
 
     constexpr std::size_t payloadMax = OutputReportSize - ScreenHeaderSize;
     std::vector<std::vector<std::uint8_t>> reports;
-    reports.reserve(jpeg.size() / payloadMax + 1);
+    reports.reserve((jpeg.size() / payloadMax) + 1);
     for (std::size_t offset = 0, part = 0; offset < jpeg.size(); offset += payloadMax, ++part) {
         const std::size_t length = std::min(payloadMax, jpeg.size() - offset);
         std::vector<std::uint8_t> report(OutputReportSize, 0);
@@ -206,7 +206,7 @@ std::vector<std::vector<std::uint8_t>> keyImageReports(int key, std::span<const 
 
     constexpr std::size_t payloadMax = OutputReportSize - KeyHeaderSize;
     std::vector<std::vector<std::uint8_t>> reports;
-    reports.reserve(jpeg.size() / payloadMax + 1);
+    reports.reserve((jpeg.size() / payloadMax) + 1);
     for (std::size_t offset = 0, part = 0; offset < jpeg.size(); offset += payloadMax, ++part) {
         const std::size_t length = std::min(payloadMax, jpeg.size() - offset);
         std::vector<std::uint8_t> report(OutputReportSize, 0);

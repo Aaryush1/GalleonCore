@@ -79,8 +79,8 @@ public:
     void next() override {}
     void previous() override {}
     void stop() override {}
-    void changeVolume(int) override {}
-    void seek(int) override {}
+    void changeVolume(int /*percent*/) override {}
+    void seek(int /*seconds*/) override {}
     void setState(State state)
     {
         m_state = state;
@@ -324,7 +324,7 @@ private Q_SLOTS:
     void aMissingOrWrongVideoLeavesTheScreensaverOff()
     {
         Fixture f;
-        QSignalSpy active(f.controller.get(), &ScreensaverController::activeChanged);
+        QSignalSpy const active(f.controller.get(), &ScreensaverController::activeChanged);
         ScreensaverConfig config = f.config;
         config.videos = QStringList{QStringLiteral("nothing-here.mp4")};
         f.configure(config);
@@ -406,7 +406,7 @@ private Q_SLOTS:
         ScreensaverConfig config = f.config;
         config.videos = QStringList{"clip.mp4", "missing.mp4", "second.mp4"}; // a missing one is skipped
         f.configure(config);
-        QSignalSpy active(f.controller.get(), &ScreensaverController::activeChanged);
+        QSignalSpy const active(f.controller.get(), &ScreensaverController::activeChanged);
         const auto played = [&] {
             QFile log(f.dir.filePath("args.log"));
             return log.open(QIODevice::ReadOnly) ? QString::fromUtf8(log.readAll()) : QString();

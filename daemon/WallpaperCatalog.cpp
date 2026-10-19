@@ -94,7 +94,7 @@ WallpaperCatalog::WallpaperCatalog(const QString &root)
     // name, then the files of a style by name with numbers read as numbers
     // (wallpaper-2 before wallpaper-10), not by the file system's order.
     const auto sorted = [](QFileInfoList list) {
-        std::stable_sort(list.begin(), list.end(),
+        std::ranges::stable_sort(list,
                          [](const QFileInfo &x, const QFileInfo &y) { return naturalLess(x.fileName(), y.fileName()); });
         return list;
     };
@@ -108,16 +108,16 @@ WallpaperCatalog::WallpaperCatalog(const QString &root)
         for (const QFileInfo &file : files) {
             if (!isAcceptable(file.absoluteFilePath()))
                 continue;
-            m_entries.append({styleInfo.fileName(),
-                              styleInfo.fileName() + QLatin1Char('/') + file.fileName(),
-                              file.absoluteFilePath()});
+            m_entries.append({.style=styleInfo.fileName(),
+                              .name=styleInfo.fileName() + QLatin1Char('/') + file.fileName(),
+                              .path=file.absoluteFilePath()});
         }
     }
 }
 
 const WallpaperEntry *WallpaperCatalog::find(const QString &name) const
 {
-    const auto it = std::find_if(m_entries.begin(), m_entries.end(),
+    const auto it = std::ranges::find_if(m_entries,
                                  [&name](const WallpaperEntry &entry) { return entry.name == name; });
     return it == m_entries.end() ? nullptr : &*it;
 }

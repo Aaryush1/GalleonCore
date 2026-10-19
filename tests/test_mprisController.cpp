@@ -181,7 +181,7 @@ private Q_SLOTS:
 
     void withoutAPlayerTheDialSetsTheSystemVolumeThroughAFixedCommand()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString log = dir.filePath("calls.log");
         const QString script = dir.filePath("fake-wpctl");
         QFile file(script);
@@ -217,13 +217,13 @@ private Q_SLOTS:
 
     void shuffleRepeatFullscreenRaiseAndRestartReachThePlayer()
     {
-        FakePlayer player(uniqueName("ctl"), QStringLiteral("Playing"), QStringLiteral("fake"));
+        FakePlayer const player(uniqueName("ctl"), QStringLiteral("Playing"), QStringLiteral("fake"));
         QVERIFY(player.registered());
         QVERIFY(player.root());
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("ctl"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
 
-        QSignalSpy changed(&controller, &MediaController::stateChanged);
+        QSignalSpy const changed(&controller, &MediaController::stateChanged);
         QVERIFY(!controller.shuffleOn());
         controller.toggleShuffle();
         QTRY_VERIFY_WITH_TIMEOUT(player.shuffle(), 3000);
@@ -261,7 +261,7 @@ private Q_SLOTS:
 
     void muteSetsTheSystemSoundThroughAFixedCommand()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         const QString log = dir.filePath("calls.log");
         const QString script = dir.filePath("fake-wpctl");
         QFile file(script);
@@ -283,20 +283,20 @@ private Q_SLOTS:
 
     void aPlayerIsFoundWithItsState()
     {
-        FakePlayer player(uniqueName("a"), QStringLiteral("Paused"));
+        FakePlayer const player(uniqueName("a"), QStringLiteral("Paused"));
         QVERIFY(player.registered());
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("a"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("a"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Paused), 4000);
     }
 
     void commandsReachThePlayerAndTheStateFollows()
     {
-        FakePlayer player(uniqueName("b"), QStringLiteral("Paused"));
+        FakePlayer const player(uniqueName("b"), QStringLiteral("Paused"));
         QVERIFY(player.registered());
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("b"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Paused), 4000);
 
-        QSignalSpy changed(&controller, &MediaController::stateChanged);
+        QSignalSpy const changed(&controller, &MediaController::stateChanged);
         controller.playPause();
         QTRY_COMPARE_WITH_TIMEOUT(player.playPauseCount, 1, 4000);
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
@@ -314,7 +314,7 @@ private Q_SLOTS:
 
     void seekIsSentInMicroseconds()
     {
-        FakePlayer player(uniqueName("c"));
+        FakePlayer const player(uniqueName("c"));
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("c"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Paused), 4000);
         controller.seek(-10);
@@ -325,7 +325,7 @@ private Q_SLOTS:
 
     void volumeMovesInPercentAndStaysInRange()
     {
-        FakePlayer player(uniqueName("d"));
+        FakePlayer const player(uniqueName("d"));
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("d"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Paused), 4000);
 
@@ -344,8 +344,8 @@ private Q_SLOTS:
     void thePlayingPlayerIsChosenOverAPausedOne()
     {
         const QString prefix = QStringLiteral("org.mpris.MediaPlayer2.galleontest%1y").arg(QCoreApplication::applicationPid());
-        FakePlayer paused(prefix + QStringLiteral("1"), QStringLiteral("Paused"));
-        FakePlayer playing(prefix + QStringLiteral("2"), QStringLiteral("Playing"));
+        FakePlayer const paused(prefix + QStringLiteral("1"), QStringLiteral("Paused"));
+        FakePlayer const playing(prefix + QStringLiteral("2"), QStringLiteral("Playing"));
         MprisController controller(QDBusConnection::sessionBus(), prefix);
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
 
@@ -372,7 +372,7 @@ private Q_SLOTS:
                             {"mpris:artUrl", "https://example.org/cover.jpg"},
                             {"mpris:length", qlonglong(200'000'000)}});
         player.setPosition(61'500'000);
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m1"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m1"));
         QTRY_VERIFY_WITH_TIMEOUT(!controller.nowPlaying().isEmpty(), 4000);
 
         const galleond::NowPlaying track = controller.nowPlaying();
@@ -387,7 +387,7 @@ private Q_SLOTS:
     {
         FakePlayer player(uniqueName("m2"), QStringLiteral("Playing"));
         player.setMetadata({{"xesam:title", "T"}, {"xesam:artist", "Solo"}});
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m2"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m2"));
         QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().artist, QStringLiteral("Solo"), 4000);
     }
 
@@ -396,7 +396,7 @@ private Q_SLOTS:
         FakePlayer player(uniqueName("m3"), QStringLiteral("Playing"));
         player.setMetadata({{"xesam:title", QStringLiteral("Line1\nLine2\x01\ttab")},
                             {"xesam:artist", QStringList{QString(500, QLatin1Char('x'))}}});
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m3"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m3"));
         QTRY_VERIFY_WITH_TIMEOUT(!controller.nowPlaying().isEmpty(), 4000);
         QCOMPARE(controller.nowPlaying().title, QStringLiteral("Line1 Line2 tab"));
         QCOMPARE(controller.nowPlaying().artist.size(), galleond::MaxMetadataLength);
@@ -410,7 +410,7 @@ private Q_SLOTS:
                             {"mpris:length", "not a number"},
                             {"mpris:artUrl", QString(5000, QLatin1Char('u'))}});
         player.setPosition(-5);
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m4"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m4"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
         const galleond::NowPlaying track = controller.nowPlaying();
         QCOMPARE(track.durationSeconds, 0.0);
@@ -423,7 +423,7 @@ private Q_SLOTS:
         FakePlayer player(uniqueName("m5"), QStringLiteral("Playing"));
         player.setMetadata({{"xesam:title", "T"}, {"mpris:length", qlonglong(10'000'000)}});
         player.setPosition(99'000'000);
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m5"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m5"));
         QTRY_VERIFY_WITH_TIMEOUT(controller.nowPlaying().durationSeconds > 0, 4000);
         QCOMPARE(controller.nowPlaying().positionSeconds, 10.0);
     }
@@ -451,7 +451,7 @@ private Q_SLOTS:
         FakePlayer player(uniqueName("m8"), QStringLiteral("Playing"));
         player.setMetadata({{"xesam:url", "file:///run/media/paul/Bureau%20ext-%2B/Download/Quand%20tu%20es%20l%C3%A0%20Stems/Quand-tu-es-la_sous-titres.mp4"},
                             {"mpris:length", qlonglong(263'600'000)}});
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m8"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m8"));
         QTRY_VERIFY_WITH_TIMEOUT(!controller.nowPlaying().isEmpty(), 4000);
         QCOMPARE(controller.nowPlaying().title, QStringLiteral("Quand-tu-es-la sous-titres")); // no extension, _ as a space
         QVERIFY(controller.nowPlaying().artist.isEmpty());
@@ -463,7 +463,7 @@ private Q_SLOTS:
     {
         FakePlayer player(uniqueName("m9"), QStringLiteral("Playing"));
         player.setMetadata({{"xesam:title", "Real Title"}, {"xesam:url", "file:///music/other-name.flac"}});
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m9"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m9"));
         QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().title, QStringLiteral("Real Title"), 4000);
     }
 
@@ -471,7 +471,7 @@ private Q_SLOTS:
     {
         FakePlayer player(uniqueName("m10"), QStringLiteral("Playing"));
         player.setMetadata({{"xesam:url", "https://radio.example.org/live/jazz_fm.mp3?token=abc"}});
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m10"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m10"));
         QTRY_VERIFY_WITH_TIMEOUT(!controller.nowPlaying().isEmpty(), 4000);
         QCOMPARE(controller.nowPlaying().title, QStringLiteral("jazz fm"));
     }
@@ -480,7 +480,7 @@ private Q_SLOTS:
     {
         FakePlayer player(uniqueName("m11"), QStringLiteral("Playing"));
         player.setMetadata({{"xesam:url", "file:///"}});
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m11"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m11"));
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
         QVERIFY(controller.nowPlaying().isEmpty());
     }
@@ -507,7 +507,7 @@ private Q_SLOTS:
         MprisController controller(QDBusConnection::sessionBus(), uniqueName("n2"));
         controller.setPollIntervals(60000, 60000);
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Playing), 4000);
-        QSignalSpy changed(&controller, &MediaController::stateChanged);
+        QSignalSpy const changed(&controller, &MediaController::stateChanged);
         player.setStatus(QStringLiteral("Paused"));
         player.notifyChanged();
         QTRY_COMPARE_WITH_TIMEOUT(int(controller.state()), int(MediaController::State::Paused), 500);
@@ -541,14 +541,14 @@ private Q_SLOTS:
 
     void withoutAPlayerTheTrackIsEmpty()
     {
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m7none"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m7none"));
         QTest::qWait(200);
         QVERIFY(controller.nowPlaying().isEmpty());
     }
 
     void theIconNameComesFromTheDesktopEntry()
     {
-        QTemporaryDir data;
+        QTemporaryDir const data;
         QDir().mkpath(data.filePath("applications"));
         QFile entry(data.filePath("applications/galleontest-player.desktop"));
         QVERIFY(entry.open(QIODevice::WriteOnly));
@@ -576,7 +576,7 @@ private Q_SLOTS:
     {
         FakePlayer player(uniqueName("m12"), QStringLiteral("Playing"), QStringLiteral("vlc"));
         player.setMetadata({{"xesam:url", "file:///videos/film.mp4"}});
-        MprisController controller(QDBusConnection::sessionBus(), uniqueName("m12"));
+        MprisController const controller(QDBusConnection::sessionBus(), uniqueName("m12"));
         QTRY_COMPARE_WITH_TIMEOUT(controller.nowPlaying().playerIcon, QStringLiteral("vlc"), 5000);
     }
 

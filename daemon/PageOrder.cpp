@@ -67,7 +67,7 @@ ArrangedPage arrangePage(const Page &source, const UsageStats &usage, const Arra
 
     const auto fill = [&page](std::vector<KeyConfig> &candidates, int max) {
         std::size_t added = 0;
-        for (std::size_t place = 0; place < page.keys.size() && added < static_cast<std::size_t>(max) && added < candidates.size(); ++place) {
+        for (std::size_t place = 0; place < page.keys.size() && std::cmp_less(added, max) && added < candidates.size(); ++place) {
             if (page.keys[place])
                 continue;
             candidates[added].key = static_cast<int>(place);
@@ -89,7 +89,7 @@ ArrangedPage arrangePage(const Page &source, const UsageStats &usage, const Arra
             key.action.desktop = app.id;
             candidates.push_back(key);
         }
-        std::stable_sort(candidates.begin(), candidates.end(), [&](const KeyConfig &a, const KeyConfig &b) {
+        std::ranges::stable_sort(candidates, [&](const KeyConfig &a, const KeyConfig &b) {
             const double sa = keyScore(a, usage, sources, now);
             const double sb = keyScore(b, usage, sources, now);
             return sa != sb ? sa > sb : a.action.desktop.compare(b.action.desktop, Qt::CaseInsensitive) < 0;
@@ -114,7 +114,7 @@ ArrangedPage arrangePage(const Page &source, const UsageStats &usage, const Arra
             probe.action.appid = game.appid;
             scored.emplace_back(keyScore(probe, usage, sources, now), game);
         }
-        std::stable_sort(scored.begin(), scored.end(), [](const auto &a, const auto &b) {
+        std::ranges::stable_sort(scored, [](const auto &a, const auto &b) {
             return a.first != b.first ? a.first > b.first : a.second.name.compare(b.second.name, Qt::CaseInsensitive) < 0;
         });
         std::vector<KeyConfig> candidates;
@@ -139,7 +139,7 @@ ArrangedPage arrangePage(const Page &source, const UsageStats &usage, const Arra
                 keys.push_back(*key);
             }
         }
-        std::stable_sort(keys.begin(), keys.end(), [&](const KeyConfig &a, const KeyConfig &b) {
+        std::ranges::stable_sort(keys, [&](const KeyConfig &a, const KeyConfig &b) {
             return keyScore(a, usage, sources, now) > keyScore(b, usage, sources, now);
         });
         for (std::size_t i = 0; i < places.size(); ++i) {

@@ -106,9 +106,9 @@ QColor TileRenderer::tintBackground(std::uint32_t rgb)
     const QColor colour = QColor::fromRgb(rgb);
     // Same hue and saturation, a third of the brightness (but never pitch black,
     // so that the theme can still be told apart): the icons and labels stay readable.
-    const float hue = colour.hsvHueF() < 0 ? 0.0F : static_cast<float>(colour.hsvHueF());
-    return QColor::fromHsvF(hue, static_cast<float>(colour.hsvSaturationF()),
-                            std::max(0.22F, static_cast<float>(colour.valueF()) * 0.35F));
+    const float hue = colour.hsvHueF() < 0 ? 0.0F : colour.hsvHueF();
+    return QColor::fromHsvF(hue, colour.hsvSaturationF(),
+                            std::max(0.22F, colour.valueF() * 0.35F));
 }
 
 QImage TileRenderer::blank(qint64 tint) const
@@ -156,7 +156,7 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
     const QRectF iconArea(0, hasLabel ? 14 : (Size - iconSize) / 2.0, Size, iconSize);
     if (!icon.isNull()) {
         const QSizeF fitted = QSizeF(icon.size()).scaled(iconArea.size(), Qt::KeepAspectRatio);
-        const QRectF target(QPointF(iconArea.center().x() - fitted.width() / 2, iconArea.center().y() - fitted.height() / 2), fitted);
+        const QRectF target(QPointF(iconArea.center().x() - (fitted.width() / 2), iconArea.center().y() - (fitted.height() / 2)), fitted);
         painter.drawImage(target, icon);
     }
 
@@ -194,7 +194,7 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
             // Whatever still does not fit (one very long word) is cut at the end.
             QString text = key.label;
             if (metrics.horizontalAdvance(text) > 2 * area.width())
-                text = metrics.elidedText(text, Qt::ElideRight, static_cast<int>(2 * area.width() - 8));
+                text = metrics.elidedText(text, Qt::ElideRight, static_cast<int>((2 * area.width()) - 8));
             painter.drawText(area, Qt::AlignCenter | Qt::TextWordWrap, text);
         }
     }
@@ -204,8 +204,8 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
         const QPointF center(Size - 26, 26);
         for (int i = 0; i < 10; ++i) {
             const qreal radius = i % 2 == 0 ? 15.0 : 6.5;
-            const qreal angle = -M_PI / 2 + i * M_PI / 5;
-            const QPointF point(center.x() + radius * std::cos(angle), center.y() + radius * std::sin(angle));
+            const qreal angle = (-M_PI / 2) + (i * M_PI / 5);
+            const QPointF point(center.x() + (radius * std::cos(angle)), center.y() + (radius * std::sin(angle)));
             if (i == 0)
                 star.moveTo(point);
             else

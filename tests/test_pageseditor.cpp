@@ -73,7 +73,7 @@ class TestPagesEditor : public QObject
 private Q_SLOTS:
     void aMissingFileStartsFromTheBuiltInPages()
     {
-        Environment env;
+        Environment const env;
         const auto result = PagesEditor::assignApp(env.pages(), "main", 4, "tool.desktop");
         QVERIFY2(result.ok, qPrintable(result.errors.join('\n')));
         const PagesConfig config = configOf(env.pages());
@@ -89,7 +89,7 @@ private Q_SLOTS:
 
     void aKeyThatWasUsedIsReplacedWithoutItsOldLabel()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(PagesEditor::assignApp(env.pages(), "main", 5, "tool.desktop").ok); // key 5 was "Vol +"
         const PagesConfig config = configOf(env.pages());
         const Page main = config.pages.value("main");
@@ -102,7 +102,7 @@ private Q_SLOTS:
 
     void everyKeyKeepsItsPlaceAndTheListStaysSorted()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(PagesEditor::assignApp(env.pages(), "main", 9, "tool.desktop").ok);
         QVERIFY(PagesEditor::assignApp(env.pages(), "main", 4, "other.desktop").ok);
         const QJsonObject root = QJsonDocument::fromJson(readFile(env.pages())).object();
@@ -119,7 +119,7 @@ private Q_SLOTS:
 
     void clearingEmptiesTheKey()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(PagesEditor::clearKey(env.pages(), "main", 0).ok);
         const PagesConfig config = configOf(env.pages());
         QVERIFY(!config.pages.value("main").keys[0].has_value());
@@ -129,7 +129,7 @@ private Q_SLOTS:
 
     void theOldFileIsKeptAsABackup()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(PagesEditor::assignApp(env.pages(), "main", 4, "tool.desktop").ok); // creates the file
         const QByteArray first = readFile(env.pages());
         QVERIFY(!QFile::exists(env.pages() + ".bak")); // nothing to back up yet
@@ -140,7 +140,7 @@ private Q_SLOTS:
 
     void thePermissionsAreKeptAndNeverWorldWritable()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.pages(), defaultPagesJson()));
         QFile file(env.pages());
         QVERIFY(file.setPermissions(QFile::ReadOwner | QFile::WriteOwner)); // 0600
@@ -155,8 +155,8 @@ private Q_SLOTS:
 
     void aFileWithErrorsIsNeverRewritten()
     {
-        Environment env;
-        const QByteArray broken = "{ \"version\": 1, \"home\": \"main\", \"pages\": { \"main\": { \"keys\": [ { \"key\": 99 } ] } } }";
+        Environment const env;
+        const QByteArray broken = R"({ "version": 1, "home": "main", "pages": { "main": { "keys": [ { "key": 99 } ] } } })";
         QVERIFY(writeFile(env.pages(), broken));
         const auto result = PagesEditor::assignApp(env.pages(), "main", 4, "tool.desktop");
         QVERIFY(!result.ok);
@@ -188,7 +188,7 @@ private Q_SLOTS:
 
     void anApplicationGivenByPathIsAccepted()
     {
-        Environment env;
+        Environment const env;
         const QString path = env.dir.filePath("system/applications/tool.desktop");
         QVERIFY(PagesEditor::assignApp(env.pages(), "main", 4, path).ok);
         QCOMPARE(configOf(env.pages()).pages.value("main").keys[4]->action.desktop, path);
@@ -196,7 +196,7 @@ private Q_SLOTS:
 
     void aSecondPageCanBeEdited()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.pages(), "{ \"version\": 1, \"home\": \"main\", \"pages\": { \"main\": { \"keys\": [] }, \"apps\": { \"keys\": [] } } }"));
         QVERIFY(PagesEditor::assignApp(env.pages(), "apps", 0, "tool.desktop").ok);
         const PagesConfig config = configOf(env.pages());
@@ -206,7 +206,7 @@ private Q_SLOTS:
 
     void theScreenSectionAndDialsSurviveAnEdit()
     {
-        Environment env;
+        Environment const env;
         QVERIFY(writeFile(env.pages(), "{ \"version\": 1, \"home\": \"main\", \"pages\": { \"main\": { \"keys\": [] } },"
                                        " \"dials\": { \"1\": { \"press\": { \"type\": \"media\", \"command\": \"next\" } } },"
                                        " \"screen\": { \"now_playing\": \"playing-or-paused\", \"video_thumbnails\": false } }"));

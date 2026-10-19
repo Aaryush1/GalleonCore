@@ -131,14 +131,14 @@ private Q_SLOTS:
         FakePlayer player(name);
         QVERIFY(player.ok());
 
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QImage green(1600, 900, QImage::Format_RGB32);
         green.fill(QColor(30, 160, 60));
         QDir().mkpath(dir.filePath("wall/style"));
         QVERIFY(green.save(dir.filePath("wall/style/green.png")));
 
         auto fake = std::make_unique<FakeTransport>();
-        FakeTransport *transport = fake.get();
+        FakeTransport  const*transport = fake.get();
         galleon::StreamDeck deck(std::move(fake));
         QVERIFY(deck.open());
         ScreenRenderer wallpaperRenderer(WidgetsDir + "/WallpaperClock.qml");

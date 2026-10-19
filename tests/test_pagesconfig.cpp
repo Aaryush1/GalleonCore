@@ -357,7 +357,7 @@ private Q_SLOTS:
         const auto good = withThemes(QJsonArray{theme("Control", "main", "#ffffff"), theme("Sound", "main", "#E53935")});
         QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
         QCOMPARE(good.config->themes.size(), size_t(2));
-        QCOMPARE(good.config->themes[1].rgb, 0xE53935u);
+        QCOMPARE(good.config->themes[1].rgb, 0xE53935U);
         QCOMPARE(good.config->themes[0].page, QStringLiteral("main"));
 
         QVERIFY(!withThemes(QJsonArray{theme("X", "nowhere", "#ffffff")}).config.has_value()); // unknown page

@@ -82,7 +82,7 @@ private Q_SLOTS:
 
     void anIconFileOfTheUserFolderIsUsed()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QVERIFY(saveColour(dir.filePath("red.png"), Qt::red));
         const TileRenderer renderer(dir.path());
         const QImage tile = renderer.render(key("", "red.png"), {}, false);
@@ -93,7 +93,7 @@ private Q_SLOTS:
 
     void theIconDependsOnTheState()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QVERIFY(saveColour(dir.filePath("play.png"), Qt::green));
         QVERIFY(saveColour(dir.filePath("pause.png"), Qt::blue));
         KeyConfig config = key("", "play.png");
@@ -107,8 +107,8 @@ private Q_SLOTS:
 
     void anApplicationIconGivenByPathIsUsedAsAFallback()
     {
-        QTemporaryDir dir;
-        QTemporaryDir other;
+        QTemporaryDir const dir;
+        QTemporaryDir const other;
         QVERIFY(saveColour(other.filePath("app.png"), QColor(200, 100, 0)));
         const QString link = dir.filePath("current.png"); // like /snap/firefox/current/...
         QVERIFY(QFile::link(other.filePath("app.png"), link));
@@ -158,7 +158,7 @@ private Q_SLOTS:
 
     void anIconFileMustStillBeASaneImage()
     {
-        QTemporaryDir dir;
+        QTemporaryDir const dir;
         QFile bad(dir.filePath("bad.png"));
         QVERIFY(bad.open(QIODevice::WriteOnly));
         bad.write("not an image");
@@ -176,7 +176,7 @@ private Q_SLOTS:
 
     void iconsCannotLeaveTheFolder()
     {
-        QTemporaryDir outer;
+        QTemporaryDir const outer;
         QVERIFY(saveColour(outer.filePath("secret.png"), Qt::red));
         QDir().mkpath(outer.filePath("icons"));
         const TileRenderer renderer(outer.filePath("icons"));
@@ -187,8 +187,8 @@ private Q_SLOTS:
 
     void symbolicLinksAndBadFilesAreIgnored()
     {
-        QTemporaryDir outer;
-        QTemporaryDir dir;
+        QTemporaryDir const outer;
+        QTemporaryDir const dir;
         QVERIFY(saveColour(outer.filePath("target.png"), Qt::red));
         QVERIFY(QFile::link(outer.filePath("target.png"), dir.filePath("link.png")));
         QFile bad(dir.filePath("bad.png"));

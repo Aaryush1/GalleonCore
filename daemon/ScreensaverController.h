@@ -69,7 +69,7 @@ private:
     void onReadyRead();
     void onFinished(int exitCode, QProcess::ExitStatus status);
     void showFrame(const QByteArray &rgb);
-    [[nodiscard]] QString resolveVideo(const QString &path) const;
+    [[nodiscard]] QString resolveVideo(const QString &configured) const;
     void wake();
 
     galleon::StreamDeck *m_deck;

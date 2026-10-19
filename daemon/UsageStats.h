@@ -49,7 +49,7 @@ private:
     };
 
     void load();
-    bool save() const;
+    [[nodiscard]] bool save() const;
     void prune(qint64 nowSecs);
 
     QString m_file;

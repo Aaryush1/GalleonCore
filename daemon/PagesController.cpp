@@ -6,6 +6,7 @@
 #include "PageOrder.h"
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 
 #include <galleon/StreamDeck.h>
@@ -44,7 +45,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     , m_deck(deck)
     , m_media(media)
     , m_tiles(std::move(tiles))
-    , m_launcher([](const DesktopApp &app) { return DesktopEntries::launch(app); })
+    , m_mediaPresent(isMediaPresent(m_media->state())), m_launcher([](const DesktopApp &app) { return DesktopEntries::launch(app); })
     , m_steamLauncher([](int appid) {
         // A fixed program and one argument made of a whole number: nothing from outside goes in.
         const QString steam = QStandardPaths::findExecutable(QStringLiteral("steam"));
@@ -68,7 +69,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
 {
     m_clock.start();
     m_lastPressAt.fill(-ClickAfterMs * 4);
-    m_mediaPresent = isMediaPresent(m_media->state());
+    
     // The built-in pages: always valid, so there is always something to show.
     if (const auto fallback = parsePagesConfig(defaultPagesJson()); fallback.config)
         setConfig(*fallback.config);
@@ -485,7 +486,7 @@ void PagesController::releaseHeldKeys()
 
 const Theme *PagesController::currentTheme() const
 {
-    if (m_theme < 0 || m_theme >= static_cast<int>(m_config.themes.size()))
+    if (m_theme < 0 || std::cmp_greater_equal(m_theme, m_config.themes.size()))
         return nullptr;
     return &m_config.themes[static_cast<std::size_t>(m_theme)];
 }
@@ -724,8 +725,8 @@ void PagesController::onDialRotated(int dial, int steps)
         m_wallpaperReadyFallback.start(); // if the screen never answers, listen again after a moment
     }
     auto &recent = m_recentTurns[index];
-    std::rotate(recent.begin(), recent.begin() + 1, recent.end()); // the oldest slot is reused
-    recent.back() = {now, counted};
+    std::ranges::rotate(recent, recent.begin() + 1); // the oldest slot is reused
+    recent.back() = {.at=now, .steps=counted};
     if (dial == m_themeDial) {
         m_themeTimeout.start(); // in use: keep the mode
         stepTheme(counted);

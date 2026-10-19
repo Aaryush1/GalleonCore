@@ -22,7 +22,7 @@ namespace {
 
 EditResult failure(const QString &message)
 {
-    return {false, {message}};
+    return {.ok=false, .errors={message}};
 }
 
 // Reads the file (or the built-in pages when there is none), checks it, and
@@ -42,7 +42,7 @@ bool load(const QString &file, QJsonObject &root, bool &original, EditResult &er
     const PagesParseResult parsed = parsePagesConfig(bytes);
     if (!parsed.config) {
         // Never rewrite a file we do not understand: the user fixes it first.
-        error = {false, parsed.errors};
+        error = {.ok=false, .errors=parsed.errors};
         error.errors.prepend(QStringLiteral("the pages file has errors and was not changed:"));
         return false;
     }
@@ -73,7 +73,7 @@ bool pageKeys(QJsonObject &root, const QString &page, int key, QJsonArray &keys,
 void storeKeys(QJsonObject &root, const QString &page, QJsonArray keys)
 {
     QList<QJsonValue> sorted(keys.begin(), keys.end());
-    std::sort(sorted.begin(), sorted.end(), [](const QJsonValue &a, const QJsonValue &b) {
+    std::ranges::sort(sorted, [](const QJsonValue &a, const QJsonValue &b) {
         return a.toObject().value(QStringLiteral("key")).toInt() < b.toObject().value(QStringLiteral("key")).toInt();
     });
     QJsonArray ordered;
@@ -92,7 +92,7 @@ EditResult write(const QString &file, const QJsonObject &root, bool original)
     // What is written must be a valid pages file, like any other.
     const PagesParseResult check = parsePagesConfig(bytes);
     if (!check.config) {
-        EditResult result{false, check.errors};
+        EditResult result{.ok=false, .errors=check.errors};
         result.errors.prepend(QStringLiteral("the edit would make the file invalid, nothing was written:"));
         return result;
     }
@@ -112,7 +112,7 @@ EditResult write(const QString &file, const QJsonObject &root, bool original)
     out.setPermissions(permissions & ~QFile::WriteOther);
     if (!out.commit())
         return failure(QStringLiteral("cannot write %1: %2").arg(file, out.errorString()));
-    return {true, {}};
+    return {.ok=true, .errors={}};
 }
 
 } // namespace
