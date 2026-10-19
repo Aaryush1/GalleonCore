@@ -56,10 +56,9 @@ QImage throughputImage(const QSize &size, int frame)
 {
     QImage image(size, QImage::Format_RGB32);
     for (int y = 0; y < size.height(); ++y) {
-        auto *line = reinterpret_cast<QRgb *>(image.scanLine(y));
         for (int x = 0; x < size.width(); ++x) {
             const int noise = static_cast<int>(QRandomGenerator::global()->bounded(24U));
-            line[x] = qRgb((x + frame * 7) % 256, (y * 2 + frame * 3) % 256, ((x ^ y) + frame * 5 + noise) % 256);
+            image.setPixel(x, y, qRgb((x + frame * 7) % 256, (y * 2 + frame * 3) % 256, ((x ^ y) + frame * 5 + noise) % 256));
         }
     }
     return image;
@@ -232,12 +231,11 @@ bool renderSaverTo(const QString &pagesFile, const QString &pngFile, int videoNu
         return false;
     }
     const QByteArray raw = ffmpeg.readAllStandardOutput();
-    if (raw.size() != static_cast<qsizetype>(canvas.width()) * canvas.height() * 3) {
+    const QImage frame = galleond::ScreensaverSplitter::imageFromRgb888(raw, canvas);
+    if (frame.isNull()) {
         qCritical() << "galleond: FFmpeg gave an unexpected amount of data";
         return false;
     }
-    const QImage frame(reinterpret_cast<const uchar *>(raw.constData()), canvas.width(), canvas.height(), canvas.width() * 3,
-                       QImage::Format_RGB888);
     const auto parts = splitter.split(frame);
     if (!parts.isValid())
         return false;
@@ -252,7 +250,7 @@ bool renderSaverTo(const QString &pagesFile, const QString &pngFile, int videoNu
     const int left = (sheet.width() - gridWidth) / 2;
     for (int key = 0; key < galleon::protocol::KeyCount; ++key)
         painter.drawImage(left + ((key % 3) * (tile + gap)), galleon::protocol::ScreenHeight + 24 + ((key / 3) * (tile + gap)),
-                          parts.keys[static_cast<std::size_t>(key)]);
+                          parts.keys.at(static_cast<std::size_t>(key)));
     painter.end();
     return sheet.save(pngFile);
 }
@@ -368,8 +366,8 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
         }
     }
     for (int key = 0; key < galleon::protocol::KeyCount; ++key) {
-        const auto &configured = page.keys[static_cast<std::size_t>(key)];
-        QImage image = tiles.blank(tint);
+        const auto &configured = page.keys.at(static_cast<std::size_t>(key));
+        QImage image = galleond::TileRenderer::blank(tint);
         if (configured) {
             QString iconFile;
             const galleond::KeyConfig effective = galleond::TileRenderer::effectiveKey(

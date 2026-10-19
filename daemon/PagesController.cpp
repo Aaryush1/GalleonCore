@@ -6,6 +6,7 @@
 #include "PageOrder.h"
 
 #include <algorithm>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -68,7 +69,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     })
 {
     m_clock.start();
-    m_lastPressAt.fill(-ClickAfterMs * 4);
+    m_lastPressAt.fill(-static_cast<qint64>(ClickAfterMs) * 4);
     
     // The built-in pages: always valid, so there is always something to show.
     if (const auto fallback = parsePagesConfig(defaultPagesJson()); fallback.config)
@@ -234,7 +235,7 @@ const KeyConfig *PagesController::keyConfig(int key) const
     const Page *page = effectivePage();
     if (!page || key < 0 || key >= galleon::protocol::KeyCount)
         return nullptr;
-    const auto &configured = page->keys[static_cast<std::size_t>(key)];
+    const auto &configured = page->keys.at(static_cast<std::size_t>(key));
     return configured ? &*configured : nullptr;
 }
 
@@ -296,10 +297,13 @@ void PagesController::drawKey(int key, bool force)
         if (configured->action.type == ActionType::Media
             && (configured->action.command == MediaCommand::Shuffle || configured->action.command == MediaCommand::Repeat)) {
             const bool shuffle = configured->action.command == MediaCommand::Shuffle;
-            const int level = shuffle ? (m_media->shuffleOn() ? 1 : 0)
-                                      : (m_media->loopMode() == MediaController::Loop::None       ? 0
-                                         : m_media->loopMode() == MediaController::Loop::Playlist ? 1
-                                                                                                    : 2);
+            int level = 0; // shuffle: off, on; repeat: none, the playlist, the track
+            if (shuffle)
+                level = m_media->shuffleOn() ? 1 : 0;
+            else if (m_media->loopMode() == MediaController::Loop::Playlist)
+                level = 1;
+            else if (m_media->loopMode() != MediaController::Loop::None)
+                level = 2;
             active = level > 0;
             QStringList words = configured->stateLabels;
             if (words.isEmpty())
@@ -309,19 +313,19 @@ void PagesController::drawKey(int key, bool force)
             const QString word = words.value(std::min<qsizetype>(level, words.size() - 1));
             shown.label = (configured->label.isEmpty() ? word : configured->label + QLatin1Char(' ') + word).left(MaxLabelLength);
         }
-        image = m_tiles.render(shown, MediaController::stateName(m_media->state()), m_pressed[index], iconFile, tint,
+        image = m_tiles.render(shown, MediaController::stateName(m_media->state()), m_pressed.at(index), iconFile, tint,
                                key == m_highlightKey, active);
     } else {
-        image = m_tiles.blank(tint);
+        image = TileRenderer::blank(tint);
     }
 
-    if (!force && image == m_sent[index])
+    if (!force && image == m_sent.at(index))
         return;
     // A failed send is forgotten, so that the next redraw tries again.
     const bool sent = m_deck->setKeyImage(key, image);
     if (!sent && (m_failedSends++ % 20) == 0) // said now and then, not at every key
         qWarning() << "galleond: the picture of key" << key << "could not be sent to the module";
-    m_sent[index] = sent ? image : QImage();
+    m_sent.at(index) = sent ? image : QImage();
 }
 
 void PagesController::setSuspended(bool suspended)
@@ -462,17 +466,11 @@ void PagesController::onMediaChanged()
 
 bool PagesController::hasKeyActions(const PagesConfig &config)
 {
-    for (const Page &page : config.pages) {
-        for (const auto &key : page.keys) {
-            if (key && key->action.type == ActionType::Key)
-                return true;
-        }
-    }
-    for (const DialConfig &dial : config.dials) {
-        if (dial.press.type == ActionType::Key)
-            return true;
-    }
-    return false;
+    const auto isKey = [](const KeyConfig &key) { return key.action.type == ActionType::Key; };
+    const bool onAKey = std::ranges::any_of(config.pages, [&](const Page &page) {
+        return std::ranges::any_of(page.keys, [&](const auto &key) { return key && isKey(*key); });
+    });
+    return onAKey || std::ranges::any_of(config.dials, [](const DialConfig &dial) { return dial.press.type == ActionType::Key; });
 }
 
 void PagesController::releaseHeldKeys()
@@ -665,13 +663,13 @@ void PagesController::onKeyPressed(int key)
     if (!configured)
         return;
     const Action action = configured->action; // a copy: performing it may change the page
-    m_pressed[static_cast<std::size_t>(key)] = true;
+    m_pressed.at(static_cast<std::size_t>(key)) = true;
     drawKey(key, false);
     if (action.type == ActionType::Key) {
         // Held until the key is released, so a long press repeats as on a keyboard.
         if (m_injector) {
             if (const auto code = keyCodeForName(action.keyName); code && m_injector->key(*code, true))
-                m_heldKey[static_cast<std::size_t>(key)] = *code;
+                m_heldKey.at(static_cast<std::size_t>(key)) = *code;
         }
         return;
     }
@@ -682,10 +680,10 @@ void PagesController::onKeyReleased(int key)
 {
     if (m_suspended)
         return;
-    if (key < 0 || key >= galleon::protocol::KeyCount || !m_pressed[static_cast<std::size_t>(key)])
+    if (key < 0 || key >= galleon::protocol::KeyCount || !m_pressed.at(static_cast<std::size_t>(key)))
         return;
-    m_pressed[static_cast<std::size_t>(key)] = false;
-    if (int &held = m_heldKey[static_cast<std::size_t>(key)]; held != 0) {
+    m_pressed.at(static_cast<std::size_t>(key)) = false;
+    if (int &held = m_heldKey.at(static_cast<std::size_t>(key)); held != 0) {
         if (m_injector)
             m_injector->key(held, false);
         held = 0;
@@ -701,7 +699,7 @@ void PagesController::onDialRotated(int dial, int steps)
         return;
     const qint64 now = m_clock.elapsed();
     const auto index = static_cast<std::size_t>(dial);
-    if (now - m_lastPressAt[index] < ClickAfterMs) {
+    if (now - m_lastPressAt.at(index) < ClickAfterMs) {
         qInfo() << "galleond: dial" << dial << "step" << steps << "ignored: it is the click";
         return; // the click's own movement, not a turn
     }
@@ -724,8 +722,8 @@ void PagesController::onDialRotated(int dial, int steps)
         m_wallpaperBusy = true;
         m_wallpaperReadyFallback.start(); // if the screen never answers, listen again after a moment
     }
-    auto &recent = m_recentTurns[index];
-    std::ranges::rotate(recent, recent.begin() + 1); // the oldest slot is reused
+    auto &recent = m_recentTurns.at(index);
+    std::ranges::rotate(recent, std::next(recent.begin())); // the oldest slot is reused
     recent.back() = {.at=now, .steps=counted};
     if (dial == m_themeDial) {
         m_themeTimeout.start(); // in use: keep the mode
@@ -742,14 +740,14 @@ void PagesController::onDialRotated(int dial, int steps)
         Q_EMIT wallpaperStep(counted);
         return;
     }
-    perform(m_config.dials[static_cast<std::size_t>(dial)].turn, steps);
+    perform(m_config.dials.at(static_cast<std::size_t>(dial)).turn, steps);
 }
 
 void PagesController::onDialReleased(int dial)
 {
     if (dial < 0 || dial >= galleon::protocol::DialCount)
         return;
-    m_lastPressAt[static_cast<std::size_t>(dial)] = m_clock.elapsed(); // letting go moves it too
+    m_lastPressAt.at(static_cast<std::size_t>(dial)) = m_clock.elapsed(); // letting go moves it too
 }
 
 void PagesController::onDialPressed(int dial)
@@ -762,12 +760,12 @@ void PagesController::onDialPressed(int dial)
     const qint64 now = m_clock.elapsed();
     const auto index = static_cast<std::size_t>(dial);
     int wobble = 0;
-    for (RecentTurn &turn : m_recentTurns[index]) {
+    for (RecentTurn &turn : m_recentTurns.at(index)) {
         if (turn.steps != 0 && now - turn.at < ClickBeforeMs)
             wobble += turn.steps;
         turn = {};
     }
-    m_lastPressAt[index] = now;
+    m_lastPressAt.at(index) = now;
     if (wobble != 0 && (dial == m_themeDial || dial == m_wallpaperDial))
         qInfo() << "galleond: dial" << dial << "step" << wobble << "taken back: it came with the click";
     if (wobble != 0 && dial == m_themeDial)
@@ -775,7 +773,7 @@ void PagesController::onDialPressed(int dial)
     else if (wobble != 0 && dial == m_wallpaperDial)
         Q_EMIT wallpaperStep(-wobble);
     m_pressedDial = dial;
-    perform(m_config.dials[static_cast<std::size_t>(dial)].press);
+    perform(m_config.dials.at(static_cast<std::size_t>(dial)).press);
     m_pressedDial = -1;
 }
 

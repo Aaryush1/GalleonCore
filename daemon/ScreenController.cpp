@@ -31,7 +31,11 @@ constexpr int NormalQuality = 90;
 constexpr int PreviewIntervalMs = 20; // rest between two pictures while a dial turns fast (a picture takes about 45 ms)
 // Wake up just after the minute changes.
 constexpr int MinuteMarginMs = 50;
-const QString SettingWallpaper = QStringLiteral("wallpaper");
+const QString &settingWallpaper()
+{
+    static const QString key = QStringLiteral("wallpaper");
+    return key;
+}
 
 QSettings settings()
 {
@@ -131,7 +135,7 @@ QStringList ScreenController::Wallpapers() const
 
 void ScreenController::restore()
 {
-    const QString name = settings().value(SettingWallpaper).toString();
+    const QString name = settings().value(settingWallpaper()).toString();
     if (name.isEmpty())
         return;
     if (!m_catalog.find(name)) {
@@ -152,7 +156,7 @@ bool ScreenController::SetWallpaper(const QString &name)
     }
     m_wallpaper = name;
     qInfo().noquote() << "galleond: wallpaper" << name;
-    settings().setValue(SettingWallpaper, name);
+    settings().setValue(settingWallpaper(), name);
     Q_EMIT wallpaperChanged();
 
     const bool drawn = draw();
@@ -164,7 +168,7 @@ void ScreenController::ClearWallpaper()
 {
     m_minuteTimer.stop();
     m_wallpaper.clear();
-    settings().remove(SettingWallpaper);
+    settings().remove(settingWallpaper());
     Q_EMIT wallpaperChanged();
 }
 
@@ -310,7 +314,7 @@ void ScreenController::persistWallpaper()
 {
     // Written when the choice is made, not at each step of the dial.
     if (!m_wallpaper.isEmpty())
-        settings().setValue(SettingWallpaper, m_wallpaper);
+        settings().setValue(settingWallpaper(), m_wallpaper);
 }
 
 QVariantMap ScreenController::themeProperties() const

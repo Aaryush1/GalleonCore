@@ -46,7 +46,7 @@ public:
     static constexpr int MaxDepth = 16;
     static constexpr int MaxLibraryFolders = 16;
     static constexpr int MaxManifestsPerFolder = 500;
-    static constexpr qint64 MaxManifestBytes = 256 * 1024;
+    static constexpr qint64 MaxManifestBytes = qint64{256} * 1024;
 
     // The text file as a tree; nothing if it is malformed, too deep or too large.
     [[nodiscard]] static std::optional<VdfNode> parseVdf(const QByteArray &text);

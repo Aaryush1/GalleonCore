@@ -111,7 +111,7 @@ QColor TileRenderer::tintBackground(std::uint32_t rgb)
                             std::max(0.22F, colour.valueF() * 0.35F));
 }
 
-QImage TileRenderer::blank(qint64 tint) const
+QImage TileRenderer::blank(qint64 tint)
 {
     QImage image(Size, Size, QImage::Format_RGB32);
     image.fill(Qt::black);

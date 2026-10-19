@@ -92,7 +92,7 @@ void AppsBackend::reload()
         m_page = parsed.config->home;
     const Page &page = parsed.config->pages[m_page];
     for (int index = 0; index < galleon::protocol::KeyCount; ++index) {
-        const auto &key = page.keys[static_cast<std::size_t>(index)];
+        const auto &key = page.keys.at(static_cast<std::size_t>(index));
         QString kind = QStringLiteral("empty");
         QString label;
         QString icon;

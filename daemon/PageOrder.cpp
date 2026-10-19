@@ -68,10 +68,10 @@ ArrangedPage arrangePage(const Page &source, const UsageStats &usage, const Arra
     const auto fill = [&page](std::vector<KeyConfig> &candidates, int max) {
         std::size_t added = 0;
         for (std::size_t place = 0; place < page.keys.size() && std::cmp_less(added, max) && added < candidates.size(); ++place) {
-            if (page.keys[place])
+            if (page.keys.at(place))
                 continue;
             candidates[added].key = static_cast<int>(place);
-            page.keys[place] = candidates[added++];
+            page.keys.at(place) = candidates[added++];
         }
     };
 
@@ -133,7 +133,7 @@ ArrangedPage arrangePage(const Page &source, const UsageStats &usage, const Arra
         std::vector<std::size_t> places;
         std::vector<KeyConfig> keys;
         for (std::size_t place = 0; place < page.keys.size(); ++place) {
-            const auto &key = page.keys[place];
+            const auto &key = page.keys.at(place);
             if (key && (key->action.type == ActionType::App || key->action.type == ActionType::Steam)) {
                 places.push_back(place);
                 keys.push_back(*key);
@@ -144,7 +144,7 @@ ArrangedPage arrangePage(const Page &source, const UsageStats &usage, const Arra
         });
         for (std::size_t i = 0; i < places.size(); ++i) {
             keys[i].key = static_cast<int>(places[i]);
-            page.keys[places[i]] = keys[i];
+            page.keys.at(places[i]) = keys[i];
         }
         if (!keys.empty() && keyScore(keys.front(), usage, sources, now) > 0.0)
             result.highlightKey = static_cast<int>(places.front());

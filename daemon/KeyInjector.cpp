@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QStringList>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstring>
@@ -13,6 +14,8 @@
 #include <linux/input-event-codes.h>
 #include <linux/uinput.h>
 #include <sys/ioctl.h>
+#include <span>
+#include <string_view>
 #include <unistd.h>
 
 namespace galleond {
@@ -79,7 +82,9 @@ void UinputKeyboard::prepare()
     setup.id.vendor = 0x1b1c; // the Galleon's maker, so that the device is recognisable
     setup.id.product = 0x2b18;
     setup.id.version = 1;
-    std::strncpy(setup.name, "GalleonCore virtual keypad", UINPUT_MAX_NAME_SIZE - 1);
+    constexpr std::string_view DeviceName = "GalleonCore virtual keypad"; // the rest of setup.name stays zero
+    static_assert(DeviceName.size() < UINPUT_MAX_NAME_SIZE);
+    std::ranges::copy(DeviceName, std::span<char>(setup.name).begin());
     ok = ok && ioctl(fd, UI_DEV_SETUP, &setup) == 0 && ioctl(fd, UI_DEV_CREATE) == 0;
     if (!ok) {
         m_failed = true;

@@ -53,7 +53,12 @@ QByteArray jpegBytes(int width, int height, QColor colour)
 // prepared picture to its LAST argument (the output file).
 QString fakeFfmpeg(const QString &dir, const QString &picture, const QString &log, bool fail = false, bool garbage = false)
 {
-    const QString script = dir + "/fake-ffmpeg-" + (fail ? "fail" : garbage ? "garbage" : "ok");
+    const char *kind = "ok";
+    if (fail)
+        kind = "fail";
+    else if (garbage)
+        kind = "garbage";
+    const QString script = dir + "/fake-ffmpeg-" + kind;
     QByteArray text = "#!/bin/sh\nfor a in \"$@\"; do last=\"$a\"; echo \"$a\" >> '" + log.toUtf8() + "'; done\necho '--' >> '" + log.toUtf8() + "'\n";
     if (fail)
         text += "exit 1\n";

@@ -7,6 +7,7 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   cert-*,
   clang-analyzer-*,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-type-vararg,
@@ -26,11 +27,18 @@ Checks: >
   -readability-implicit-bool-conversion,
   -readability-function-cognitive-complexity,
   -readability-make-member-function-const,
-  -readability-redundant-access-specifiers
+  -readability-redundant-access-specifiers,
+  -misc-no-recursion
 # make-member-function-const would mark hardware-writing methods const,
 # because the transport is reached through a pointer.
 # redundant-access-specifiers does not know that 'private Q_SLOTS:' changes
 # what the access section means for moc, and its fix breaks the build.
+# Recursion is bounded where it exists: the Steam file parser has a depth
+# limit, and setThemeMode/setWallpaperMode call each other once with -1,
+# which leaves the mode without calling back.
+# NewDeleteLeaks does not model Qt parent ownership: it reports the D-Bus call
+# watchers that are children of their owner. Real leaks are caught by
+# LeakSanitizer in the sanitizer job.
 # Qt-owned QObjects (parent/child) are fine: owning-memory is disabled for
 # that reason. Raw new/delete is still caught by cppcoreguidelines-*.
 WarningsAsErrors: '*'

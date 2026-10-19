@@ -18,6 +18,7 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <array>
 #include <utility>
 
 namespace galleond {
@@ -31,10 +32,40 @@ constexpr int CallTimeoutMs = 1500;
 constexpr int ChangeDelayMs = 15; // bursts of notifications are read once
 constexpr int MaxPlayers = 16; // a session never has this many: bounds the polling
 
-const QString PlayerPath = QStringLiteral("/org/mpris/MediaPlayer2");
-const QString PlayerInterface = QStringLiteral("org.mpris.MediaPlayer2.Player");
-const QString RootInterface = QStringLiteral("org.mpris.MediaPlayer2");
-const QString PropertiesInterface = QStringLiteral("org.freedesktop.DBus.Properties");
+// Built on first use: a global QString has no place to catch what its constructor throws.
+const QString &playerPath()
+{
+    static const QString path = QStringLiteral("/org/mpris/MediaPlayer2");
+    return path;
+}
+const QString &playerInterface()
+{
+    static const QString name = QStringLiteral("org.mpris.MediaPlayer2.Player");
+    return name;
+}
+const QString &rootInterface()
+{
+    static const QString name = QStringLiteral("org.mpris.MediaPlayer2");
+    return name;
+}
+const QString &propertiesInterface()
+{
+    static const QString name = QStringLiteral("org.freedesktop.DBus.Properties");
+    return name;
+}
+
+// Calls `handler` with the finished call. The watcher is a child of `owner` (so it
+// goes with it) and is deleted once the handler has run.
+template <typename Handler>
+void whenDone(QObject *owner, const QDBusPendingCall &call, Handler handler)
+{
+    auto *watcher = new QDBusPendingCallWatcher(call, owner);
+    QObject::connect(watcher, &QDBusPendingCallWatcher::finished, owner,
+                     [watcher, handler = std::move(handler)] {
+                         watcher->deleteLater();
+                         handler(watcher);
+                     });
+}
 
 // "xesam:artist" is a list of strings by the specification, but some players
 // send a single string: both are accepted.
@@ -141,7 +172,7 @@ MprisController::MprisController(QDBusConnection bus, QString namePrefix, QObjec
     m_changeTimer.setSingleShot(true);
     m_changeTimer.setInterval(ChangeDelayMs);
     connect(&m_changeTimer, &QTimer::timeout, this, &MprisController::setPlayers);
-    m_bus.connect(QString(), PlayerPath, PropertiesInterface, QStringLiteral("PropertiesChanged"), this,
+    m_bus.connect(QString(), playerPath(), propertiesInterface(), QStringLiteral("PropertiesChanged"), this,
                   SLOT(onPropertiesChanged(QDBusMessage)));
     m_bus.connect(QStringLiteral("org.freedesktop.DBus"), QStringLiteral("/org/freedesktop/DBus"),
                   QStringLiteral("org.freedesktop.DBus"), QStringLiteral("NameOwnerChanged"), this,
@@ -187,11 +218,9 @@ QString MprisController::iconNameForDesktopEntry(const QString &desktopEntry)
 void MprisController::fetchIdentity(const QString &name)
 {
     // The root interface (org.mpris.MediaPlayer2) names the application.
-    QDBusMessage message = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("GetAll"));
+    QDBusMessage message = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("GetAll"));
     message << QStringLiteral("org.mpris.MediaPlayer2");
-    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message, CallTimeoutMs), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, name](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    whenDone(this, m_bus.asyncCall(message, CallTimeoutMs), [this, name](QDBusPendingCallWatcher *call) {
         const QDBusPendingReply<QVariantMap> reply = *call;
         auto player = m_players.find(name);
         if (reply.isError() || player == m_players.end())
@@ -213,9 +242,13 @@ QString MprisController::current() const
         const Player &chosen = m_players.value(best);
         const bool candidatePlaying = candidate.state == State::Playing;
         const bool chosenPlaying = chosen.state == State::Playing;
-        if (candidatePlaying != chosenPlaying ? candidatePlaying
-            : candidate.lastPlaying != chosen.lastPlaying ? candidate.lastPlaying > chosen.lastPlaying
-                                                          : it.key() < best)
+        // A player that plays beats one that does not, then the one that played last, then the name.
+        bool better = it.key() < best;
+        if (candidatePlaying != chosenPlaying)
+            better = candidatePlaying;
+        else if (candidate.lastPlaying != chosen.lastPlaying)
+            better = candidate.lastPlaying > chosen.lastPlaying;
+        if (better)
             best = it.key();
     }
     return best;
@@ -231,7 +264,7 @@ void MprisController::onPropertiesChanged(const QDBusMessage &message)
 {
     // Only the player interface matters; a track change sends several of these
     // at once, so they are joined and the players are read one time.
-    if (message.arguments().value(0).toString() == PlayerInterface && !m_players.isEmpty())
+    if (message.arguments().value(0).toString() == playerInterface() && !m_players.isEmpty())
         m_changeTimer.start();
 }
 
@@ -255,9 +288,7 @@ void MprisController::refreshNames()
                                                                   QStringLiteral("/org/freedesktop/DBus"),
                                                                   QStringLiteral("org.freedesktop.DBus"),
                                                                   QStringLiteral("ListNames"));
-    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(listNames, CallTimeoutMs), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    whenDone(this, m_bus.asyncCall(listNames, CallTimeoutMs), [this](QDBusPendingCallWatcher *call) {
         const QDBusPendingReply<QStringList> reply = *call;
         if (reply.isError())
             return;
@@ -303,11 +334,9 @@ void MprisController::setPlayers()
 void MprisController::refreshState(const QString &name)
 {
     // One GetAll gives the status, the metadata and the position together.
-    QDBusMessage message = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("GetAll"));
-    message << PlayerInterface;
-    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message, CallTimeoutMs), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, name](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    QDBusMessage message = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("GetAll"));
+    message << playerInterface();
+    whenDone(this, m_bus.asyncCall(message, CallTimeoutMs), [this, name](QDBusPendingCallWatcher *call) {
         auto player = m_players.find(name);
         if (player == m_players.end())
             return;
@@ -323,7 +352,11 @@ void MprisController::refreshState(const QString &name)
             player->track = trackFrom(properties);
             player->shuffle = properties.value(QStringLiteral("Shuffle")).toBool();
             const QString loop = properties.value(QStringLiteral("LoopStatus")).toString();
-            player->loop = loop == QLatin1String("Track") ? Loop::Track : loop == QLatin1String("Playlist") ? Loop::Playlist : Loop::None;
+            player->loop = Loop::None;
+            if (loop == QLatin1String("Track"))
+                player->loop = Loop::Track;
+            else if (loop == QLatin1String("Playlist"))
+                player->loop = Loop::Playlist;
         }
         if (player->state == State::Playing)
             player->lastPlaying = m_clock.elapsed();
@@ -334,8 +367,8 @@ void MprisController::refreshState(const QString &name)
         const bool trackChanged = !(track == m_reportedTrack);
         if (stateChanged || track.title != m_reportedTrack.title || track.artist != m_reportedTrack.artist
             || track.artUrl != m_reportedTrack.artUrl) {
-            static const char *const names[] = {"no player", "stopped", "paused", "playing"};
-            qInfo().noquote() << "galleond: player" << names[static_cast<int>(now)] << "-" << track.artist << "-" << track.title
+            static constexpr std::array<const char *, 4> names{"no player", "stopped", "paused", "playing"};
+            qInfo().noquote() << "galleond: player" << names.at(static_cast<std::size_t>(now)) << "-" << track.artist << "-" << track.title
                               << (track.artUrl.isEmpty() ? QStringLiteral("(no cover address)") : QStringLiteral("cover: ") + track.artUrl.left(100));
         }
         const bool extrasChanged = shuffleOn() != m_reportedShuffle || loopMode() != m_reportedLoop;
@@ -355,11 +388,9 @@ void MprisController::callPlayer(const QString &method, const QVariantList &argu
     const QString name = current();
     if (name.isEmpty())
         return;
-    QDBusMessage message = QDBusMessage::createMethodCall(name, PlayerPath, PlayerInterface, method);
+    QDBusMessage message = QDBusMessage::createMethodCall(name, playerPath(), playerInterface(), method);
     message.setArguments(arguments);
-    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message, CallTimeoutMs), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, name, method](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    whenDone(this, m_bus.asyncCall(message, CallTimeoutMs), [this, name, method](QDBusPendingCallWatcher *call) {
         if (call->isError())
             qWarning() << "galleond: the player" << name << "refused" << method << call->error().message();
         refreshState(name); // the state changed (or not): the icon must follow
@@ -392,22 +423,18 @@ void MprisController::changeProperty(const QString &interface, const QString &pr
     const QString name = current();
     if (name.isEmpty())
         return;
-    QDBusMessage get = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("Get"));
+    QDBusMessage get = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("Get"));
     get << interface << property;
-    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(get, CallTimeoutMs), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, name, interface, property, next](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    whenDone(this, m_bus.asyncCall(get, CallTimeoutMs), [this, name, interface, property, next](QDBusPendingCallWatcher *call) {
         const QDBusPendingReply<QDBusVariant> reply = *call;
         if (reply.isError())
             return; // the player has no such property: nothing to change
         const QVariant value = next(reply.value().variant());
         if (!value.isValid())
             return;
-        QDBusMessage set = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("Set"));
+        QDBusMessage set = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("Set"));
         set << interface << property << QVariant::fromValue(QDBusVariant(value));
-        auto *setWatcher = new QDBusPendingCallWatcher(m_bus.asyncCall(set, CallTimeoutMs), this);
-        connect(setWatcher, &QDBusPendingCallWatcher::finished, this, [this, name, property](QDBusPendingCallWatcher *done) {
-            done->deleteLater();
+        whenDone(this, m_bus.asyncCall(set, CallTimeoutMs), [this, name, property](QDBusPendingCallWatcher *done) {
             if (done->isError())
                 qWarning() << "galleond: the player" << name << "refused to change" << property << done->error().message();
             refreshState(name); // the key shows the new state at once, without waiting for the player to say so
@@ -429,22 +456,26 @@ MediaController::Loop MprisController::loopMode() const
 
 void MprisController::toggleShuffle()
 {
-    changeProperty(PlayerInterface, QStringLiteral("Shuffle"), [](const QVariant &v) { return QVariant(!v.toBool()); });
+    changeProperty(playerInterface(), QStringLiteral("Shuffle"), [](const QVariant &v) { return QVariant(!v.toBool()); });
 }
 
 void MprisController::cycleRepeat()
 {
     // None -> the whole playlist -> the track -> none, as a player's own repeat button does.
-    changeProperty(PlayerInterface, QStringLiteral("LoopStatus"), [](const QVariant &v) {
+    changeProperty(playerInterface(), QStringLiteral("LoopStatus"), [](const QVariant &v) {
         const QString now = v.toString();
-        return QVariant(now == QLatin1String("None") ? QStringLiteral("Playlist")
-                        : now == QLatin1String("Playlist") ? QStringLiteral("Track") : QStringLiteral("None"));
+        QString next = QStringLiteral("None");
+        if (now == QLatin1String("None"))
+            next = QStringLiteral("Playlist");
+        else if (now == QLatin1String("Playlist"))
+            next = QStringLiteral("Track");
+        return QVariant(next);
     });
 }
 
 void MprisController::toggleFullscreen()
 {
-    changeProperty(RootInterface, QStringLiteral("Fullscreen"), [](const QVariant &v) { return QVariant(!v.toBool()); });
+    changeProperty(rootInterface(), QStringLiteral("Fullscreen"), [](const QVariant &v) { return QVariant(!v.toBool()); });
 }
 
 void MprisController::raisePlayer()
@@ -452,10 +483,8 @@ void MprisController::raisePlayer()
     const QString name = current();
     if (name.isEmpty())
         return;
-    QDBusMessage const message = QDBusMessage::createMethodCall(name, PlayerPath, RootInterface, QStringLiteral("Raise"));
-    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(message, CallTimeoutMs), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [name](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    QDBusMessage const message = QDBusMessage::createMethodCall(name, playerPath(), rootInterface(), QStringLiteral("Raise"));
+    whenDone(this, m_bus.asyncCall(message, CallTimeoutMs), [name](QDBusPendingCallWatcher *call) {
         if (call->isError())
             qWarning() << "galleond: the player" << name << "cannot be brought to the front" << call->error().message();
     });
@@ -517,11 +546,9 @@ void MprisController::applyPendingVolume()
     // nothing is written).
     const int percent = std::exchange(m_pendingVolume, 0);
     m_volumeBusy = true;
-    QDBusMessage get = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("Get"));
-    get << PlayerInterface << QStringLiteral("Volume");
-    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(get, CallTimeoutMs), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, name, percent](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    QDBusMessage get = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("Get"));
+    get << playerInterface() << QStringLiteral("Volume");
+    whenDone(this, m_bus.asyncCall(get, CallTimeoutMs), [this, name, percent](QDBusPendingCallWatcher *call) {
         const QDBusPendingReply<QDBusVariant> reply = *call;
         bool ok = false;
         const double volume = reply.isError() ? 0.0 : reply.value().variant().toDouble(&ok);
@@ -531,11 +558,9 @@ void MprisController::applyPendingVolume()
             return;
         }
         const double target = std::clamp(volume + (percent / 100.0), 0.0, 1.0);
-        QDBusMessage set = QDBusMessage::createMethodCall(name, PlayerPath, PropertiesInterface, QStringLiteral("Set"));
-        set << PlayerInterface << QStringLiteral("Volume") << QVariant::fromValue(QDBusVariant(target));
-        auto *setWatcher = new QDBusPendingCallWatcher(m_bus.asyncCall(set, CallTimeoutMs), this);
-        connect(setWatcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *done) {
-            done->deleteLater();
+        QDBusMessage set = QDBusMessage::createMethodCall(name, playerPath(), propertiesInterface(), QStringLiteral("Set"));
+        set << playerInterface() << QStringLiteral("Volume") << QVariant::fromValue(QDBusVariant(target));
+        whenDone(this, m_bus.asyncCall(set, CallTimeoutMs), [this](QDBusPendingCallWatcher *) {
             m_volumeBusy = false;
             if (m_pendingVolume != 0)
                 applyPendingVolume(); // steps came in meanwhile

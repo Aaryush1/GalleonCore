@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <span>
 
 namespace galleond {
 
@@ -49,6 +50,23 @@ ScreensaverSplitter::ScreensaverSplitter(const ScreensaverConfig &config)
     m_valid = true;
 }
 
+QImage ScreensaverSplitter::imageFromRgb888(const QByteArray &rgb, const QSize &size)
+{
+    constexpr int BytesPerPixel = 3;
+    if (size.isEmpty() || rgb.size() != static_cast<qsizetype>(size.width()) * size.height() * BytesPerPixel)
+        return {};
+    QImage image(size, QImage::Format_RGB888);
+    if (image.isNull())
+        return {};
+    const auto stride = static_cast<qsizetype>(size.width()) * BytesPerPixel;
+    const QByteArrayView all(rgb);
+    for (int y = 0; y < size.height(); ++y) {
+        const std::span<uchar> row(image.scanLine(y), static_cast<std::size_t>(stride));
+        std::ranges::copy(all.sliced(static_cast<qsizetype>(y) * stride, stride), row.begin());
+    }
+    return image;
+}
+
 ScreensaverSplitter::Frames ScreensaverSplitter::split(const QImage &frame) const
 {
     Frames out;
@@ -71,7 +89,7 @@ ScreensaverSplitter::Frames ScreensaverSplitter::split(const QImage &frame) cons
     grid.gapYMm = m_config.gapYMm;
     const auto rects = galleon::layout::keyRects(grid, {.x=m_gridX, .y=m_gridY, .width=grid.widthMm(), .height=grid.heightMm()});
     for (std::size_t i = 0; i < rects.size() && i < out.keys.size(); ++i) {
-        out.keys[i] = crop(frame, rects[i].x, rects[i].y, rects[i].width, rects[i].height, scale,
+        out.keys.at(i) = crop(frame, rects[i].x, rects[i].y, rects[i].width, rects[i].height, scale,
                            QSize(galleon::protocol::KeyImageSize, galleon::protocol::KeyImageSize));
     }
     return out;

@@ -55,7 +55,7 @@ public:
     [[nodiscard]] static QImage loadIconFile(const QString &path, int size);
 
     // The 160 x 160 picture of an empty key.
-    [[nodiscard]] QImage blank(qint64 tint = -1) const;
+    [[nodiscard]] static QImage blank(qint64 tint = -1);
 
 private:
     [[nodiscard]] QImage loadIcon(const QString &name, int size) const;

@@ -25,7 +25,7 @@ public:
     static constexpr double HalfLifeDays = 30.0;
     static constexpr int MaxEntries = 200;
     static constexpr int MaxIdLength = 200;
-    static constexpr qint64 MaxFileBytes = 256 * 1024;
+    static constexpr qint64 MaxFileBytes = qint64{256} * 1024;
 
     // `file` is read now and written at each record(); empty: memory only (tests).
     explicit UsageStats(QString file = {});

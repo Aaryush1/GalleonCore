@@ -94,7 +94,7 @@ ScreenRenderer::ScreenRenderer(const QString &widgetFile)
         qWarning() << "galleond: the screen widget is not an Item:" << widgetFile;
         return;
     }
-    object.release();
+    [[maybe_unused]] const QObject *released = object.release(); // owned by m_impl->root from here on
     m_impl->root.reset(item);
     m_impl->root->setParentItem(m_impl->window->contentItem());
     // The scene is driven by hand: no timer inside the widget.

@@ -59,7 +59,7 @@ inline constexpr int KeyImageSize = 160;
 
 // Limit on a JPEG we accept to cut into reports: a 720 x 384 frame is far
 // below it, and the part counter is 16 bits.
-inline constexpr std::size_t MaxJpegSize = 4 * 1024 * 1024;
+inline constexpr std::size_t MaxJpegSize = std::size_t{4} * 1024 * 1024;
 
 struct InputEvent
 {

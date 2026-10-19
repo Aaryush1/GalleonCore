@@ -19,9 +19,18 @@ namespace galleond {
 
 namespace {
 
-const QRegularExpression IdPattern(QStringLiteral("^[A-Za-z0-9._-]{1,150}\\.desktop$"));
-const QRegularExpression IconPattern(QStringLiteral("^[A-Za-z0-9._-]{1,100}$"));
-constexpr qint64 MaxDesktopFileBytes = 64 * 1024;
+// Built on first use: a global of a type that can throw would have no place to be caught.
+const QRegularExpression &idPattern()
+{
+    static const QRegularExpression pattern(QStringLiteral("^[A-Za-z0-9._-]{1,150}\\.desktop$"));
+    return pattern;
+}
+const QRegularExpression &iconPattern()
+{
+    static const QRegularExpression pattern(QStringLiteral("^[A-Za-z0-9._-]{1,100}$"));
+    return pattern;
+}
+constexpr qint64 MaxDesktopFileBytes = qint64{64} * 1024;
 constexpr int MaxListed = 2000;
 
 QStringList applicationFolders()
@@ -36,7 +45,7 @@ bool DesktopEntries::isValidReference(const QString &desktop)
 {
     if (desktop.size() > 200)
         return false;
-    if (IdPattern.match(desktop).hasMatch())
+    if (idPattern().match(desktop).hasMatch())
         return true;
     // An absolute path: a .desktop file, no ".." part, no control character.
     if (!desktop.startsWith(QLatin1Char('/')) || !desktop.endsWith(QStringLiteral(".desktop")))
@@ -47,7 +56,9 @@ bool DesktopEntries::isValidReference(const QString &desktop)
 }
 
 // The text after `key=` on the first such line of the [Desktop Entry] group, as written.
-static QString rawValue(const QString &path, const QString &key)
+namespace {
+
+QString rawValue(const QString &path, const QString &key)
 {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
@@ -65,6 +76,8 @@ static QString rawValue(const QString &path, const QString &key)
     }
     return {};
 }
+
+} // namespace
 
 DesktopApp DesktopEntries::read(const QString &file, const QString &id)
 {
@@ -110,7 +123,7 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
         app.name = info.completeBaseName();
 
     const QString icon = settings.value(QStringLiteral("Icon")).toString().trimmed();
-    if (IconPattern.match(icon).hasMatch()) {
+    if (iconPattern().match(icon).hasMatch()) {
         app.icon = icon; // a name of the icon theme
     } else if (icon.startsWith(QLatin1Char('/')) && icon.size() <= 400 && !icon.contains(QStringLiteral(".."))
                && std::ranges::none_of(icon, [](QChar c) { return c.unicode() < 0x20; })) {
@@ -169,7 +182,7 @@ QList<DesktopApp> DesktopEntries::list()
             if (DesktopApp app = read(path, id); app.isValid()) {
                 // An ID with a space or another odd character cannot be written in
                 // a pages file: such an application is named by its file instead.
-                if (!IdPattern.match(app.id).hasMatch() && isValidReference(app.file))
+                if (!idPattern().match(app.id).hasMatch() && isValidReference(app.file))
                     app.id = app.file;
                 apps.append(app);
             }
@@ -197,7 +210,7 @@ bool DesktopEntries::launch(const DesktopApp &app)
     if (!gio.isEmpty())
         return QProcess::startDetached(gio, {QStringLiteral("launch"), app.file});
     const QString gtk = QStandardPaths::findExecutable(QStringLiteral("gtk-launch"));
-    if (!gtk.isEmpty() && IdPattern.match(app.id).hasMatch())
+    if (!gtk.isEmpty() && idPattern().match(app.id).hasMatch())
         return QProcess::startDetached(gtk, {app.id});
     for (const QString &name : {QStringLiteral("kioclient6"), QStringLiteral("kioclient5"), QStringLiteral("kioclient")}) {
         const QString kio = QStandardPaths::findExecutable(name);

@@ -35,15 +35,15 @@ InputResult decodeKeys(std::span<const std::uint8_t> report, InputState &state)
         const std::uint8_t byte = report[InputHeaderSize + static_cast<std::size_t>(i)];
         if (byte > 1)
             return invalid();
-        pressed[static_cast<std::size_t>(i)] = byte == 1;
+        pressed.at(static_cast<std::size_t>(i)) = byte == 1;
     }
 
     InputResult result{.status=InputStatus::Ok, .events={}};
     for (int i = 0; i < KeyCount; ++i) {
         const auto index = static_cast<std::size_t>(i);
-        if (pressed[index] == state.keys[index])
+        if (pressed.at(index) == state.keys.at(index))
             continue;
-        result.events.push_back({pressed[index] ? InputEvent::Type::KeyPressed : InputEvent::Type::KeyReleased, i, 0});
+        result.events.push_back({pressed.at(index) ? InputEvent::Type::KeyPressed : InputEvent::Type::KeyReleased, i, 0});
     }
     state.keys = pressed;
     return result;
@@ -63,13 +63,13 @@ InputResult decodeDials(std::span<const std::uint8_t> report, InputState &state)
         for (std::size_t i = 0; i < DialCount; ++i) {
             if (data[i] > 1)
                 return invalid();
-            pressed[i] = data[i] == 1;
+            pressed.at(i) = data[i] == 1;
         }
         for (std::size_t i = 0; i < DialCount; ++i) {
-            if (pressed[i] == state.dialButtons[i])
+            if (pressed.at(i) == state.dialButtons.at(i))
                 continue;
             result.events.push_back(
-                {pressed[i] ? InputEvent::Type::DialPressed : InputEvent::Type::DialReleased, static_cast<int>(i), 0});
+                {pressed.at(i) ? InputEvent::Type::DialPressed : InputEvent::Type::DialReleased, static_cast<int>(i), 0});
         }
         state.dialButtons = pressed;
         return result;
@@ -77,13 +77,14 @@ InputResult decodeDials(std::span<const std::uint8_t> report, InputState &state)
     if (kind == DialSubRotation) {
         std::array<int, DialCount> steps{};
         for (std::size_t i = 0; i < DialCount; ++i) {
-            steps[i] = static_cast<std::int8_t>(data[i]);
-            if (steps[i] > MaxDialSteps || steps[i] < -MaxDialSteps)
+            // Two's complement byte, read without going through a signed char.
+            steps.at(i) = data[i] < 0x80 ? int{data[i]} : int{data[i]} - 256;
+            if (steps.at(i) > MaxDialSteps || steps.at(i) < -MaxDialSteps)
                 return invalid();
         }
         for (std::size_t i = 0; i < DialCount; ++i) {
-            if (steps[i] != 0)
-                result.events.push_back({InputEvent::Type::DialRotated, static_cast<int>(i), steps[i]});
+            if (steps.at(i) != 0)
+                result.events.push_back({InputEvent::Type::DialRotated, static_cast<int>(i), steps.at(i)});
         }
         return result;
     }

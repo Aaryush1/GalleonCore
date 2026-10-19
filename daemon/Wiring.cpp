@@ -16,7 +16,11 @@ void connectPagesToScreen(PagesController &pages, ScreenController &screen)
     const auto showState = [p, s] {
         const Theme *theme = p->currentTheme();
         s->setTheme(theme ? theme->name : QString(), theme ? theme->rgb : 0, p->themeMode());
-        const std::uint32_t bar = p->wallpaperMode() ? 0xff00ff : p->themeMode() && theme ? theme->rgb : 0xffffff;
+        std::uint32_t bar = 0xffffff;
+        if (p->wallpaperMode())
+            bar = 0xff00ff;
+        else if (p->themeMode() && theme)
+            bar = theme->rgb;
         s->setBottomBar(bar, p->wallpaperMode());
     };
     for (auto signal : {&PagesController::themeChanged, &PagesController::themeModeChanged,

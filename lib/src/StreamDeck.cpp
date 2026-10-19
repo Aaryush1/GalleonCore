@@ -12,6 +12,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <iterator>
+#include <span>
+#include <vector>
 
 namespace galleon {
 
@@ -47,6 +51,26 @@ bool writeAll(Transport &transport, const std::vector<std::vector<std::uint8_t>>
             return false;
     }
     return true;
+}
+
+// Bytes of a Qt buffer as the unsigned bytes the protocol layer takes (a copy:
+// no cast of the buffer's pointer, no pointer arithmetic).
+std::vector<std::uint8_t> toBytes(const QByteArray &data)
+{
+    std::vector<std::uint8_t> bytes;
+    bytes.reserve(static_cast<std::size_t>(data.size()));
+    std::ranges::transform(QByteArrayView(data), std::back_inserter(bytes),
+                           [](char c) { return static_cast<std::uint8_t>(c); });
+    return bytes;
+}
+
+// The first `most` bytes of a report, as hexadecimal text for the log.
+QByteArray hexHead(std::span<const std::uint8_t> report, std::size_t most)
+{
+    QByteArray head;
+    for (const std::uint8_t byte : report.first(std::min(report.size(), most)))
+        head.append(static_cast<char>(byte));
+    return head.toHex(' ');
 }
 } // namespace
 
@@ -107,8 +131,7 @@ bool StreamDeck::setKeyImage(int key, const QImage &image, bool flush)
     const QByteArray jpeg = encodeJpeg(image, protocol::KeyImageSize, protocol::KeyImageSize);
     if (jpeg.isEmpty())
         return false;
-    const auto bytes = std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(jpeg.constData()),
-                                                     static_cast<std::size_t>(jpeg.size()));
+    const std::vector<std::uint8_t> bytes = toBytes(jpeg);
     const auto reports = protocol::keyImageReports(key, bytes);
     // Twice: the module shows a picture when the next transfer follows it (measured, see StreamDeck.h).
     return writeAll(*m_transport, reports) && (!flush || writeAll(*m_transport, reports));
@@ -121,8 +144,7 @@ bool StreamDeck::setScreenImage(const QImage &image, int quality, bool flush)
     const QByteArray jpeg = encodeJpeg(image, protocol::ScreenWidth, protocol::ScreenHeight, quality);
     if (jpeg.isEmpty())
         return false;
-    const auto bytes = std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(jpeg.constData()),
-                                                     static_cast<std::size_t>(jpeg.size()));
+    const std::vector<std::uint8_t> bytes = toBytes(jpeg);
     const auto reports = protocol::screenImageReports(bytes, 0, 0, protocol::ScreenWidth, protocol::ScreenHeight);
     // Twice: the module shows a picture when the next transfer follows it (measured, see StreamDeck.h).
     return writeAll(*m_transport, reports) && (!flush || writeAll(*m_transport, reports));
@@ -197,16 +219,14 @@ bool StreamDeck::pollOneReport()
     if (m_traceInput) {
         static constexpr std::array<const char *, 3> names{"ok", "ignored", "invalid"};
         qInfo().noquote() << "input report" << names.at(static_cast<std::size_t>(result.status)) << "["
-                          << QByteArray(reinterpret_cast<const char *>(report.data()),
-                                        static_cast<qsizetype>(std::min<std::size_t>(report.size(), 20)))
-                                 .toHex(' ')
+                          << hexHead(report, 20)
                           << "]";
     }
     if (result.status == protocol::InputStatus::Invalid) {
         // Dropped, and said: the first ones, then one in a hundred, so that a
         // misbehaving device cannot flood the log.
         if (m_invalidReports++ % 100 == 0)
-            qWarning() << "galleon: malformed input report dropped, first bytes" << QByteArray(reinterpret_cast<const char *>(report.data()), static_cast<qsizetype>(std::min<std::size_t>(report.size(), 8))).toHex(' ');
+            qWarning() << "galleon: malformed input report dropped, first bytes" << hexHead(report, 8);
         return true;
     }
     for (const auto &event : result.events)

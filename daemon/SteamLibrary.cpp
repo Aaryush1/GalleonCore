@@ -13,6 +13,7 @@
 #include <QStandardPaths>
 
 #include <algorithm>
+#include <cstdint>
 
 namespace galleond {
 
@@ -38,7 +39,7 @@ public:
     }
 
 private:
-    enum class Token { String, Open, Close, End, Error };
+    enum class Token : std::uint8_t { String, Open, Close, End, Error };
 
     Token next(QString &out)
     {
@@ -72,7 +73,11 @@ private:
             char d = m_text.at(m_pos++);
             if (d == '\\' && m_pos < m_text.size()) {
                 const char e = m_text.at(m_pos++);
-                d = e == 'n' ? '\n' : e == 't' ? '\t' : e; // \\ and \" and anything else: the character
+                d = e; // \\ and \" and anything else: the character itself
+                if (e == 'n')
+                    d = '\n';
+                else if (e == 't')
+                    d = '\t';
             }
             bytes.append(d);
             if (bytes.size() > 4096)

@@ -13,18 +13,61 @@
 #include <QRegularExpression>
 #include <QSet>
 
+#include <array>
 #include <cmath>
+#include <optional>
 
 namespace galleond {
 
 namespace {
 
-const QRegularExpression PageNamePattern(QStringLiteral("^[a-z0-9_-]{1,32}$"));
+// Built on first use: a global of a type that can throw would have no place to be caught.
+const QRegularExpression &pageNamePattern()
+{
+    static const QRegularExpression pattern(QStringLiteral("^[a-z0-9_-]{1,32}$"));
+    return pattern;
+}
+
 // An icon is a theme icon name or a file name next to the pages file: no slash,
 // so no path can leave that folder.
-const QRegularExpression IconNamePattern(QStringLiteral("^[A-Za-z0-9._-]{1,64}$"));
+const QRegularExpression &iconNamePattern()
+{
+    static const QRegularExpression pattern(QStringLiteral("^[A-Za-z0-9._-]{1,64}$"));
+    return pattern;
+}
 
-const QRegularExpression ThemeColorPattern(QStringLiteral("^#[0-9A-Fa-f]{6}$"));
+const QRegularExpression &themeColorPattern()
+{
+    static const QRegularExpression pattern(QStringLiteral("^#[0-9A-Fa-f]{6}$"));
+    return pattern;
+}
+
+// The media commands that take nothing else: the JSON name, then the command.
+std::optional<MediaCommand> plainMediaCommand(const QString &name)
+{
+    struct Entry
+    {
+        QLatin1StringView name;
+        MediaCommand command = MediaCommand::PlayPause;
+    };
+    static constexpr std::array<Entry, 10> Plain{{
+        {.name = QLatin1StringView("play-pause"), .command = MediaCommand::PlayPause},
+        {.name = QLatin1StringView("next"), .command = MediaCommand::Next},
+        {.name = QLatin1StringView("previous"), .command = MediaCommand::Previous},
+        {.name = QLatin1StringView("stop"), .command = MediaCommand::Stop},
+        {.name = QLatin1StringView("shuffle"), .command = MediaCommand::Shuffle},
+        {.name = QLatin1StringView("repeat"), .command = MediaCommand::Repeat},
+        {.name = QLatin1StringView("mute"), .command = MediaCommand::Mute},
+        {.name = QLatin1StringView("raise"), .command = MediaCommand::Raise},
+        {.name = QLatin1StringView("fullscreen"), .command = MediaCommand::Fullscreen},
+        {.name = QLatin1StringView("restart"), .command = MediaCommand::Restart},
+    }};
+    for (const Entry &entry : Plain) {
+        if (name == entry.name)
+            return entry.command;
+    }
+    return std::nullopt;
+}
 
 struct Parser
 {
@@ -77,7 +120,7 @@ struct Parser
         QString name;
         if (!text(value, path, MaxNameLength, name))
             return false;
-        if (!IconNamePattern.match(name).hasMatch()) {
+        if (!iconNamePattern().match(name).hasMatch()) {
             error(path, QStringLiteral("must be an icon name or a file name (letters, digits, . _ -), no path"));
             return false;
         }
@@ -205,23 +248,11 @@ struct Parser
 
         const QString command = object.value(QStringLiteral("command")).toString();
         out.type = ActionType::Media;
-        if (command == QLatin1String("play-pause") || command == QLatin1String("next") || command == QLatin1String("previous")
-            || command == QLatin1String("stop") || command == QLatin1String("shuffle") || command == QLatin1String("repeat")
-            || command == QLatin1String("mute") || command == QLatin1String("raise") || command == QLatin1String("fullscreen")
-            || command == QLatin1String("restart")) {
+        if (const std::optional<MediaCommand> simple = plainMediaCommand(command)) {
             rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("command")}, path);
             if (turnAction)
                 error(path, QStringLiteral("a dial turn needs a media volume or seek action"));
-            out.command = command == QLatin1String("next")         ? MediaCommand::Next
-                          : command == QLatin1String("previous")   ? MediaCommand::Previous
-                          : command == QLatin1String("stop")       ? MediaCommand::Stop
-                          : command == QLatin1String("shuffle")    ? MediaCommand::Shuffle
-                          : command == QLatin1String("repeat")     ? MediaCommand::Repeat
-                          : command == QLatin1String("mute")       ? MediaCommand::Mute
-                          : command == QLatin1String("raise")      ? MediaCommand::Raise
-                          : command == QLatin1String("fullscreen") ? MediaCommand::Fullscreen
-                          : command == QLatin1String("restart")    ? MediaCommand::Restart
-                                                                    : MediaCommand::PlayPause;
+            out.command = *simple;
         } else if (command == QLatin1String("volume")) {
             rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("command"), QStringLiteral("step")}, path);
             out.command = MediaCommand::Volume;
@@ -255,7 +286,7 @@ struct Parser
         if (!integer(object.value(QStringLiteral("key")), 0, galleon::protocol::KeyCount - 1, path + QStringLiteral(".key"),
                      config.key))
             return;
-        if (page.keys[static_cast<std::size_t>(config.key)]) {
+        if (page.keys.at(static_cast<std::size_t>(config.key))) {
             error(path + QStringLiteral(".key"), QStringLiteral("key %1 is already used on this page").arg(config.key));
             return;
         }
@@ -278,7 +309,7 @@ struct Parser
                 }
             }
         }
-        page.keys[static_cast<std::size_t>(config.key)] = config;
+        page.keys.at(static_cast<std::size_t>(config.key)) = config;
     }
 
     void pages(const QJsonValue &value, PagesConfig &config)
@@ -293,7 +324,7 @@ struct Parser
 
         for (auto it = all.begin(); it != all.end(); ++it) {
             const QString path = QStringLiteral("pages.") + it.key().left(MaxNameLength);
-            if (!PageNamePattern.match(it.key()).hasMatch()) {
+            if (!pageNamePattern().match(it.key()).hasMatch()) {
                 error(path, QStringLiteral("a page name is 1 to 32 characters of a-z, 0-9, _ or -"));
                 continue;
             }
@@ -381,7 +412,7 @@ struct Parser
             QString color;
             if (!text(object.value(QStringLiteral("color")), path + QStringLiteral(".color"), 7, color)) {
                 ok = false;
-            } else if (!ThemeColorPattern.match(color).hasMatch()) {
+            } else if (!themeColorPattern().match(color).hasMatch()) {
                 error(path + QStringLiteral(".color"), QStringLiteral("must be a colour such as #00bcd4"));
                 ok = false;
             } else {
@@ -536,9 +567,13 @@ struct Parser
                                      && text != QLatin1String("never")))
                 error(QStringLiteral("screen.now_playing"), QStringLiteral("must be playing, playing-or-paused or never"));
             else
-                config.screen.nowPlaying = text == QLatin1String("never")               ? NowPlayingMode::Never
-                                           : text == QLatin1String("playing-or-paused") ? NowPlayingMode::PlayingOrPaused
-                                                                                         : NowPlayingMode::Playing;
+            {
+                config.screen.nowPlaying = NowPlayingMode::Playing;
+                if (text == QLatin1String("never"))
+                    config.screen.nowPlaying = NowPlayingMode::Never;
+                else if (text == QLatin1String("playing-or-paused"))
+                    config.screen.nowPlaying = NowPlayingMode::PlayingOrPaused;
+            }
         }
         if (object.contains(QStringLiteral("wallpaper_step_delay_ms")))
             integer(object.value(QStringLiteral("wallpaper_step_delay_ms")), 0, 5000,
@@ -584,7 +619,7 @@ struct Parser
             }
             const QJsonObject dialObject = object.value(name).toObject();
             rejectUnknown(dialObject, {QStringLiteral("turn"), QStringLiteral("press")}, path);
-            DialConfig &target = config.dials[static_cast<std::size_t>(dial)];
+            DialConfig &target = config.dials.at(static_cast<std::size_t>(dial));
             if (dialObject.contains(QStringLiteral("turn"))) {
                 action(dialObject.value(QStringLiteral("turn")), path + QStringLiteral(".turn"), target.turn, true);
                 if (target.turn.type == ActionType::Media && target.turn.command != MediaCommand::Volume

@@ -252,15 +252,14 @@ void ScreensaverController::showFrame(const QByteArray &rgb)
     if (!m_active || !m_splitter)
         return;
     const QSize canvas = m_splitter->canvasSize();
-    const QImage frame(reinterpret_cast<const uchar *>(rgb.constData()), canvas.width(), canvas.height(),
-                       canvas.width() * 3, QImage::Format_RGB888);
+    const QImage frame = ScreensaverSplitter::imageFromRgb888(rgb, canvas);
     const ScreensaverSplitter::Frames parts = m_splitter->split(frame);
     if (!parts.isValid())
         return;
     // A stream of pictures: each one is shown when the next arrives, so none is sent twice.
     bool ok = m_deck->setScreenImage(parts.screen, 85, false);
     for (int key = 0; key < galleon::protocol::KeyCount; ++key)
-        ok = m_deck->setKeyImage(key, parts.keys[static_cast<std::size_t>(key)], false) && ok;
+        ok = m_deck->setKeyImage(key, parts.keys.at(static_cast<std::size_t>(key)), false) && ok;
     if (ok) {
         m_sendFailures = 0;
     } else if (++m_sendFailures >= MaxSendFailures) {

@@ -42,6 +42,10 @@ public:
     // Empty frames when the picture is null or the splitter is not valid.
     [[nodiscard]] Frames split(const QImage &frame) const;
 
+    // A picture from `rgb`, 3 bytes per pixel in rows without padding, `size`
+    // large; null when the amount of data is not exactly that.
+    [[nodiscard]] static QImage imageFromRgb888(const QByteArray &rgb, const QSize &size);
+
 private:
     bool m_valid = false;
     QSize m_canvas;

@@ -29,8 +29,10 @@ VideoThumbnails::VideoThumbnails(QString cacheFolder, const QString& ffmpeg, QOb
     : QObject(parent)
     , m_folder(std::move(cacheFolder))
 {
-    m_program = QFileInfo(ffmpeg).isAbsolute() ? (QFileInfo(ffmpeg).isExecutable() ? ffmpeg : QString())
-                                                : QStandardPaths::findExecutable(ffmpeg);
+    if (!QFileInfo(ffmpeg).isAbsolute())
+        m_program = QStandardPaths::findExecutable(ffmpeg);
+    else if (QFileInfo(ffmpeg).isExecutable())
+        m_program = ffmpeg;
     m_nice = QStandardPaths::findExecutable(QStringLiteral("nice"));
     if (m_program.isEmpty()) {
         qInfo() << "galleond: ffmpeg not found: no thumbnails for videos";

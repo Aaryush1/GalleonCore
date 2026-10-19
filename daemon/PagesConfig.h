@@ -190,7 +190,7 @@ struct PagesParseResult
     QStringList errors;                // one line each, with the path of the field
 };
 
-inline constexpr qsizetype MaxPagesFileBytes = 256 * 1024;
+inline constexpr qsizetype MaxPagesFileBytes = qsizetype{256} * 1024;
 inline constexpr int MaxPages = 32;
 inline constexpr int MaxLabelLength = 24;
 inline constexpr int MaxNameLength = 64;
