@@ -502,15 +502,21 @@ private Q_SLOTS:
                                     WidgetsDir + "/WallpaperClock.qml");
         QVERIFY(controller.SetWallpaper("style/green.png"));
         const std::size_t before = f.frames();
-        for (int i = 0; i < 9; ++i) // nine steps in a row, as a dial turned fast gives
+        controller.stepWallpaper(1); // the first one answers at once
+        QVERIFY(f.frames() > before);
+        for (int i = 1; i < 9; ++i) // nine steps in a row, as a dial turned fast gives
             controller.stepWallpaper(1);
         QCOMPARE(controller.wallpaper(), QStringLiteral("style/red.png")); // 9 steps over 2 wallpapers: odd, so the other one
-        QTRY_VERIFY_WITH_TIMEOUT(f.frames() > before, 2000);
-        QTest::qWait(300);
-        QCOMPARE(f.frames(), before + 1); // one picture for the whole burst
-        QVERIFY(near(f.lastScreen().pixel(690, 200), qRgb(200, 30, 30)));
+        QVERIFY(f.frames() > before); // the first step is drawn at once, without waiting
+        QTest::qWait(400);
+        QVERIFY(f.frames() <= before + 3); // the rest of the burst is gathered
+        QVERIFY(near(f.lastScreen().pixel(690, 200), qRgb(200, 30, 30))); // and it ends on the last wallpaper
+        // The choice is saved when it is made, not at each step.
+        controller.setBottomBar(0xff00ff, true);
+        controller.setBottomBar(0xffffff, false);
         QSettings settings(QStringLiteral("galleoncore"), QStringLiteral("galleond"));
-        QCOMPARE(settings.value("wallpaper").toString(), QStringLiteral("style/red.png")); // written at the end of the burst
+        settings.sync();
+        QCOMPARE(settings.value("wallpaper").toString(), QStringLiteral("style/red.png"));
     }
 
     void aCountdownIsShownWhileAChosenWallpaperIsKept()

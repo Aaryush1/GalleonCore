@@ -147,6 +147,8 @@ private:
     int m_countdown = 0; // seconds left, shown over the wallpaper; 0 = none
     QTimer m_previewTimer; // groups the wallpaper steps of a turning dial into few pictures
     void showStepped();
+    void persistWallpaper();
+    bool m_previewPending = false;
     QTimer m_deckTimer;
     bool m_wasAvailable = false;
 };

@@ -155,6 +155,7 @@ private:
     QTimer m_themeTimeout;
     QTimer m_themeApply; // groups the theme steps of a turning dial into one redraw
     void applyTheme();
+    bool m_themePending = false;
 
     int m_pressedDial = -1; // the dial whose press is being performed
     int m_wallpaperDial = -1; // the dial that chooses the wallpaper, -1 = none

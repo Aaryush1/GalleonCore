@@ -25,7 +25,7 @@ namespace {
 constexpr int DeckCheckIntervalMs = 5000;
 constexpr int MinuteMs = 60 * 1000;
 constexpr int WallpaperHoldMs = 4000; // a chosen wallpaper is shown this long before a playing track takes the screen
-constexpr int PreviewIntervalMs = 60; // at most one picture per this time while a dial turns
+constexpr int PreviewIntervalMs = 20; // rest between two pictures while a dial turns fast (a picture takes about 45 ms)
 // Wake up just after the minute changes.
 constexpr int MinuteMarginMs = 50;
 const QString SettingWallpaper = QStringLiteral("wallpaper");
@@ -95,7 +95,12 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
     });
     m_previewTimer.setSingleShot(true);
     m_previewTimer.setInterval(PreviewIntervalMs);
-    connect(&m_previewTimer, &QTimer::timeout, this, &ScreenController::showStepped);
+    connect(&m_previewTimer, &QTimer::timeout, this, [this] {
+        if (!m_previewPending)
+            return;
+        showStepped();
+        m_previewTimer.start(); // rest again before the next one
+    });
     m_minuteTimer.setSingleShot(true);
     connect(&m_minuteTimer, &QTimer::timeout, this, &ScreenController::tick);
 
@@ -248,9 +253,10 @@ void ScreenController::setBottomBar(std::uint32_t rgb, bool choosingWallpaper)
 {
     if (rgb == m_barRgb && choosingWallpaper == m_choosingWallpaper)
         return;
-    if (m_choosingWallpaper && !choosingWallpaper)
+    if (m_choosingWallpaper && !choosingWallpaper) {
+        persistWallpaper();
         startHold(true); // the choice is made: show it with a countdown, then back to the track
-    else if (choosingWallpaper) {
+    } else if (choosingWallpaper) {
         m_holdTimer.stop();
         m_countTimer.stop();
         m_countdown = 0;
@@ -275,23 +281,34 @@ void ScreenController::stepWallpaper(int steps)
     }
     // Steps are bounded by the dial decoder; the modulo keeps any value in range.
     const int next = (((current < 0 ? 0 : current) + steps) % count + count) % count;
-    // The choice counts at once, but the picture is made after a short time: a
-    // dial turned fast gives many steps, and only the last wallpaper is sent
-    // (a picture takes longer to send than a step to arrive).
-    m_wallpaper = entries[next].name;
-    if (!m_previewTimer.isActive())
-        m_previewTimer.start();
+    m_wallpaper = entries[next].name; // the choice counts at once
+    // The first step is drawn at once: the answer to a turn must be immediate, or the
+    // user turns once more. Steps that come while a picture is being made or just after
+    // it are gathered, and the last one is drawn as soon as the dial rests.
+    if (m_previewTimer.isActive()) {
+        m_previewPending = true;
+        return;
+    }
+    showStepped();
+    m_previewTimer.start();
 }
 
 void ScreenController::showStepped()
 {
+    m_previewPending = false;
     if (m_wallpaper.isEmpty())
         return;
     qInfo().noquote() << "galleond: wallpaper" << m_wallpaper;
-    settings().setValue(SettingWallpaper, m_wallpaper); // written once per burst, not at every step
     Q_EMIT wallpaperChanged();
     draw();
     scheduleNextMinute();
+}
+
+void ScreenController::persistWallpaper()
+{
+    // Written when the choice is made, not at each step of the dial.
+    if (!m_wallpaper.isEmpty())
+        settings().setValue(SettingWallpaper, m_wallpaper);
 }
 
 QVariantMap ScreenController::themeProperties() const

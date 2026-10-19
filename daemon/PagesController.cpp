@@ -27,7 +27,7 @@ bool isMediaPresent(MediaController::State state)
 {
     return state == MediaController::State::Playing || state == MediaController::State::Paused;
 }
-constexpr int ThemeApplyMs = 50; // a theme takes 13 pictures to show: not one per dial step
+constexpr int ThemeApplyMs = 30; // rest between two themes drawn: a theme takes 13 pictures to show
 constexpr int ModeTimeoutMs = 30000; // back to the player control when left alone
 constexpr std::uint32_t WallpaperModeRgb = 0xff00ff; // magenta
 
@@ -63,7 +63,12 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
 
     m_themeApply.setSingleShot(true);
     m_themeApply.setInterval(ThemeApplyMs);
-    connect(&m_themeApply, &QTimer::timeout, this, &PagesController::applyTheme);
+    connect(&m_themeApply, &QTimer::timeout, this, [this] {
+        if (!m_themePending)
+            return;
+        applyTheme();
+        m_themeApply.start(); // rest again before the next one
+    });
     m_themeTimeout.setSingleShot(true);
     m_themeTimeout.setInterval(ModeTimeoutMs);
     connect(&m_themeTimeout, &QTimer::timeout, this, [this] { setThemeMode(-1); });
@@ -385,14 +390,19 @@ void PagesController::selectTheme(int index)
     m_stack = {m_config.themes[static_cast<std::size_t>(index)].page};
     m_pressed.fill(false);
     releaseHeldKeys();
-    // The keys, the rings and the screen follow after a short time: a dial turned
-    // fast gives many steps and only the last theme is drawn.
-    if (!m_themeApply.isActive())
-        m_themeApply.start();
+    // The first step is drawn at once (a turn must be answered at once); steps that come
+    // while it is being drawn are gathered, and the last theme is drawn when the dial rests.
+    if (m_themeApply.isActive()) {
+        m_themePending = true;
+        return;
+    }
+    applyTheme();
+    m_themeApply.start();
 }
 
 void PagesController::applyTheme()
 {
+    m_themePending = false;
     redraw();
     applyRings();
     Q_EMIT themeChanged();
@@ -512,10 +522,7 @@ void PagesController::onDialRotated(int dial, int steps)
         qInfo() << "galleond: dial" << dial << "step" << steps << "ignored: it is the click";
         return; // the click's own movement, not a turn
     }
-    // Choosing a theme or a wallpaper goes one place per turn event, whatever the dial
-    // reports: it counts several steps when turned a little fast, and the choice must not skip.
-    const bool choosing = dial == m_themeDial || dial == m_wallpaperDial;
-    const int counted = choosing ? std::clamp(steps, -1, 1) : steps;
+    const int counted = steps; // as many places as the dial counts detents
     auto &recent = m_recentTurns[index];
     std::rotate(recent.begin(), recent.begin() + 1, recent.end()); // the oldest slot is reused
     recent.back() = {now, counted};
