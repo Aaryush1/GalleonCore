@@ -29,3 +29,4 @@ endfunction()
 
 galleond_add_test(test_wallpapercatalog)
 galleond_add_test(test_screenrenderer)
+galleond_add_test(test_pagesconfig)

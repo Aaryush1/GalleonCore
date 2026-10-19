@@ -3,6 +3,7 @@
 
 # The daemon's logic, as a library so that the tests can use it.
 add_library(galleond_core STATIC
+    PagesConfig.h PagesConfig.cpp
     WallpaperCatalog.h WallpaperCatalog.cpp
     ScreenRenderer.h ScreenRenderer.cpp
     ScreenController.h ScreenController.cpp

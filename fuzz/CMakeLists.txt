@@ -14,3 +14,14 @@ add_executable(fuzz_input_report
 target_include_directories(fuzz_input_report PRIVATE ${PROJECT_SOURCE_DIR}/lib/include)
 target_compile_options(fuzz_input_report PRIVATE -fsanitize=fuzzer,address,undefined)
 target_link_options(fuzz_input_report PRIVATE -fsanitize=fuzzer,address,undefined)
+
+# The pages file parser needs Qt Core (JSON), and the protocol header for the
+# key and dial counts.
+add_executable(fuzz_pages_config
+    fuzz_pages_config.cpp
+    ${PROJECT_SOURCE_DIR}/daemon/PagesConfig.cpp
+)
+target_include_directories(fuzz_pages_config PRIVATE ${PROJECT_SOURCE_DIR}/lib/include ${PROJECT_SOURCE_DIR}/daemon)
+target_link_libraries(fuzz_pages_config PRIVATE Qt6::Core)
+target_compile_options(fuzz_pages_config PRIVATE -fsanitize=fuzzer,address,undefined)
+target_link_options(fuzz_pages_config PRIVATE -fsanitize=fuzzer,address,undefined)
