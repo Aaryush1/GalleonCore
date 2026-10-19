@@ -1,9 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "AppsBackend.h"
+#include "DesktopEntries.h"
 #include "MprisController.h"
 #include "PagesConfig.h"
 #include "PagesController.h"
+#include "PagesEditor.h"
 #include "ScreenController.h"
 #include "ScreenRenderer.h"
 #include "TileRenderer.h"
@@ -172,12 +175,80 @@ int main(int argc, char *argv[])
     const QCommandLineOption renderNowPlayingOption(QStringLiteral("render-now-playing"),
                                                     QStringLiteral("Draw a sample 'now playing' screen into this PNG file and exit (the cover is the --wallpaper image). Does not touch the hardware."),
                                                     QStringLiteral("file"));
+    const QCommandLineOption appsOption(QStringLiteral("apps"),
+                                        QStringLiteral("Open the window to put an application on a key. Does not touch the hardware."));
+    const QCommandLineOption listAppsOption(QStringLiteral("list-apps"),
+                                            QStringLiteral("List the installed applications (desktop file ID and name) and exit."));
+    const QCommandLineOption filterOption(QStringLiteral("filter"),
+                                          QStringLiteral("With --list-apps: only the applications whose name or ID contains this text."),
+                                          QStringLiteral("text"));
+    const QCommandLineOption assignOption(QStringLiteral("assign-app"),
+                                          QStringLiteral("Put this application (a desktop file ID such as firefox.desktop) on the key given by --key."),
+                                          QStringLiteral("desktop"));
+    const QCommandLineOption keyOption(QStringLiteral("key"), QStringLiteral("The key, 0 to 11, row by row from the top left."),
+                                       QStringLiteral("number"));
+    const QCommandLineOption pageOption(QStringLiteral("page"), QStringLiteral("The page to edit (default: the home page)."),
+                                        QStringLiteral("name"));
+    const QCommandLineOption clearKeyOption(QStringLiteral("clear-key"), QStringLiteral("Empty this key of the page."),
+                                            QStringLiteral("number"));
     parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption,
-                       pagesOption, noPagesOption, renderKeysOption, stateOption, renderNowPlayingOption});
+                       pagesOption, noPagesOption, renderKeysOption, stateOption, renderNowPlayingOption, appsOption,
+                       listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
     const QString widgetFile = defaultWidgetFile(parser.value(widgetsOption));
+    // ---- applications on the keys: no deck, no daemon, only the pages file.
+    if (parser.isSet(listAppsOption)) {
+        const QString filter = parser.value(filterOption).trimmed();
+        for (const galleond::DesktopApp &listed : galleond::DesktopEntries::list()) {
+            if (filter.isEmpty() || listed.name.contains(filter, Qt::CaseInsensitive) || listed.id.contains(filter, Qt::CaseInsensitive))
+                qInfo().noquote() << QString(listed.id + QLatin1Char(0x09) + listed.name);
+        }
+        return 0;
+    }
+    if (parser.isSet(assignOption) || parser.isSet(clearKeyOption)) {
+        const QString file = defaultPagesFile(parser.value(pagesOption));
+        QString page = parser.value(pageOption);
+        if (page.isEmpty()) {
+            page = QStringLiteral("main"); // else the home page of the file
+            if (QFile pages(file); pages.open(QIODevice::ReadOnly)) {
+                if (const auto parsed = galleond::parsePagesConfig(pages.read(galleond::MaxPagesFileBytes + 1)); parsed.config)
+                    page = parsed.config->home;
+            }
+        }
+        bool numberOk = false;
+        const int key = (parser.isSet(assignOption) ? parser.value(keyOption) : parser.value(clearKeyOption)).toInt(&numberOk);
+        if (!numberOk) {
+            qCritical() << "galleond: give the key number (0 to 11) with --key";
+            return 2;
+        }
+        const galleond::EditResult result = parser.isSet(assignOption)
+            ? galleond::PagesEditor::assignApp(file, page, key, parser.value(assignOption))
+            : galleond::PagesEditor::clearKey(file, page, key);
+        if (!result.ok) {
+            for (const QString &line : result.errors)
+                qCritical().noquote() << "galleond:" << line;
+            return 1;
+        }
+        qInfo().noquote() << (parser.isSet(assignOption) ? QStringLiteral("galleond: key %1 of page '%2' now starts %3")
+                                                               .arg(key).arg(page, parser.value(assignOption))
+                                                         : QStringLiteral("galleond: key %1 of page '%2' is empty").arg(key).arg(page))
+                          << "(" << file << ", previous version in .bak )";
+        return 0;
+    }
+    if (parser.isSet(appsOption)) {
+        galleond::AppsBackend backend(defaultPagesFile(parser.value(pagesOption)));
+        QQmlApplicationEngine appsEngine;
+        appsEngine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
+        appsEngine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}});
+        appsEngine.load(QUrl(QStringLiteral("qrc:/galleond/qml/Apps.qml")));
+        if (appsEngine.rootObjects().isEmpty())
+            return 1;
+        return QGuiApplication::exec();
+    }
+
+    // The editing commands above need no widget; everything below draws.
     if (widgetFile.isEmpty()) {
         qCritical() << "galleond: WallpaperClock.qml not found (see --widgets)";
         return 1;

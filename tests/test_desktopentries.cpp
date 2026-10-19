@@ -177,6 +177,22 @@ private Q_SLOTS:
         QCOMPARE(names, (QStringList{"apple", "Cherry"}));
     }
 
+    void anApplicationWithAnOddIdIsListedByItsPath()
+    {
+        Environment env;
+        QVERIFY(writeFile(env.systemApp("wine/Programs/My App.desktop"), entry("Wine App")));
+        QVERIFY(writeFile(env.systemApp("plain.desktop"), entry("Plain")));
+        const QList<DesktopApp> apps = DesktopEntries::list();
+        QCOMPARE(apps.size(), 2);
+        for (const DesktopApp &app : apps) {
+            QVERIFY2(DesktopEntries::isValidReference(app.id), qPrintable(app.id)); // always usable in a pages file
+            QVERIFY(DesktopEntries::lookup(app.id).isValid());
+        }
+        const auto wine = std::find_if(apps.begin(), apps.end(), [](const DesktopApp &a) { return a.name == "Wine App"; });
+        QVERIFY(wine != apps.end());
+        QCOMPARE(wine->id, wine->file); // the path stands for the ID
+    }
+
     void anApplicationIsStartedWithOneArgumentAndNoShell()
     {
         Environment env;

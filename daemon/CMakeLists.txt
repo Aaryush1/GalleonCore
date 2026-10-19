@@ -3,6 +3,7 @@
 
 # The daemon's logic, as a library so that the tests can use it.
 add_library(galleond_core STATIC
+    AppsBackend.h AppsBackend.cpp
     CoverLoader.h CoverLoader.cpp
     DesktopEntries.h DesktopEntries.cpp
     MediaController.h
@@ -22,7 +23,7 @@ set_target_properties(galleond_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 qt_add_resources(galleond_core "galleond_ui"
     PREFIX "/galleond"
-    FILES qml/Preview.qml
+    FILES qml/Preview.qml qml/Apps.qml
 )
 
 add_executable(galleond main.cpp)

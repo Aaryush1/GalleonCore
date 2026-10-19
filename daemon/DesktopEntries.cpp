@@ -125,8 +125,13 @@ QList<DesktopApp> DesktopEntries::list()
             settings.beginGroup(QStringLiteral("Desktop Entry"));
             if (settings.value(QStringLiteral("NoDisplay")).toBool() || settings.value(QStringLiteral("Hidden")).toBool())
                 continue;
-            if (const DesktopApp app = read(path, id); app.isValid())
+            if (DesktopApp app = read(path, id); app.isValid()) {
+                // An ID with a space or another odd character cannot be written in
+                // a pages file: such an application is named by its file instead.
+                if (!IdPattern.match(app.id).hasMatch() && isValidReference(app.file))
+                    app.id = app.file;
                 apps.append(app);
+            }
         }
     }
     std::sort(apps.begin(), apps.end(), [](const DesktopApp &a, const DesktopApp &b) {
