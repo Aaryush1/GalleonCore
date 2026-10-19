@@ -193,6 +193,20 @@ Un thème peut se choisir tout seul avec `"when": "media"` (un lecteur démarre)
 
 La section `screen` a aussi `wallpaper_hold_seconds` (de 1 à 600, 4 par défaut) : combien de temps un fond choisi à la molette droite, ou affiché au démarrage, reste à l'écran avant qu'une piste en cours reprenne la main.
 
+### Applications et jeux Steam les plus utilisés
+
+Une page peut demander que ses touches d'application soient classées par usage avec `"sort": "usage"` : les mêmes places, l'application la plus utilisée dans la première, marquée d'une petite étoile dorée. Chaque lancement depuis le module compte 1 et perd la moitié de sa valeur tous les 30 jours : une habitude récente l'emporte sur une ancienne. Les comptes sont gardés dans `~/.local/share/galleoncore/usage.json` (200 applications au plus, écriture atomique).
+
+```json
+"jeux": {
+  "sort": "usage",
+  "steam": { "max": 6 },
+  "keys": [ { "key": 0, "action": { "type": "app", "desktop": "steam.desktop" } } ]
+}
+```
+
+`"steam": { "max": N }` remplit les touches libres de la page avec jusqu'à N jeux Steam installés, les plus joués d'abord. Il lit les fichiers de Steam sur cette machine, en lecture seule, sans réseau, sans compte ni clé : le temps de jeu et la date du dernier lancement de chaque jeu (`userdata/<id>/config/localconfig.vdf`) et le nom de chaque jeu installé (`appmanifest_*.acf` dans les dossiers de bibliothèque). Les outils comme Proton et les runtimes Steam sont écartés. Un jeu Steam a pour score ses heures de jeu, réduites selon le temps écoulé depuis son dernier lancement, plus ses lancements depuis le module. Un jeu peut aussi avoir sa propre touche : `{ "type": "steam", "appid": 730 }` le lance par `steam steam://rungameid/730`.
+
 ### Écran de veille animé
 
 Après un temps sans utilisation, une vidéo verticale peut défiler sur l'écran et les 12 touches ensemble, découpée comme si l'image était vue à travers elles (les espaces entre les touches sont laissés de côté). Une touche, une molette, ou le début d'une piste (sauf si `while_playing` vaut true) ramène l'écran normal ; l'appui qui réveille le module ne fait rien d'autre.

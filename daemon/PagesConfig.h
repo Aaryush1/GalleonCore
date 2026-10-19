@@ -32,6 +32,7 @@ enum class ActionType : std::uint8_t {
     Theme, // go to the next theme (see Theme)
     WallpaperMode, // switch the dial to choosing the screen's wallpaper, and back
     Key,   // press a keyboard key (the numeric keypad...), held as long as the key is
+    Steam, // start a Steam game by its application number
 };
 
 enum class MediaCommand : std::uint8_t {
@@ -50,6 +51,7 @@ struct Action
     int step = 0;    // Volume: -100..100, never 0
     int seconds = 0; // Seek: -3600..3600, never 0
     QString page;    // Page: the name of a page of the file
+    int appid = 0;   // Steam: the game's application number (1..2000000000)
     QString keyName; // Key: a name of the fixed list (see KeyInjector.h)
     QString desktop; // App: a desktop file ID ("firefox.desktop") or the path of a .desktop file
 
@@ -80,9 +82,17 @@ struct KeyConfig
     friend bool operator==(const KeyConfig &, const KeyConfig &) = default;
 };
 
+// How the application keys of a page are ordered.
+enum class PageSort : std::uint8_t {
+    None,  // as written
+    Usage, // the most used first (see UsageStats); the first one is marked
+};
+
 struct Page
 {
     std::array<std::optional<KeyConfig>, galleon::protocol::KeyCount> keys;
+    PageSort sort = PageSort::None;
+    int steamMax = 0; // up to this many installed Steam games fill the free keys, most played first (0: none)
 
     friend bool operator==(const Page &, const Page &) = default;
 };
@@ -175,6 +185,7 @@ inline constexpr int MaxPages = 32;
 inline constexpr int MaxLabelLength = 24;
 inline constexpr int MaxNameLength = 64;
 inline constexpr int MaxThemes = 8;
+inline constexpr int MaxSteamKeys = 12;
 inline constexpr int MaxVideoPathLength = 400;
 inline constexpr int MaxScreensaverVideos = 8;
 inline constexpr int MaxVideoTitleLength = 60;

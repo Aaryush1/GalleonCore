@@ -466,6 +466,56 @@ private Q_SLOTS:
         QVERIFY(!withThemes({theme("A", "sometimes")}).config.has_value());
     }
 
+    void aPageCanSortByUsageAndFillWithSteamGames()
+    {
+        const auto withPage = [](const QJsonObject &extra) {
+            return parseEdited([&](QJsonObject &object) {
+                QJsonObject pages = object.value("pages").toObject();
+                QJsonObject main = pages.value("main").toObject();
+                for (auto it = extra.begin(); it != extra.end(); ++it)
+                    main.insert(it.key(), it.value());
+                pages.insert("main", main);
+                object.insert("pages", pages);
+            });
+        };
+        const auto good = withPage({{"sort", "usage"}, {"steam", QJsonObject{{"max", 6}}}});
+        QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
+        const Page &page = good.config->pages.value("main");
+        QVERIFY(page.sort == PageSort::Usage);
+        QCOMPARE(page.steamMax, 6);
+        QVERIFY(!withPage({{"sort", "random"}}).config.has_value());
+        QVERIFY(!withPage({{"sort", 1}}).config.has_value());
+        QVERIFY(!withPage({{"steam", QJsonObject{{"max", 0}}}}).config.has_value());
+        QVERIFY(!withPage({{"steam", QJsonObject{{"max", 13}}}}).config.has_value());
+        QVERIFY(!withPage({{"steam", QJsonObject{{"count", 3}}}}).config.has_value());
+        QVERIFY(!withPage({{"steam", 6}}).config.has_value());
+    }
+
+    void aSteamActionNamesAGameByItsApplicationNumber()
+    {
+        const auto withKey = [](const QJsonObject &action) {
+            return parseEdited([&](QJsonObject &object) {
+                QJsonObject pages = object.value("pages").toObject();
+                QJsonObject main = pages.value("main").toObject();
+                QJsonArray keys = main.value("keys").toArray();
+                keys.append(QJsonObject{{"key", 4}, {"label", "CS"}, {"action", action}});
+                main.insert("keys", keys);
+                pages.insert("main", main);
+                object.insert("pages", pages);
+            });
+        };
+        const auto good = withKey({{"type", "steam"}, {"appid", 730}});
+        QVERIFY2(good.config.has_value(), qPrintable(good.errors.join('\n')));
+        QVERIFY(withKey({{"type", "steam"}, {"appid", 2000000000}}).config.has_value());
+        QVERIFY(!withKey({{"type", "steam"}, {"appid", 0}}).config.has_value());
+        QVERIFY(!withKey({{"type", "steam"}, {"appid", -3}}).config.has_value());
+        QVERIFY(!withKey({{"type", "steam"}, {"appid", 2000000001}}).config.has_value());
+        QVERIFY(!withKey({{"type", "steam"}, {"appid", "730"}}).config.has_value());
+        QVERIFY(!withKey({{"type", "steam"}, {"appid", 730.5}}).config.has_value());
+        QVERIFY(!withKey({{"type", "steam"}}).config.has_value());
+        QVERIFY(!withKey({{"type", "steam"}, {"appid", 730}, {"command", "x"}}).config.has_value());
+    }
+
     void errorsAndConfigAreMutuallyExclusive()
     {
         // Every single-byte change of the default file: never a crash, and

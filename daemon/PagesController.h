@@ -7,7 +7,9 @@
 #include "KeyInjector.h"
 #include "MediaController.h"
 #include "PagesConfig.h"
+#include "SteamLibrary.h"
 #include "TileRenderer.h"
+#include "UsageStats.h"
 
 #include <QElapsedTimer>
 #include <QFileSystemWatcher>
@@ -19,6 +21,8 @@
 
 #include <array>
 #include <functional>
+#include <memory>
+#include <optional>
 
 namespace galleon {
 class StreamDeck;
@@ -56,6 +60,19 @@ public:
     // Where `key` actions go (not owned, must outlive the controller). Without
     // one, key actions do nothing.
     void setKeyInjector(KeyInjector *injector) { m_injector = injector; }
+
+    // Where the use of applications is kept (default: nowhere, in memory only), how a Steam
+    // game is started, and where the installed Steam games come from; the tests replace them.
+    void setUsageFile(const QString &file);
+    using SteamLauncher = std::function<bool(int appid)>;
+    void setSteamLauncher(SteamLauncher launcher) { m_steamLauncher = std::move(launcher); }
+    using SteamGames = std::function<QList<SteamGame>()>;
+    void setSteamGames(SteamGames provider)
+    {
+        m_steamGames = std::move(provider);
+        m_steamCacheValid = false;
+        rebuildPage();
+    }
 
     [[nodiscard]] const ScreenConfig &screenConfig() const { return m_config.screen; }
     [[nodiscard]] const ScreensaverConfig &screensaverConfig() const { return m_config.screensaver; }
@@ -129,6 +146,13 @@ private:
     TileRenderer m_tiles;
     PagesConfig m_config;
     void selectTheme(int index);
+    // The current page as shown: the pages file's, with its application keys put in order of use and
+    // the installed Steam games added, when the page asks for it.
+    void rebuildPage();
+    [[nodiscard]] const Page *effectivePage() const;
+    [[nodiscard]] double scoreOf(const KeyConfig &key) const;
+    void launchSteam(int appid);
+    void recordUse(const QString &id);
     void onMediaChanged();
     void releaseHeldKeys();
     [[nodiscard]] static bool hasKeyActions(const PagesConfig &config);
@@ -154,6 +178,13 @@ private:
     std::array<std::array<RecentTurn, 6>, galleon::protocol::DialCount> m_recentTurns{};
     std::array<qint64, galleon::protocol::DialCount> m_lastPressAt{};   // a press or a release
     void onDialReleased(int dial);
+    std::unique_ptr<UsageStats> m_usage = std::make_unique<UsageStats>();
+    QList<SteamGame> m_steamCache;
+    bool m_steamCacheValid = false;
+    QElapsedTimer m_steamCacheAge;
+    std::optional<Page> m_dynamic; // the page as shown, when it differs from the file's
+    QString m_dynamicFor;
+    int m_highlightKey = -1;
     KeyInjector *m_injector = nullptr;
     std::array<int, galleon::protocol::KeyCount> m_heldKey{}; // key code held for each key, 0 = none
     bool m_mediaPresent = false;
@@ -179,6 +210,8 @@ private:
     std::array<QImage, galleon::protocol::KeyCount> m_sent; // what the keys show now
 
     AppLauncher m_launcher;
+    SteamLauncher m_steamLauncher;
+    SteamGames m_steamGames;
     QHash<QString, DesktopApp> m_apps; // looked-up references, a handful: cleared on every reload
     QHash<QString, bool> m_warned;     // what was already said once in the log
     bool m_appsAllowed = true;

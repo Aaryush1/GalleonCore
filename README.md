@@ -193,6 +193,20 @@ A theme can be chosen by itself with `"when": "media"` (a player starts) or `"wh
 
 The `screen` section also has `wallpaper_hold_seconds` (1 to 600, default 4): how long a wallpaper chosen with the right dial, or shown at start, stays on the screen before a playing track takes it back.
 
+### Most used applications and Steam games
+
+A page can ask for its application keys to be put in order of use with `"sort": "usage"`: the same places, the most used application in the first one, marked by a small gold star. Each launch from the module counts 1 and fades by half every 30 days, so a recent habit beats an old one. The counts are kept in `~/.local/share/galleoncore/usage.json` (at most 200 applications, written atomically).
+
+```json
+"jeux": {
+  "sort": "usage",
+  "steam": { "max": 6 },
+  "keys": [ { "key": 0, "action": { "type": "app", "desktop": "steam.desktop" } } ]
+}
+```
+
+`"steam": { "max": N }` fills the free keys of the page with up to N installed Steam games, most played first. It reads Steam's own files on this machine, read-only and without network, account or key: the play time and the date of the last launch of each game (`userdata/<id>/config/localconfig.vdf`), and the name of each installed game (`appmanifest_*.acf` in the library folders). Tools such as Proton and the Steam runtimes are left out. A Steam game scores its hours played, faded by the time since its last launch, plus its launches from the module. A single game can also be a key of its own: `{ "type": "steam", "appid": 730 }` starts it through `steam steam://rungameid/730`.
+
 ### Animated screensaver
 
 After a time without use, a vertical video can play over the screen and the 12 keys together, cut as if the picture were seen through them (the gaps between keys are left out). Any key or dial, or a track starting (unless `while_playing` is true), brings the normal screen back; the press that wakes the module does nothing else.

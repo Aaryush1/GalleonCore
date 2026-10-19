@@ -130,6 +130,17 @@ struct Parser
             out.type = ActionType::Back;
             return;
         }
+        if (type == QLatin1String("steam")) {
+            rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("appid")}, path);
+            if (turnAction)
+                error(path, QStringLiteral("a dial turn needs a media volume or seek action"));
+            int appid = 0;
+            if (integer(object.value(QStringLiteral("appid")), 1, 2'000'000'000, path + QStringLiteral(".appid"), appid)) {
+                out.type = ActionType::Steam;
+                out.appid = appid;
+            }
+            return;
+        }
         if (type == QLatin1String("key")) {
             rejectUnknown(object, {QStringLiteral("type"), QStringLiteral("key")}, path);
             if (turnAction)
@@ -188,7 +199,7 @@ struct Parser
             return;
         }
         if (type != QLatin1String("media")) {
-            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app, theme, wallpaper-mode, key"));
+            error(path + QStringLiteral(".type"), QStringLiteral("must be one of none, media, page, back, app, theme, wallpaper-mode, key, steam"));
             return;
         }
 
@@ -269,8 +280,24 @@ struct Parser
                 continue;
             }
             const QJsonObject pageObject = it.value().toObject();
-            rejectUnknown(pageObject, {QStringLiteral("keys")}, path);
+            rejectUnknown(pageObject, {QStringLiteral("keys"), QStringLiteral("sort"), QStringLiteral("steam")}, path);
             Page page;
+            if (pageObject.contains(QStringLiteral("sort"))) {
+                if (pageObject.value(QStringLiteral("sort")).toString() != QLatin1String("usage"))
+                    error(path + QStringLiteral(".sort"), QStringLiteral("must be usage"));
+                else
+                    page.sort = PageSort::Usage;
+            }
+            if (pageObject.contains(QStringLiteral("steam"))) {
+                const QJsonValue steam = pageObject.value(QStringLiteral("steam"));
+                if (!steam.isObject()) {
+                    error(path + QStringLiteral(".steam"), QStringLiteral("must be an object such as { \"max\": 6 }"));
+                } else {
+                    rejectUnknown(steam.toObject(), {QStringLiteral("max")}, path + QStringLiteral(".steam"));
+                    integer(steam.toObject().value(QStringLiteral("max")), 1, MaxSteamKeys, path + QStringLiteral(".steam.max"),
+                            page.steamMax);
+                }
+            }
             const QJsonValue keys = pageObject.value(QStringLiteral("keys"));
             if (!keys.isArray()) {
                 error(path + QStringLiteral(".keys"), QStringLiteral("must be an array"));

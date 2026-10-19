@@ -4,6 +4,7 @@
 #include "PagesController.h"
 
 #include <algorithm>
+#include <vector>
 
 #include <galleon/StreamDeck.h>
 
@@ -12,6 +13,9 @@
 #include <QFileDevice>
 #include <QFile>
 #include <QFileInfo>
+#include <QProcess>
+#include <QSet>
+#include <QStandardPaths>
 
 #include <unistd.h>
 
@@ -39,6 +43,13 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     , m_media(media)
     , m_tiles(std::move(tiles))
     , m_launcher([](const DesktopApp &app) { return DesktopEntries::launch(app); })
+    , m_steamLauncher([](int appid) {
+        // A fixed program and one argument made of a whole number: nothing from outside goes in.
+        const QString steam = QStandardPaths::findExecutable(QStringLiteral("steam"));
+        return !steam.isEmpty()
+               && QProcess::startDetached(steam, {QStringLiteral("steam://rungameid/%1").arg(appid)});
+    })
+    , m_steamGames([] { return SteamLibrary::installedGames(); })
 {
     m_clock.start();
     m_lastPressAt.fill(-ClickAfterMs * 4);
@@ -106,6 +117,7 @@ void PagesController::setConfig(const PagesConfig &config)
     releaseHeldKeys();
     m_stack = {config.home};
     m_theme = -1;
+    m_steamCacheValid = false;
     for (std::size_t i = 0; i < config.themes.size(); ++i) {
         if (config.themes[i].page == config.home) {
             m_theme = static_cast<int>(i);
@@ -120,6 +132,7 @@ void PagesController::setConfig(const PagesConfig &config)
     }
     if (m_injector && hasKeyActions(config))
         m_injector->prepare();
+    rebuildPage();
     m_pressed.fill(false);
     m_wallpaperDial = -1; // a new file: back to the player control
     m_wallpaperTimeout.stop();
@@ -192,13 +205,123 @@ void PagesController::reload()
     setConfig(*result.config);
 }
 
+const Page *PagesController::effectivePage() const
+{
+    if (m_dynamic && m_dynamicFor == currentPage())
+        return &*m_dynamic;
+    const auto page = m_config.pages.constFind(currentPage());
+    return page == m_config.pages.constEnd() ? nullptr : &*page;
+}
+
 const KeyConfig *PagesController::keyConfig(int key) const
 {
-    const auto page = m_config.pages.constFind(currentPage());
-    if (page == m_config.pages.constEnd() || key < 0 || key >= galleon::protocol::KeyCount)
+    const Page *page = effectivePage();
+    if (!page || key < 0 || key >= galleon::protocol::KeyCount)
         return nullptr;
     const auto &configured = page->keys[static_cast<std::size_t>(key)];
     return configured ? &*configured : nullptr;
+}
+
+void PagesController::setUsageFile(const QString &file)
+{
+    m_usage = std::make_unique<UsageStats>(file);
+    rebuildPage();
+}
+
+void PagesController::recordUse(const QString &id)
+{
+    m_usage->record(id);
+    rebuildPage(); // the most used may have changed
+    redraw();
+}
+
+double PagesController::scoreOf(const KeyConfig &key) const
+{
+    if (key.action.type == ActionType::App)
+        return m_usage->score(key.action.desktop);
+    if (key.action.type != ActionType::Steam)
+        return 0.0;
+    double score = m_usage->score(QStringLiteral("steam:%1").arg(key.action.appid));
+    for (const SteamGame &game : m_steamCache) {
+        if (game.appid == key.action.appid) {
+            score += SteamLibrary::score(game);
+            break;
+        }
+    }
+    return score;
+}
+
+void PagesController::rebuildPage()
+{
+    m_dynamic.reset();
+    m_highlightKey = -1;
+    const auto found = m_config.pages.constFind(currentPage());
+    if (found == m_config.pages.constEnd() || (found->sort == PageSort::None && found->steamMax == 0))
+        return;
+    Page page = *found;
+
+    // The installed Steam games, read from the user's Steam folder at most once a minute.
+    if (page.steamMax > 0 && (!m_steamCacheValid || !m_steamCacheAge.isValid() || m_steamCacheAge.elapsed() > 60000)) {
+        m_steamCache = m_steamGames ? m_steamGames() : QList<SteamGame>{};
+        m_steamCacheValid = true;
+        m_steamCacheAge.start();
+    }
+
+    // Free keys get the most played games that are not on the page already.
+    if (page.steamMax > 0) {
+        QSet<int> present;
+        for (const auto &key : page.keys) {
+            if (key && key->action.type == ActionType::Steam)
+                present.insert(key->action.appid);
+        }
+        QList<std::pair<double, SteamGame>> candidates;
+        for (const SteamGame &game : std::as_const(m_steamCache)) {
+            if (!present.contains(game.appid)) {
+                KeyConfig probe;
+                probe.action.type = ActionType::Steam;
+                probe.action.appid = game.appid;
+                candidates.append({scoreOf(probe), game});
+            }
+        }
+        std::stable_sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b) {
+            return a.first != b.first ? a.first > b.first : a.second.name.compare(b.second.name, Qt::CaseInsensitive) < 0;
+        });
+        int added = 0;
+        for (std::size_t slot = 0; slot < page.keys.size() && added < page.steamMax && added < candidates.size(); ++slot) {
+            if (page.keys[slot])
+                continue;
+            const SteamGame &game = candidates.at(added++).second;
+            KeyConfig key;
+            key.key = static_cast<int>(slot);
+            key.label = game.name.left(MaxLabelLength);
+            key.action.type = ActionType::Steam;
+            key.action.appid = game.appid;
+            page.keys[slot] = key;
+        }
+    }
+
+    // The application keys in order of use: the same places, the most used in the first one.
+    if (page.sort == PageSort::Usage) {
+        std::vector<std::size_t> places;
+        std::vector<KeyConfig> keys;
+        for (std::size_t slot = 0; slot < page.keys.size(); ++slot) {
+            const auto &key = page.keys[slot];
+            if (key && (key->action.type == ActionType::App || key->action.type == ActionType::Steam)) {
+                places.push_back(slot);
+                keys.push_back(*key);
+            }
+        }
+        std::stable_sort(keys.begin(), keys.end(),
+                         [this](const KeyConfig &a, const KeyConfig &b) { return scoreOf(a) > scoreOf(b); });
+        for (std::size_t i = 0; i < places.size(); ++i) {
+            keys[i].key = static_cast<int>(places[i]);
+            page.keys[places[i]] = keys[i];
+        }
+        if (!keys.empty() && scoreOf(keys.front()) > 0.0)
+            m_highlightKey = static_cast<int>(places.front());
+    }
+    m_dynamic = page;
+    m_dynamicFor = currentPage();
 }
 
 void PagesController::drawKey(int key, bool force)
@@ -216,7 +339,8 @@ void PagesController::drawKey(int key, bool force)
         QString iconFile; // an application's icon given by path
         const KeyConfig effective = TileRenderer::effectiveKey(
             *configured, configured->action.type == ActionType::App ? appFor(configured->action.desktop) : DesktopApp{}, iconFile);
-        image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index], iconFile, tint);
+        image = m_tiles.render(effective, MediaController::stateName(m_media->state()), m_pressed[index], iconFile, tint,
+                               key == m_highlightKey);
     } else {
         image = m_tiles.blank(tint);
     }
@@ -262,6 +386,7 @@ void PagesController::perform(const Action &action, int times)
     case ActionType::Page:
         if (m_config.pages.contains(action.page) && m_stack.size() < MaxPageDepth) {
             m_stack.append(action.page);
+            rebuildPage();
             m_pressed.fill(false);
             releaseHeldKeys();
             redraw();
@@ -270,6 +395,7 @@ void PagesController::perform(const Action &action, int times)
     case ActionType::Back:
         if (m_stack.size() > 1) {
             m_stack.removeLast();
+            rebuildPage();
             m_pressed.fill(false);
             releaseHeldKeys();
             redraw();
@@ -277,6 +403,9 @@ void PagesController::perform(const Action &action, int times)
         return;
     case ActionType::App:
         launchApp(action.desktop);
+        return;
+    case ActionType::Steam:
+        launchSteam(action.appid);
         return;
     case ActionType::WallpaperMode:
         setWallpaperMode(m_pressedDial);
@@ -430,6 +559,7 @@ void PagesController::selectTheme(int index)
     m_theme = index;
     qInfo() << "galleond: theme" << m_config.themes[static_cast<std::size_t>(index)].name;
     m_stack = {m_config.themes[static_cast<std::size_t>(index)].page};
+    rebuildPage();
     m_pressed.fill(false);
     releaseHeldKeys();
     // The first step is drawn at once (a turn must be answered at once); steps that come
@@ -516,8 +646,25 @@ void PagesController::launchApp(const QString &desktop)
         return;
     }
     m_lastLaunch.start();
-    if (!m_launcher(app))
+    if (!m_launcher(app)) {
         qWarning() << "galleond: could not start" << app.name;
+        return;
+    }
+    recordUse(desktop);
+}
+
+void PagesController::launchSteam(int appid)
+{
+    if (!m_appsAllowed || appid <= 0)
+        return;
+    if (m_lastLaunch.isValid() && m_lastLaunch.elapsed() < MinLaunchIntervalMs)
+        return;
+    m_lastLaunch.start();
+    if (!m_steamLauncher(appid)) {
+        qWarning() << "galleond: could not start the Steam game" << appid << "(is steam installed?)";
+        return;
+    }
+    recordUse(QStringLiteral("steam:%1").arg(appid));
 }
 
 void PagesController::onKeyPressed(int key)

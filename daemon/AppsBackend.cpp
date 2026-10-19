@@ -118,6 +118,9 @@ void AppsBackend::reload()
             case ActionType::Back:
                 kind = QStringLiteral("back");
                 break;
+            case ActionType::Steam:
+                kind = QStringLiteral("steam");
+                break;
             case ActionType::Key:
                 kind = QStringLiteral("key");
                 break;

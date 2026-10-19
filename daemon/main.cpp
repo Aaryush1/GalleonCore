@@ -691,6 +691,9 @@ int main(int argc, char *argv[])
         pages = std::make_unique<galleond::PagesController>(&deck, media.get(),
                                                             galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
         pages->setKeyInjector(&keypad);
+        // The use of applications, for the pages that put the most used first.
+        pages->setUsageFile(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+                            + QStringLiteral("/galleoncore/usage.json"));
         galleond::connectPagesToScreen(*pages, controller);
         pages->loadFile(pagesFile);
         // A module plugged in again shows its old icons: send everything.

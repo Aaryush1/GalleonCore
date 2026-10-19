@@ -13,6 +13,7 @@
 #include <QPainterPath>
 
 #include <algorithm>
+#include <cmath>
 
 namespace galleond {
 
@@ -125,7 +126,7 @@ QImage TileRenderer::blank(qint64 tint) const
 }
 
 QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pressed, const QString &fallbackIconFile,
-                            qint64 tint) const
+                            qint64 tint, bool highlight) const
 {
     QImage image(Size, Size, QImage::Format_RGB32);
     image.fill(Qt::black);
@@ -168,6 +169,23 @@ QImage TileRenderer::render(const KeyConfig &key, const QString &state, bool pre
         const QString text = metrics.elidedText(key.label, Qt::ElideRight, Size - 16);
         const QRectF labelArea(8, icon.isNull() ? 0 : Size - 46, Size - 16, icon.isNull() ? Size : 38);
         painter.drawText(labelArea, Qt::AlignCenter, text);
+    }
+    if (highlight) {
+        // A five-point star in the top right corner, drawn as a shape so that it needs no font.
+        QPainterPath star;
+        const QPointF center(Size - 26, 26);
+        for (int i = 0; i < 10; ++i) {
+            const qreal radius = i % 2 == 0 ? 15.0 : 6.5;
+            const qreal angle = -M_PI / 2 + i * M_PI / 5;
+            const QPointF point(center.x() + radius * std::cos(angle), center.y() + radius * std::sin(angle));
+            if (i == 0)
+                star.moveTo(point);
+            else
+                star.lineTo(point);
+        }
+        star.closeSubpath();
+        painter.setPen(Qt::NoPen);
+        painter.fillPath(star, QColor(0xff, 0xd5, 0x4f));
     }
     return image;
 }

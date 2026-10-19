@@ -36,7 +36,8 @@ public:
     // `tint`: the colour of the current theme (0xRRGGBB, or -1 for none): the key's
     // background is a darker shade of it, and lighter while held.
     [[nodiscard]] QImage render(const KeyConfig &key, const QString &state, bool pressed,
-                                const QString &fallbackIconFile = {}, qint64 tint = -1) const;
+                                const QString &fallbackIconFile = {}, qint64 tint = -1, bool highlight = false) const;
+    // `highlight`: a small gold star in the corner, for the most used application of a page.
 
     // The key background for a theme colour: the same hue, much darker.
     [[nodiscard]] static QColor tintBackground(std::uint32_t rgb);

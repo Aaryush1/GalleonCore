@@ -4,6 +4,7 @@
 #include "FakeTransport.h"
 
 #include <PagesController.h>
+#include <SteamLibrary.h>
 #include <galleon/StreamDeck.h>
 
 #include <QDir>
@@ -981,6 +982,141 @@ private Q_SLOTS:
         QTest::qWait(1700); // the safety delay: a screen that never answers cannot block the dial for good
         f.turnDial(1, 1);
         QCOMPARE(steps.count(), 1);
+    }
+
+    void aPageCanPutItsApplicationsInOrderOfUse()
+    {
+        DataFolders data;
+        data.addApp("a.desktop", "App A");
+        data.addApp("b.desktop", "App B");
+        data.addApp("c.desktop", "App C");
+        const auto appKey = [](int key, const QString &desktop) {
+            return QJsonObject{{"key", key}, {"action", QJsonObject{{"type", "app"}, {"desktop", desktop}}}};
+        };
+        QJsonObject pageObject{{"keys", QJsonArray{appKey(0, "a.desktop"), appKey(1, "b.desktop"), appKey(2, "c.desktop")}},
+                               {"sort", "usage"}};
+        const QString file = data.dir.filePath("pages.json");
+        QVERIFY(writeFile(file, pagesFile({{"main", pageObject}})));
+        Fixture f;
+        QStringList launched;
+        f.controller->setAppLauncher([&launched](const DesktopApp &app) {
+            launched << app.id;
+            return true;
+        });
+        f.controller->loadFile(file);
+
+        f.pressKey(2, true); // C: its page order is the file's at first
+        f.pressKey(2, false);
+        QCOMPARE(launched, QStringList{"c.desktop"});
+        QTest::qWait(800);
+
+        // C was used: it is now the first key, and the others follow in the file's order.
+        f.pressKey(0, true);
+        f.pressKey(0, false);
+        QCOMPARE(launched, (QStringList{"c.desktop", "c.desktop"}));
+        QTest::qWait(800);
+        f.pressKey(1, true); // A is now second
+        f.pressKey(1, false);
+        QCOMPARE(launched.last(), QStringLiteral("a.desktop"));
+        QTest::qWait(800);
+
+        // A was used once: it goes in front of B, behind C (used twice).
+        f.pressKey(1, true);
+        f.pressKey(1, false);
+        QCOMPARE(launched.last(), QStringLiteral("a.desktop"));
+        QTest::qWait(800);
+        f.pressKey(2, true);
+        f.pressKey(2, false);
+        QCOMPARE(launched.last(), QStringLiteral("b.desktop"));
+
+        // The most used one carries a gold star in its corner; the others do not.
+        const auto goldInCorner = [&f](int key) {
+            QImage image;
+            image.loadFromData(lastKeyJpeg(*f.transport, key), "JPEG");
+            const QRgb p = image.pixel(133, 26);
+            return qRed(p) > 200 && qGreen(p) > 170 && qBlue(p) < 140;
+        };
+        QVERIFY(goldInCorner(0));
+        QVERIFY(!goldInCorner(1));
+    }
+
+    void theUsageIsKeptBetweenRuns()
+    {
+        DataFolders data;
+        data.addApp("a.desktop", "App A");
+        data.addApp("b.desktop", "App B");
+        const auto appKey = [](int key, const QString &desktop) {
+            return QJsonObject{{"key", key}, {"action", QJsonObject{{"type", "app"}, {"desktop", desktop}}}};
+        };
+        const QString file = data.dir.filePath("pages.json");
+        QVERIFY(writeFile(file, pagesFile({{"main", QJsonObject{{"keys", QJsonArray{appKey(0, "a.desktop"), appKey(1, "b.desktop")}},
+                                                                {"sort", "usage"}}}})));
+        const QString usage = data.dir.filePath("share/usage.json");
+        {
+            Fixture f;
+            f.controller->setAppLauncher([](const DesktopApp &) { return true; });
+            f.controller->setUsageFile(usage);
+            f.controller->loadFile(file);
+            f.pressKey(1, true); // B
+            f.pressKey(1, false);
+        }
+        QVERIFY(QFile::exists(usage));
+        Fixture again;
+        QStringList launched;
+        again.controller->setAppLauncher([&launched](const DesktopApp &app) {
+            launched << app.id;
+            return true;
+        });
+        again.controller->setUsageFile(usage);
+        again.controller->loadFile(file);
+        again.pressKey(0, true); // B is first at once, from the file
+        again.pressKey(0, false);
+        QCOMPARE(launched, QStringList{"b.desktop"});
+    }
+
+    void steamGamesFillTheFreeKeysMostPlayedFirstAndStartThroughSteam()
+    {
+        const auto now = QDateTime::currentSecsSinceEpoch();
+        const auto game = [now](int appid, const QString &name, qint64 minutes, qint64 agoDays) {
+            SteamGame g;
+            g.appid = appid;
+            g.name = name;
+            g.playtimeMinutes = minutes;
+            g.lastPlayed = now - agoDays * 86400;
+            return g;
+        };
+        const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
+            {"version", 1}, {"home", "games"},
+            {"pages", QJsonObject{{"games", QJsonObject{{"keys", QJsonArray{keyJson(5, "Stop", mediaAction("stop"))}},
+                                                        {"steam", QJsonObject{{"max", 3}}}, {"sort", "usage"}}}}}}).toJson());
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+
+        Fixture f;
+        QList<int> started;
+        f.controller->setSteamLauncher([&started](int appid) {
+            started << appid;
+            return true;
+        });
+        f.controller->setSteamGames([&] {
+            return QList<SteamGame>{game(11, "Old Favourite", 6000, 700),  // 100 h, but two years ago
+                                    game(22, "Played Yesterday", 300, 1),    // 5 h, recently
+                                    game(33, "Never Touched", 0, 0),
+                                    game(44, "Fourth", 60, 5)};
+        });
+        f.controller->setConfig(*parsed.config);
+        // Three free keys (0..2 and 3, with 5 taken): the three most played in recent time come first.
+        f.pressKey(0, true);
+        f.pressKey(0, false);
+        QCOMPARE(started, QList<int>{22}); // 5 h yesterday beats 100 h two years ago
+        QTest::qWait(800);
+        // It was started from the module: its use counts too, and it stays first.
+        f.pressKey(0, true);
+        f.pressKey(0, false);
+        QCOMPARE(started, (QList<int>{22, 22}));
+        QTest::qWait(800);
+        f.pressKey(1, true); // the second: "Fourth" (1 h, 5 days) beats "Old Favourite" (faded to nothing)
+        f.pressKey(1, false);
+        QCOMPARE(started.last(), 44);
     }
 };
 
