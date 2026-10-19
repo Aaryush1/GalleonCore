@@ -11,6 +11,7 @@ add_library(galleond_core STATIC
     WallpaperCatalog.h WallpaperCatalog.cpp
     ScreenRenderer.h ScreenRenderer.cpp
     TileRenderer.h TileRenderer.cpp
+    VideoThumbnails.h VideoThumbnails.cpp
     ScreenController.h ScreenController.cpp
 )
 target_include_directories(galleond_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -37,6 +37,7 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
                                    QString widgetFile,
                                    MediaController *media,
                                    ScreenRenderer *nowPlayingRenderer,
+                                   VideoThumbnails *thumbnails,
                                    QObject *parent)
     : QObject(parent)
     , m_deck(deck)
@@ -45,7 +46,20 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
     , m_widgetFile(std::move(widgetFile))
     , m_media(media)
     , m_nowPlayingRenderer(nowPlayingRenderer)
+    , m_thumbnails(thumbnails)
 {
+    if (m_media && m_nowPlayingRenderer && m_thumbnails) {
+        connect(m_thumbnails, &VideoThumbnails::thumbnailReady, this, [this](const QString &video, const QString &picture) {
+            // Still the track being played? Then the picture is its cover.
+            if (QUrl(m_media->nowPlaying().url).toLocalFile() != video || !m_wantedCover.isEmpty())
+                return;
+            m_wantedCover = QUrl::fromLocalFile(picture).toString();
+            m_cover.request(m_wantedCover);
+            updateCoverImage();
+            if (wantsNowPlaying())
+                draw();
+        });
+    }
     if (m_media && m_nowPlayingRenderer) {
         connect(m_media, &MediaController::nowPlayingChanged, this, &ScreenController::onNowPlayingChanged);
         connect(&m_cover, &CoverLoader::coverChanged, this, [this] {
@@ -156,6 +170,20 @@ bool ScreenController::wantsNowPlaying() const
            || (m_screenConfig.nowPlaying == NowPlayingMode::PlayingOrPaused && state == MediaController::State::Paused);
 }
 
+QString ScreenController::thumbnailFor(const NowPlaying &track)
+{
+    if (!m_thumbnails || !m_screenConfig.videoThumbnails || !m_thumbnails->isAvailable())
+        return {};
+    const QUrl url(track.url);
+    if (!url.isLocalFile() || !VideoThumbnails::isVideoFile(url.toLocalFile()))
+        return {};
+    const QString cached = m_thumbnails->cached(url.toLocalFile());
+    if (!cached.isEmpty())
+        return QUrl::fromLocalFile(cached).toString();
+    m_thumbnails->request(url.toLocalFile(), track.durationSeconds); // answered by thumbnailReady
+    return {};
+}
+
 QImage ScreenController::iconImage(const QString &iconName)
 {
     if (iconName.isEmpty())
@@ -201,6 +229,8 @@ void ScreenController::onNowPlayingChanged()
         m_lastArtUrl = track.artUrl;
         m_lastTrackUrl = track.url;
         m_wantedCover = track.artUrl.isEmpty() ? CoverLoader::findLocalCover(track.url) : track.artUrl;
+        if (m_wantedCover.isEmpty())
+            m_wantedCover = thumbnailFor(track);
     }
     m_cover.request(m_wantedCover);
     updateCoverImage(); // the player's icon may stand in, or the track changed

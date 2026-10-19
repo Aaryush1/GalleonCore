@@ -294,6 +294,9 @@ private Q_SLOTS:
         QCOMPARE(int(withScreen(QJsonObject{{"now_playing", "never"}}).config->screen.nowPlaying), int(NowPlayingMode::Never));
         QVERIFY(withScreen(QJsonObject{}).config.has_value());
 
+        QVERIFY(defaults.screen.videoThumbnails);
+        QVERIFY(!withScreen(QJsonObject{{"video_thumbnails", false}}).config->screen.videoThumbnails);
+        QVERIFY(!withScreen(QJsonObject{{"video_thumbnails", "no"}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"now_playing", "sometimes"}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"now_playing", 1}}).config.has_value());
         QVERIFY(!withScreen(QJsonObject{{"remote_covers", "yes"}}).config.has_value());

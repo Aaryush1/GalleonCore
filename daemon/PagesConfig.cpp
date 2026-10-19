@@ -245,7 +245,9 @@ struct Parser
             return;
         }
         const QJsonObject object = value.toObject();
-        rejectUnknown(object, {QStringLiteral("now_playing"), QStringLiteral("remote_covers")}, QStringLiteral("screen"));
+        rejectUnknown(object,
+                      {QStringLiteral("now_playing"), QStringLiteral("remote_covers"), QStringLiteral("video_thumbnails")},
+                      QStringLiteral("screen"));
         if (object.contains(QStringLiteral("now_playing"))) {
             const QJsonValue mode = object.value(QStringLiteral("now_playing"));
             const QString text = mode.toString();
@@ -256,6 +258,12 @@ struct Parser
                 config.screen.nowPlaying = text == QLatin1String("never")               ? NowPlayingMode::Never
                                            : text == QLatin1String("playing-or-paused") ? NowPlayingMode::PlayingOrPaused
                                                                                          : NowPlayingMode::Playing;
+        }
+        if (object.contains(QStringLiteral("video_thumbnails"))) {
+            if (!object.value(QStringLiteral("video_thumbnails")).isBool())
+                error(QStringLiteral("screen.video_thumbnails"), QStringLiteral("must be true or false"));
+            else
+                config.screen.videoThumbnails = object.value(QStringLiteral("video_thumbnails")).toBool();
         }
         if (object.contains(QStringLiteral("remote_covers"))) {
             if (!object.value(QStringLiteral("remote_covers")).isBool())

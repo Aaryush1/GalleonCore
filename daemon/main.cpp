@@ -277,8 +277,14 @@ int main(int argc, char *argv[])
     const bool usePages = !parser.isSet(noPagesOption) && !parser.isSet(testKeysOption);
     if (usePages)
         media = std::make_unique<galleond::MprisController>();
+    // Pictures of local videos (FFmpeg), kept in the user's cache folder.
+    std::unique_ptr<galleond::VideoThumbnails> thumbnails;
+    if (usePages)
+        thumbnails = std::make_unique<galleond::VideoThumbnails>(
+            QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + QStringLiteral("/galleoncore/thumbnails"));
     galleond::ScreenController controller(&deck, &renderer, galleond::WallpaperCatalog(wallpaperDir), widgetFile,
-                                          media.get(), nowPlayingRenderer.isValid() ? &nowPlayingRenderer : nullptr);
+                                          media.get(), nowPlayingRenderer.isValid() ? &nowPlayingRenderer : nullptr,
+                                          thumbnails.get());
 
     if (!usePages)
         qInfo() << "galleond: no music player control (--no-pages or --test-keys): the screen keeps the wallpaper";

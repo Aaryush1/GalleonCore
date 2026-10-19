@@ -309,6 +309,68 @@ private Q_SLOTS:
         QIcon::setThemeName(QString());
     }
 
+    void aVideoGetsItsThumbnailAndKeepsItInTheCache()
+    {
+        Fixture f;
+        QVERIFY(installTestTheme(f.dir.filePath("icons"), QColor(10, 200, 220)));
+        QVERIFY(f.controller->SetWallpaper(f.wallpaper()));
+
+        // FFmpeg stands in as a script that writes a purple picture.
+        QImage purple(320, 180, QImage::Format_RGB32);
+        purple.fill(QColor(140, 40, 160));
+        QVERIFY(purple.save(f.dir.filePath("frame.jpg"), "JPEG"));
+        QFile script(f.dir.filePath("fake-ffmpeg"));
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write(("#!/bin/sh\nfor a in \"$@\"; do last=\"$a\"; done\ncp '" + f.dir.filePath("frame.jpg").toUtf8()
+                      + "' \"$last\"\necho run >> '" + f.dir.filePath("runs.log").toUtf8() + "'\n"));
+        script.close();
+        script.setPermissions(script.permissions() | QFileDevice::ExeOwner);
+        VideoThumbnails thumbnails(f.dir.filePath("cache"), f.dir.filePath("fake-ffmpeg"));
+        auto controller = std::make_unique<ScreenController>(f.deck.get(), f.wallpaperRenderer.get(),
+                                                             WallpaperCatalog(f.dir.filePath("wall")), WidgetsDir + "/WallpaperClock.qml",
+                                                             &f.media, f.nowPlayingRenderer.get(), &thumbnails);
+        QVERIFY(controller->SetWallpaper(f.wallpaper()));
+
+        QVERIFY(QFile(f.dir.filePath("movie.mp4")).open(QIODevice::WriteOnly));
+        NowPlaying video = Fixture::track(5, 100);
+        video.url = QUrl::fromLocalFile(f.dir.filePath("movie.mp4")).toString();
+        video.playerIcon = "galleon-test-player"; // VLC's icon, until the picture is ready
+        f.media.set(MediaController::State::Playing, video);
+        QVERIFY(near(pixelOf(f.lastScreen(), 190, 190), qRgb(10, 200, 220)));
+        QTRY_VERIFY_WITH_TIMEOUT(near(pixelOf(f.lastScreen(), 36, 36), qRgb(140, 40, 160)), 10000); // the thumbnail fills the square
+
+        // The same video again: from the cache, FFmpeg does not run a second time.
+        f.media.set(MediaController::State::Stopped, NowPlaying{});
+        f.media.set(MediaController::State::Playing, video);
+        QVERIFY(near(pixelOf(f.lastScreen(), 36, 36), qRgb(140, 40, 160)));
+        QCOMPARE(QFile(f.dir.filePath("runs.log")).size(), qint64(4)); // "run\n", once
+        QIcon::setThemeName(QString());
+    }
+
+    void thumbnailsCanBeTurnedOff()
+    {
+        Fixture f;
+        QVERIFY(f.controller->SetWallpaper(f.wallpaper()));
+        QFile script(f.dir.filePath("fake-ffmpeg"));
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write(("#!/bin/sh\necho run >> '" + f.dir.filePath("runs.log").toUtf8() + "'\n"));
+        script.close();
+        script.setPermissions(script.permissions() | QFileDevice::ExeOwner);
+        VideoThumbnails thumbnails(f.dir.filePath("cache"), f.dir.filePath("fake-ffmpeg"));
+        ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(), WallpaperCatalog(f.dir.filePath("wall")),
+                                    WidgetsDir + "/WallpaperClock.qml", &f.media, f.nowPlayingRenderer.get(), &thumbnails);
+        ScreenConfig config;
+        config.videoThumbnails = false;
+        controller.setScreenConfig(config);
+        QVERIFY(controller.SetWallpaper(f.wallpaper()));
+        QVERIFY(QFile(f.dir.filePath("movie.mp4")).open(QIODevice::WriteOnly));
+        NowPlaying video = Fixture::track(5, 100);
+        video.url = QUrl::fromLocalFile(f.dir.filePath("movie.mp4")).toString();
+        f.media.set(MediaController::State::Playing, video);
+        QTest::qWait(400);
+        QVERIFY(!QFile::exists(f.dir.filePath("runs.log"))); // FFmpeg never started
+    }
+
     void anUnknownPlayerIconLeavesThePlaceholder()
     {
         Fixture f;

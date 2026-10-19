@@ -98,6 +98,7 @@ struct ScreenConfig
 {
     NowPlayingMode nowPlaying = NowPlayingMode::Playing;
     bool remoteCovers = true; // download https covers; false: local files only
+    bool videoThumbnails = true; // a picture of a local video made with FFmpeg when there is no cover
 
     friend bool operator==(const ScreenConfig &, const ScreenConfig &) = default;
 };

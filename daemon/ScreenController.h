@@ -6,6 +6,7 @@
 #include "CoverLoader.h"
 #include "MediaController.h"
 #include "PagesConfig.h"
+#include "VideoThumbnails.h"
 #include "WallpaperCatalog.h"
 
 #include <QObject>
@@ -48,6 +49,7 @@ public:
                      QString widgetFile,
                      MediaController *media = nullptr,
                      ScreenRenderer *nowPlayingRenderer = nullptr,
+                     VideoThumbnails *thumbnails = nullptr,
                      QObject *parent = nullptr);
 
     // When to show the track, and whether covers may be downloaded.
@@ -82,6 +84,9 @@ private:
     // Picks what the cover square shows: the cover, else the player's icon.
     void updateCoverImage();
     [[nodiscard]] QImage iconImage(const QString &iconName);
+    // A picture of the local video being played, from the cache; if it is not
+    // there yet, FFmpeg is asked for it and thumbnailReady comes later.
+    [[nodiscard]] QString thumbnailFor(const NowPlaying &track);
     void scheduleNextMinute();
     void checkDeck();
 
@@ -91,6 +96,7 @@ private:
     QString m_widgetFile;
     MediaController *m_media;
     ScreenRenderer *m_nowPlayingRenderer;
+    VideoThumbnails *m_thumbnails;
     CoverLoader m_cover;
     ScreenConfig m_screenConfig;
     QString m_coverId; // changes with every cover, so the widget never reuses an old one
