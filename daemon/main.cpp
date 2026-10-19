@@ -169,8 +169,11 @@ int main(int argc, char *argv[])
     const QCommandLineOption stateOption(QStringLiteral("state"),
                                          QStringLiteral("Player state shown by --render-keys: playing, paused or stopped."),
                                          QStringLiteral("state"), QStringLiteral("paused"));
+    const QCommandLineOption renderNowPlayingOption(QStringLiteral("render-now-playing"),
+                                                    QStringLiteral("Draw a sample 'now playing' screen into this PNG file and exit (the cover is the --wallpaper image). Does not touch the hardware."),
+                                                    QStringLiteral("file"));
     parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption,
-                       pagesOption, noPagesOption, renderKeysOption, stateOption});
+                       pagesOption, noPagesOption, renderKeysOption, stateOption, renderNowPlayingOption});
     parser.process(app);
 
     const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
@@ -188,6 +191,33 @@ int main(int argc, char *argv[])
         if (ok)
             qInfo() << "galleond: wrote" << parser.value(renderKeysOption);
         return ok ? 0 : 1;
+    }
+
+    if (parser.isSet(renderNowPlayingOption)) {
+        // A sample track, for looking at the layout: the cover is a wallpaper.
+        const galleond::WallpaperCatalog catalog(wallpaperDir);
+        const galleond::WallpaperEntry *entry = catalog.find(parser.value(wallpaperOption));
+        galleond::ScreenRenderer sample(QFileInfo(widgetFile).absolutePath() + QStringLiteral("/NowPlaying.qml"));
+        if (!sample.isValid())
+            return 1;
+        const QString coverId = entry ? QStringLiteral("sample") : QString();
+        if (entry)
+            sample.setProvidedImage(coverId, QImage(entry->path).scaled(512, 512, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation).copy(0, 0, 512, 512));
+        const QImage frame = sample.render({{QStringLiteral("title"), QStringLiteral("Midnight Rain Over the Harbour")},
+                                            {QStringLiteral("artist"), QStringLiteral("The Neon Skyline")},
+                                            {QStringLiteral("positionSeconds"), 83.0},
+                                            {QStringLiteral("durationSeconds"), 215.0},
+                                            {QStringLiteral("playing"), true},
+                                            {QStringLiteral("coverId"), coverId},
+                                            {QStringLiteral("now"), QDateTime::currentDateTime()},
+                                            {QStringLiteral("locale"), QVariant::fromValue(QLocale())}},
+                                           QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
+        if (frame.isNull() || !frame.save(parser.value(renderNowPlayingOption))) {
+            qCritical() << "galleond: could not draw or save the screen";
+            return 1;
+        }
+        qInfo() << "galleond: wrote" << parser.value(renderNowPlayingOption);
+        return 0;
     }
 
     if (parser.isSet(renderOption)) {

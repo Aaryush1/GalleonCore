@@ -142,6 +142,18 @@ The 12 keys and the 2 dials run the actions of a JSON file, `~/.config/galleonco
 - Actions come from this file only; nothing runs a program.
 - `galleond --render-keys keys.png` draws the keys of the first page into an image, without the hardware.
 
+### Now playing on the screen
+
+While a player is playing, the screen shows the track (cover, title, artist, time and a progress bar) instead of the wallpaper, and goes back to the wallpaper when the music stops. This is set by an optional `screen` section of the pages file:
+
+```json
+"screen": { "now_playing": "playing", "remote_covers": true }
+```
+
+- `now_playing`: `playing` (default), `playing-or-paused` or `never`.
+- `remote_covers`: `false` to load covers from local files only. Covers given as `https://` are downloaded by `galleond`; it never downloads from `http://`, from an IP address or from a local name, limits size, time and redirects, and only decodes JPEG, PNG and WebP.
+- `galleond --render-now-playing screen.png --wallpaper cinematic/cinematic-02.jpg` draws a sample screen without the hardware.
+
 ## Hardware notes
 
 | Part | USB ID |

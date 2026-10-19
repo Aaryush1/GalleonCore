@@ -142,6 +142,18 @@ Les 12 touches et les 2 molettes exécutent les actions d'un fichier JSON, `~/.c
 - Les actions viennent de ce fichier seulement ; rien ne lance de programme.
 - `galleond --render-keys touches.png` dessine les touches de la première page dans une image, sans le matériel.
 
+### En cours de lecture sur l'écran
+
+Quand un lecteur joue, l'écran affiche le morceau (pochette, titre, artiste, temps et barre de progression) à la place du fond d'écran, et revient au fond quand la musique s'arrête. Une section `screen` facultative du fichier de pages le règle :
+
+```json
+"screen": { "now_playing": "playing", "remote_covers": true }
+```
+
+- `now_playing` : `playing` (par défaut), `playing-or-paused` ou `never`.
+- `remote_covers` : `false` pour ne charger que les pochettes de fichiers locaux. Les pochettes en `https://` sont téléchargées par `galleond` ; il ne télécharge jamais depuis `http://`, depuis une adresse IP ni depuis un nom local, limite la taille, la durée et les redirections, et ne décode que du JPEG, du PNG et du WebP.
+- `galleond --render-now-playing ecran.png --wallpaper cinematic/cinematic-02.jpg` dessine un écran d'exemple sans le matériel.
+
 ## Notes matérielles
 
 | Partie | ID USB |
