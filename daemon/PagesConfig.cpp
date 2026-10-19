@@ -377,12 +377,29 @@ struct Parser
                       path);
         ScreensaverConfig &target = config.screensaver;
         if (object.contains(QStringLiteral("video"))) {
-            QString video;
-            if (text(object.value(QStringLiteral("video")), path + QStringLiteral(".video"), MaxVideoPathLength, video)) {
-                if (video.contains(QLatin1Char('\0')) || video.contains(QLatin1Char('\n')))
-                    error(path + QStringLiteral(".video"), QStringLiteral("is not a file path"));
+            // One file, or a list of files shown in turn (one per start of the screensaver).
+            const QJsonValue videoValue = object.value(QStringLiteral("video"));
+            QStringList paths;
+            const QString vpath = path + QStringLiteral(".video");
+            if (videoValue.isArray()) {
+                const QJsonArray array = videoValue.toArray();
+                if (array.isEmpty() || array.size() > MaxScreensaverVideos)
+                    error(vpath, QStringLiteral("must hold 1 to %1 files").arg(MaxScreensaverVideos));
+                for (qsizetype i = 0; i < array.size() && i < MaxScreensaverVideos; ++i) {
+                    QString one;
+                    if (text(array.at(i), QStringLiteral("%1[%2]").arg(vpath).arg(i), MaxVideoPathLength, one))
+                        paths.append(one);
+                }
+            } else {
+                QString one;
+                if (text(videoValue, vpath, MaxVideoPathLength, one))
+                    paths.append(one);
+            }
+            for (const QString &one : std::as_const(paths)) {
+                if (one.isEmpty() || one.contains(QLatin1Char('\0')) || one.contains(QLatin1Char('\n')))
+                    error(vpath, QStringLiteral("is not a file path"));
                 else
-                    target.video = video;
+                    target.videos.append(one);
             }
         }
         if (object.contains(QStringLiteral("idle_minutes")))

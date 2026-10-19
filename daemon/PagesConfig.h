@@ -134,7 +134,7 @@ struct Theme
 // screensaver stays off.
 struct ScreensaverConfig
 {
-    QString video;          // a file, absolute or relative to the pages file's folder; empty = off
+    QStringList videos;     // files, absolute or relative to the pages file's folder, shown in turn; empty = off
     int idleMinutes = 5;    // 1..720
     int fps = 15;           // 1..20: the module takes about 20 screen + keys rounds per second (measured)
     bool whilePlaying = false; // false: never while a track is playing
@@ -144,7 +144,7 @@ struct ScreensaverConfig
     double gapXMm = 0, gapYMm = 0;
     double screenToKeysMm = 0; // from the bottom of the screen to the top of the first row of keys
 
-    [[nodiscard]] bool enabled() const { return !video.isEmpty() && hasGeometry; }
+    [[nodiscard]] bool enabled() const { return !videos.isEmpty() && hasGeometry; }
     friend bool operator==(const ScreensaverConfig &, const ScreensaverConfig &) = default;
 };
 
@@ -172,6 +172,7 @@ inline constexpr int MaxLabelLength = 24;
 inline constexpr int MaxNameLength = 64;
 inline constexpr int MaxThemes = 8;
 inline constexpr int MaxVideoPathLength = 400;
+inline constexpr int MaxScreensaverVideos = 8;
 inline constexpr int MaxPageDepth = 8; // pages opened one from another, at run time
 
 // Parses and validates the content of a pages file. Never throws, never reads

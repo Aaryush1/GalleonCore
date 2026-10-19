@@ -64,7 +64,7 @@ void ScreensaverController::setConfig(const ScreensaverConfig &config, const QSt
     if (config.enabled() && !m_splitter->isValid()) {
         qWarning() << "galleond: the screensaver geometry gives an unusable picture size: the screensaver stays off";
         m_splitter.reset();
-    } else if (!config.video.isEmpty() && !config.hasGeometry) {
+    } else if (!config.videos.isEmpty() && !config.hasGeometry) {
         qWarning() << "galleond: the screensaver has a video but no geometry (screensaver.geometry, measured in mm): it stays off";
     }
     if (wasActive)
@@ -104,9 +104,9 @@ void ScreensaverController::onIdle()
     start();
 }
 
-QString ScreensaverController::resolveVideo() const
+QString ScreensaverController::resolveVideo(const QString &configured) const
 {
-    QString path = m_config.video;
+    QString path = configured;
     if (path.startsWith(QLatin1String("~/")))
         path = QDir::homePath() + path.mid(1);
     if (QDir::isRelativePath(path))
@@ -119,13 +119,23 @@ QString ScreensaverController::resolveVideo() const
 
 void ScreensaverController::start()
 {
-    const QString video = resolveVideo();
+    // The next readable video of the list; the others are skipped with a warning.
+    QString video;
+    for (qsizetype tried = 0; tried < m_config.videos.size() && video.isEmpty(); ++tried) {
+        const QString configured = m_config.videos.at((m_next + tried) % m_config.videos.size());
+        video = resolveVideo(configured);
+        if (video.isEmpty())
+            qWarning() << "galleond: the screensaver video" << configured << "is not a readable video file (mp4, mkv, webm, avi, mov...)";
+        else
+            m_next = static_cast<int>((m_next + tried + 1) % m_config.videos.size());
+    }
     if (video.isEmpty()) {
-        qWarning() << "galleond: the screensaver video" << m_config.video
-                   << "is not a readable video file (mp4, mkv, webm, avi, mov...): the screensaver stays off";
+        qWarning() << "galleond: no usable screensaver video: the screensaver stays off";
         m_giveUp = true;
         return;
     }
+    m_playing = video;
+    qInfo() << "galleond: screensaver video" << video;
     const QString program = QStandardPaths::findExecutable(m_program);
     if (program.isEmpty() && !QFileInfo(m_program).isExecutable()) {
         qWarning() << "galleond: FFmpeg not found: the screensaver stays off";
@@ -256,7 +266,7 @@ void ScreensaverController::onFinished(int exitCode, QProcess::ExitStatus status
     process->deleteLater();
     // With -stream_loop the video does not end: a stop is a failure. Try a few
     // times, then give up until the next use.
-    if (m_active && ++m_restarts <= MaxRestarts && resolveVideo().size() > 0) {
+    if (m_active && ++m_restarts <= MaxRestarts && !m_playing.isEmpty()) {
         m_active = false; // start() sets it and announces it again
         start();
         if (m_active)

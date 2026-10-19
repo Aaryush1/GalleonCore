@@ -68,7 +68,7 @@ private:
     void onReadyRead();
     void onFinished(int exitCode, QProcess::ExitStatus status);
     void showFrame(const QByteArray &rgb);
-    [[nodiscard]] QString resolveVideo() const;
+    [[nodiscard]] QString resolveVideo(const QString &path) const;
     void wake();
 
     galleon::StreamDeck *m_deck;
@@ -83,6 +83,8 @@ private:
     QByteArray m_buffer;
     qint64 m_frameBytes = 0;
     bool m_active = false;
+    int m_next = 0; // the video shown at the next start: they take turns
+    QString m_playing;
     int m_restarts = 0;
     int m_sendFailures = 0;
     bool m_giveUp = false; // started and failed: not again until the next input

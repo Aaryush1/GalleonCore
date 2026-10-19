@@ -31,7 +31,7 @@ namespace {
 ScreensaverConfig testConfig(const QString &video = QStringLiteral("clip.mp4"))
 {
     ScreensaverConfig config;
-    config.video = video;
+    config.videos = QStringList{video};
     config.idleMinutes = 1;
     config.fps = 10;
     config.hasGeometry = true;
@@ -223,6 +223,16 @@ private Q_SLOTS:
         QVERIFY(!parse({{"video", "clip.mp4"}, {"fps", 60}}).config.has_value());
         QVERIFY(!parse({{"video", "clip.mp4"}, {"idle_minutes", 0}}).config.has_value());
         QVERIFY(!parse({{"video", 3}}).config.has_value());
+        QVERIFY(!parse({{"video", QJsonArray{}}}).config.has_value());
+        QVERIFY(!parse({{"video", QJsonArray{"a.mp4", 3}}}).config.has_value());
+        QVERIFY(!parse({{"video", ""}}).config.has_value());
+        QJsonArray many;
+        for (int i = 0; i <= MaxScreensaverVideos; ++i)
+            many.append("a.mp4");
+        QVERIFY(!parse({{"video", many}}).config.has_value());
+        const auto list = parse({{"video", QJsonArray{"a.mp4", "b.mp4"}}, {"geometry", geometry}});
+        QVERIFY2(list.config.has_value(), qPrintable(list.errors.join('\n')));
+        QCOMPARE(list.config->screensaver.videos, (QStringList{"a.mp4", "b.mp4"}));
         QVERIFY(!parse({{"video", QString(500, 'x')}}).config.has_value());
         QVERIFY(!parse({{"colour", "red"}}).config.has_value());
         QVERIFY(!parse({{"geometry", QJsonObject{{"screen_mm", QJsonArray{90}}}}}).config.has_value());
@@ -304,7 +314,7 @@ private Q_SLOTS:
         Fixture f;
         QSignalSpy active(f.controller.get(), &ScreensaverController::activeChanged);
         ScreensaverConfig config = f.config;
-        config.video = QStringLiteral("nothing-here.mp4");
+        config.videos = QStringList{QStringLiteral("nothing-here.mp4")};
         f.configure(config);
         f.controller->setIdleTimeoutMs(100);
         QTest::qWait(500);
@@ -314,7 +324,7 @@ private Q_SLOTS:
         QVERIFY(text.open(QIODevice::WriteOnly));
         text.write("x");
         text.close();
-        config.video = QStringLiteral("notes.txt");
+        config.videos = QStringList{QStringLiteral("notes.txt")};
         f.configure(config);
         f.controller->setIdleTimeoutMs(100);
         QTest::qWait(500);
@@ -347,7 +357,7 @@ private Q_SLOTS:
             QSKIP("this ffmpeg cannot encode the test clip");
         f.controller->setFfmpegProgram("ffmpeg");
         ScreensaverConfig config = f.config;
-        config.video = "real.mp4";
+        config.videos = QStringList{"real.mp4"};
         f.configure(config);
         f.controller->setIdleTimeoutMs(100);
         QTRY_VERIFY_WITH_TIMEOUT(f.controller->isActive(), 3000);
@@ -372,6 +382,35 @@ private Q_SLOTS:
         f.controller->setIdleTimeoutMs(100);
         QTest::qWait(1500);
         QVERIFY(!f.controller->isActive());
+    }
+
+    void severalVideosTakeTurnsAtEachStart()
+    {
+        Fixture f;
+        QFile second(f.dir.filePath("second.mp4"));
+        QVERIFY(second.open(QIODevice::WriteOnly));
+        second.write("x");
+        second.close();
+        ScreensaverConfig config = f.config;
+        config.videos = QStringList{"clip.mp4", "missing.mp4", "second.mp4"}; // a missing one is skipped
+        f.configure(config);
+        QSignalSpy active(f.controller.get(), &ScreensaverController::activeChanged);
+        const auto played = [&] {
+            QFile log(f.dir.filePath("args.log"));
+            return log.open(QIODevice::ReadOnly) ? QString::fromUtf8(log.readAll()) : QString();
+        };
+        for (int round = 0; round < 3; ++round) {
+            f.controller->setIdleTimeoutMs(100);
+            QTRY_VERIFY_WITH_TIMEOUT(f.controller->isActive(), 3000);
+            f.controller->notifyActivity(); // wake
+            QTRY_VERIFY_WITH_TIMEOUT(!f.controller->isActive(), 3000);
+        }
+        const QString args = played();
+        const qsizetype firstClip = args.indexOf("clip.mp4");
+        const qsizetype secondClip = args.indexOf("second.mp4");
+        QVERIFY(firstClip >= 0 && secondClip > firstClip); // clip, then second, then clip again
+        QCOMPARE(args.count("clip.mp4"), 2);
+        QCOMPARE(args.count("second.mp4"), 1);
     }
 };
 
