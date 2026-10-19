@@ -25,7 +25,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 | Anneaux des molettes indépendants : gauche = couleur du thème, droite = blanc (contrôle) ou magenta (choix du fond) ; rapport `03 24` par LED | oui | oui (couleurs vues) |
 | Choix du fond par la molette droite : clic = mode fond (anneau et barre du bas magenta), rotation = fond suivant/précédent, second clic ou 30 s = retour ; le fond s'affiche même si une piste joue | oui | oui (validé par l'utilisateur) |
 | Un seul `galleond` à la fois : le nom D-Bus est pris avant d'ouvrir le module, un second démarrage s'arrête (code 1) sans toucher au module | manuel | à confirmer |
-| Service systemd utilisateur (`tools/systemd/galleond.service`, variante `galleond-dev.service` pour l'arbre de compilation) | `systemd-analyze verify` | à confirmer après installation |
+| Service systemd utilisateur (`tools/systemd/galleond.service`, variante `galleond-dev.service` pour l'arbre de compilation) | `systemd-analyze verify` | démarre et pilote le module (journal du 19 octobre) ; démarrage à l'ouverture de session et reprise après veille à confirmer |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 
 ## 2. En cours
@@ -89,7 +89,7 @@ Décisions à ne pas perdre :
 
 ## 6. Prochaines étapes prioritaires
 
-1. Installer et confirmer le service systemd (démarrage avec la session, redémarrage après arrêt, reprise après veille).
+1. Confirmer le service systemd au prochain démarrage de session, et la reprise après veille (le lancement par `systemctl --user` est confirmé).
 2. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
 3. Adopter les thèmes dans le vrai `pages.json` (après sauvegarde), puis remplir les pages avec les applications voulues.
 4. Classement des jeux Steam les plus joués (lecture seule des fichiers Steam).
