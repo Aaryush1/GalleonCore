@@ -531,7 +531,7 @@ int main(int argc, char *argv[])
         return 0;
     }
     if (parser.isSet(appsOption)) {
-        galleond::AppsBackend backend(defaultPagesFile(parser.value(pagesOption)));
+        const galleond::AppsBackend backend(defaultPagesFile(parser.value(pagesOption)));
         QQmlApplicationEngine appsEngine;
         appsEngine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
         appsEngine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}});
@@ -582,7 +582,7 @@ int main(int argc, char *argv[])
                                             {QStringLiteral("playing"), true},
                                             {QStringLiteral("coverId"), coverId},
                                             {QStringLiteral("now"), QDateTime::currentDateTime()},
-                                            {QStringLiteral("locale"), QVariant::fromValue(QLocale())}},
+                                            {QStringLiteral("localeName"), QLocale().name()}},
                                            QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
         if (frame.isNull() || !frame.save(parser.value(renderNowPlayingOption))) {
             qCritical() << "galleond: could not draw or save the screen";

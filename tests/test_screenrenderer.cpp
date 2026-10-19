@@ -133,7 +133,7 @@ private Q_SLOTS:
                 {"playing", playing},
                 {"coverId", coverId},
                 {"now", QDateTime(QDate(2026, 10, 19), QTime(7, 5))},
-                {"locale", QVariant::fromValue(QLocale(QLocale::French, QLocale::France))}};
+                {"localeName", QLocale(QLocale::French, QLocale::France).name()}};
     }
 
     void theCoverAndTheTimelineAreDrawn()

@@ -36,14 +36,16 @@ Rectangle {
     // Language, 12/24 hour clock and date order of the text. The system's by
     // default; QML's own Qt.formatDate()/formatTime() ignore it and always
     // give English, so the formats are taken from this locale instead.
-    property var locale: Qt.locale()
+    // Given by its name (a C++ QLocale put in a property is not wrapped as a Locale on Qt 6.4).
+    property string localeName
+    readonly property var locale: localeName === "" ? Qt.locale() : Qt.locale(localeName)
     // The locale's short time format ("HH:mm", "h:mm AP"...), with seconds if asked.
     readonly property string timeFormat: showSeconds
         ? locale.timeFormat(Locale.ShortFormat).replace("mm", "mm:ss")
         : locale.timeFormat(Locale.ShortFormat)
     // True once the wallpaper is decoded (or when there is none): the renderer
     // waits for it before taking a frame.
-    readonly property bool ready: root.wallpaper.toString() === "" || image.status === Image.Ready
+    readonly property bool ready: String(root.wallpaper) === "" || image.status === Image.Ready
 
     implicitWidth: 720
     implicitHeight: 384
@@ -59,7 +61,8 @@ Rectangle {
         cache: false
         smooth: true
         // Decode at twice the target at most: the originals are large.
-        sourceSize: Qt.size(root.width * 2, root.height * 2)
+        sourceSize.width: root.width * 2
+        sourceSize.height: root.height * 2
     }
 
     // Darkens the left side so the text stays readable on any image.
@@ -83,14 +86,14 @@ Rectangle {
             color: root.textColor
             font.pixelSize: root.height * 0.30
             font.bold: true
-            text: root.locale.toString(root.now, root.timeFormat)
+            text: root.now.toLocaleTimeString(root.locale, root.timeFormat)
         }
 
         Text {
             color: root.textColor
             opacity: 0.8
             font.pixelSize: root.height * 0.075
-            text: root.locale.toString(root.now, root.locale.dateFormat(Locale.LongFormat))
+            text: root.now.toLocaleDateString(root.locale, root.locale.dateFormat(Locale.LongFormat))
         }
     }
 

@@ -34,7 +34,9 @@ Rectangle {
     // The name and place of the wallpaper being chosen (empty: not choosing).
     property string wallpaperLabel
     property date now: new Date()
-    property var locale: Qt.locale()
+    // Given by its name (a C++ QLocale put in a property is not wrapped as a Locale on Qt 6.4).
+    property string localeName
+    readonly property var locale: localeName === "" ? Qt.locale() : Qt.locale(localeName)
     // True once the cover is decoded (or when there is none).
     readonly property bool ready: root.coverId === "" || cover.status === Image.Ready
 
@@ -97,7 +99,7 @@ Rectangle {
         color: "#7d8591"
         font.pixelSize: 20 * root.unit
         elide: Text.ElideRight
-        text: root.locale.toString(root.now, root.locale.timeFormat(Locale.ShortFormat))
+        text: root.now.toLocaleTimeString(root.locale, root.locale.timeFormat(Locale.ShortFormat))
     }
 
     Text {

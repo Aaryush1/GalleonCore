@@ -121,7 +121,7 @@ QImage ScreenRenderer::render(const QString &wallpaperFile, const QDateTime &now
 {
     return render({{QStringLiteral("wallpaper"), wallpaperFile.isEmpty() ? QUrl() : QUrl::fromLocalFile(wallpaperFile)},
                    {QStringLiteral("now"), now},
-                   {QStringLiteral("locale"), QVariant::fromValue(locale)}},
+                   {QStringLiteral("localeName"), locale.name()}},
                   size);
 }
 

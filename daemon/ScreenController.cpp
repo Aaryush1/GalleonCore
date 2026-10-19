@@ -432,7 +432,7 @@ bool ScreenController::drawNowPlaying()
          {QStringLiteral("coverId"), m_coverId},
          {QStringLiteral("coverIsIcon"), m_coverIsIcon},
          {QStringLiteral("now"), QDateTime::currentDateTime()},
-         {QStringLiteral("locale"), QVariant::fromValue(QLocale())}});
+         {QStringLiteral("localeName"), QLocale().name()}});
     const QImage frame = m_nowPlayingRenderer->render(
         properties, QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
     return !frame.isNull() && sendScreen(frame);
@@ -454,7 +454,7 @@ bool ScreenController::draw()
     QVariantMap properties = themeProperties();
     properties.insert({{QStringLiteral("wallpaper"), QUrl::fromLocalFile(entry->path)},
                        {QStringLiteral("now"), QDateTime::currentDateTime()},
-                       {QStringLiteral("locale"), QVariant::fromValue(QLocale())}});
+                       {QStringLiteral("localeName"), QLocale().name()}});
     const QImage frame = m_renderer->render(
         properties, QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
     if (frame.isNull())
