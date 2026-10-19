@@ -34,13 +34,27 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
                                    ScreenRenderer *renderer,
                                    WallpaperCatalog catalog,
                                    QString widgetFile,
+                                   MediaController *media,
+                                   ScreenRenderer *nowPlayingRenderer,
                                    QObject *parent)
     : QObject(parent)
     , m_deck(deck)
     , m_renderer(renderer)
     , m_catalog(std::move(catalog))
     , m_widgetFile(std::move(widgetFile))
+    , m_media(media)
+    , m_nowPlayingRenderer(nowPlayingRenderer)
 {
+    if (m_media && m_nowPlayingRenderer) {
+        connect(m_media, &MediaController::nowPlayingChanged, this, &ScreenController::onNowPlayingChanged);
+        connect(&m_cover, &CoverLoader::coverChanged, this, [this] {
+            m_coverId = m_cover.cover().isNull() ? QString() : QString::number(++m_coverSerial);
+            if (!m_coverId.isEmpty())
+                m_nowPlayingRenderer->setProvidedImage(m_coverId, m_cover.cover());
+            if (wantsNowPlaying())
+                draw();
+        });
+    }
     m_minuteTimer.setSingleShot(true);
     connect(&m_minuteTimer, &QTimer::timeout, this, &ScreenController::tick);
 
@@ -123,11 +137,57 @@ void ScreenController::scheduleNextMinute()
     m_minuteTimer.start(MinuteMs - elapsed + MinuteMarginMs);
 }
 
+void ScreenController::setScreenConfig(const ScreenConfig &config)
+{
+    const bool changed = !(config == m_screenConfig);
+    m_screenConfig = config;
+    m_cover.setRemoteAllowed(config.remoteCovers);
+    if (changed && !m_wallpaper.isEmpty())
+        draw();
+}
+
+bool ScreenController::wantsNowPlaying() const
+{
+    if (!m_media || !m_nowPlayingRenderer || m_wallpaper.isEmpty() || m_screenConfig.nowPlaying == NowPlayingMode::Never)
+        return false;
+    if (m_media->nowPlaying().isEmpty())
+        return false;
+    const MediaController::State state = m_media->state();
+    return state == MediaController::State::Playing
+           || (m_screenConfig.nowPlaying == NowPlayingMode::PlayingOrPaused && state == MediaController::State::Paused);
+}
+
+void ScreenController::onNowPlayingChanged()
+{
+    // A new cover is wanted whenever the track says another address.
+    m_cover.request(m_media->nowPlaying().artUrl);
+    if (!m_wallpaper.isEmpty())
+        draw(); // the track, its timeline, or the return to the wallpaper
+}
+
+bool ScreenController::drawNowPlaying()
+{
+    const NowPlaying track = m_media->nowPlaying();
+    const QImage frame = m_nowPlayingRenderer->render(
+        {{QStringLiteral("title"), track.title},
+         {QStringLiteral("artist"), track.artist},
+         {QStringLiteral("positionSeconds"), track.positionSeconds},
+         {QStringLiteral("durationSeconds"), track.durationSeconds},
+         {QStringLiteral("playing"), m_media->state() == MediaController::State::Playing},
+         {QStringLiteral("coverId"), m_coverId},
+         {QStringLiteral("now"), QDateTime::currentDateTime()},
+         {QStringLiteral("locale"), QVariant::fromValue(QLocale())}},
+        QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
+    return !frame.isNull() && m_deck->setScreenImage(frame);
+}
+
 bool ScreenController::draw()
 {
     const WallpaperEntry *entry = m_catalog.find(m_wallpaper);
     if (!entry || !deckAvailable())
         return false;
+    if (wantsNowPlaying())
+        return drawNowPlaying();
 
     const QImage frame = m_renderer->render(entry->path,
                                             QDateTime::currentDateTime(),

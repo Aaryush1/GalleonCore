@@ -236,6 +236,35 @@ struct Parser
         }
     }
 
+    void screen(const QJsonValue &value, PagesConfig &config)
+    {
+        if (value.isUndefined())
+            return;
+        if (!value.isObject()) {
+            error(QStringLiteral("screen"), QStringLiteral("must be an object"));
+            return;
+        }
+        const QJsonObject object = value.toObject();
+        rejectUnknown(object, {QStringLiteral("now_playing"), QStringLiteral("remote_covers")}, QStringLiteral("screen"));
+        if (object.contains(QStringLiteral("now_playing"))) {
+            const QJsonValue mode = object.value(QStringLiteral("now_playing"));
+            const QString text = mode.toString();
+            if (!mode.isString() || (text != QLatin1String("playing") && text != QLatin1String("playing-or-paused")
+                                     && text != QLatin1String("never")))
+                error(QStringLiteral("screen.now_playing"), QStringLiteral("must be playing, playing-or-paused or never"));
+            else
+                config.screen.nowPlaying = text == QLatin1String("never")               ? NowPlayingMode::Never
+                                           : text == QLatin1String("playing-or-paused") ? NowPlayingMode::PlayingOrPaused
+                                                                                         : NowPlayingMode::Playing;
+        }
+        if (object.contains(QStringLiteral("remote_covers"))) {
+            if (!object.value(QStringLiteral("remote_covers")).isBool())
+                error(QStringLiteral("screen.remote_covers"), QStringLiteral("must be true or false"));
+            else
+                config.screen.remoteCovers = object.value(QStringLiteral("remote_covers")).toBool();
+        }
+    }
+
     void dials(const QJsonValue &value, PagesConfig &config)
     {
         if (value.isUndefined())
@@ -291,7 +320,8 @@ PagesParseResult parsePagesConfig(const QByteArray &json)
 
     Parser parser;
     parser.rejectUnknown(root,
-                         {QStringLiteral("version"), QStringLiteral("home"), QStringLiteral("pages"), QStringLiteral("dials")},
+                         {QStringLiteral("version"), QStringLiteral("home"), QStringLiteral("pages"), QStringLiteral("dials"),
+                          QStringLiteral("screen")},
                          QStringLiteral("file"));
     int version = 0;
     if (parser.integer(root.value(QStringLiteral("version")), 1, 1, QStringLiteral("version"), version) && version != 1)
@@ -300,6 +330,7 @@ PagesParseResult parsePagesConfig(const QByteArray &json)
     PagesConfig config;
     parser.pages(root.value(QStringLiteral("pages")), config);
     parser.dials(root.value(QStringLiteral("dials")), config);
+    parser.screen(root.value(QStringLiteral("screen")), config);
 
     parser.text(root.value(QStringLiteral("home")), QStringLiteral("home"), MaxNameLength, config.home);
     if (!config.home.isEmpty() && !config.pages.contains(config.home))

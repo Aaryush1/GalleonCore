@@ -87,8 +87,24 @@ struct DialConfig
     friend bool operator==(const DialConfig &, const DialConfig &) = default;
 };
 
+// When the screen shows the track being played instead of the wallpaper.
+enum class NowPlayingMode : std::uint8_t {
+    Playing,         // while a player is playing (default)
+    PlayingOrPaused, // also while it is paused
+    Never,
+};
+
+struct ScreenConfig
+{
+    NowPlayingMode nowPlaying = NowPlayingMode::Playing;
+    bool remoteCovers = true; // download https covers; false: local files only
+
+    friend bool operator==(const ScreenConfig &, const ScreenConfig &) = default;
+};
+
 struct PagesConfig
 {
+    ScreenConfig screen;
     QString home;
     QMap<QString, Page> pages;
     std::array<DialConfig, galleon::protocol::DialCount> dials;

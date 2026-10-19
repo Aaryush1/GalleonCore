@@ -276,6 +276,31 @@ private Q_SLOTS:
         QVERIFY(mentions(result, "keys[2].action.type"));
     }
 
+    void theScreenSectionIsOptionalAndChecked()
+    {
+        const PagesConfig defaults = *parsePagesConfig(defaultPagesJson()).config;
+        QCOMPARE(int(defaults.screen.nowPlaying), int(NowPlayingMode::Playing));
+        QVERIFY(defaults.screen.remoteCovers);
+
+        const auto withScreen = [](const QJsonValue &screen) {
+            QJsonObject object = defaultObject();
+            object.insert("screen", screen);
+            return parseObject(object);
+        };
+        auto result = withScreen(QJsonObject{{"now_playing", "playing-or-paused"}, {"remote_covers", false}});
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
+        QCOMPARE(int(result.config->screen.nowPlaying), int(NowPlayingMode::PlayingOrPaused));
+        QVERIFY(!result.config->screen.remoteCovers);
+        QCOMPARE(int(withScreen(QJsonObject{{"now_playing", "never"}}).config->screen.nowPlaying), int(NowPlayingMode::Never));
+        QVERIFY(withScreen(QJsonObject{}).config.has_value());
+
+        QVERIFY(!withScreen(QJsonObject{{"now_playing", "sometimes"}}).config.has_value());
+        QVERIFY(!withScreen(QJsonObject{{"now_playing", 1}}).config.has_value());
+        QVERIFY(!withScreen(QJsonObject{{"remote_covers", "yes"}}).config.has_value());
+        QVERIFY(!withScreen(QJsonObject{{"colour", "red"}}).config.has_value());
+        QVERIFY(!withScreen("playing").config.has_value());
+    }
+
     void errorsAndConfigAreMutuallyExclusive()
     {
         // Every single-byte change of the default file: never a crash, and

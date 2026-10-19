@@ -241,17 +241,25 @@ int main(int argc, char *argv[])
     galleond::ScreenRenderer renderer(widgetFile);
     if (!renderer.isValid())
         return 1;
-    galleond::ScreenController controller(&deck, &renderer, galleond::WallpaperCatalog(wallpaperDir), widgetFile);
+    // The track screen sits next to the wallpaper widget (same folder).
+    galleond::ScreenRenderer nowPlayingRenderer(QFileInfo(widgetFile).absolutePath() + QStringLiteral("/NowPlaying.qml"));
+    std::unique_ptr<galleond::MprisController> media;
+    const bool usePages = !parser.isSet(noPagesOption) && !parser.isSet(testKeysOption);
+    if (usePages)
+        media = std::make_unique<galleond::MprisController>();
+    galleond::ScreenController controller(&deck, &renderer, galleond::WallpaperCatalog(wallpaperDir), widgetFile,
+                                          media.get(), nowPlayingRenderer.isValid() ? &nowPlayingRenderer : nullptr);
 
     // The button pages: keys and dials drive the music player (MPRIS).
-    std::unique_ptr<galleond::MprisController> media;
     std::unique_ptr<galleond::PagesController> pages;
-    if (!parser.isSet(noPagesOption) && !parser.isSet(testKeysOption)) {
+    if (usePages) {
         const QString pagesFile = defaultPagesFile(parser.value(pagesOption));
-        media = std::make_unique<galleond::MprisController>();
         pages = std::make_unique<galleond::PagesController>(&deck, media.get(),
                                                             galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
+        QObject::connect(pages.get(), &galleond::PagesController::screenConfigChanged, &controller,
+                         [&pages, &controller] { controller.setScreenConfig(pages->screenConfig()); });
         pages->loadFile(pagesFile);
+        controller.setScreenConfig(pages->screenConfig());
         // A module plugged in again shows its old icons: send everything.
         QObject::connect(&controller, &galleond::ScreenController::deckAvailableChanged, pages.get(),
                          [&pages] { pages->redraw(true); });

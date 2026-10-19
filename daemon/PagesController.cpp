@@ -43,10 +43,13 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
 
 void PagesController::setConfig(const PagesConfig &config)
 {
+    const bool screenChanged = !(config.screen == m_config.screen);
     m_config = config;
     m_stack = {config.home};
     m_pressed.fill(false);
     redraw(true);
+    if (screenChanged)
+        Q_EMIT screenConfigChanged();
 }
 
 void PagesController::loadFile(const QString &path)

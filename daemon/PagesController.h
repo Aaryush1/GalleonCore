@@ -43,12 +43,17 @@ public:
     // error: the default pages are used until it appears.
     void loadFile(const QString &path);
 
+    [[nodiscard]] const ScreenConfig &screenConfig() const { return m_config.screen; }
     [[nodiscard]] QString currentPage() const { return m_stack.isEmpty() ? QString() : m_stack.last(); }
     [[nodiscard]] QStringList pageStack() const { return m_stack; }
 
     // Draws the keys; `force` sends every picture even if it did not change
     // (a module that was plugged in again shows its old icons).
     void redraw(bool force = false);
+
+Q_SIGNALS:
+    // The `screen` section of the configuration in use changed.
+    void screenConfigChanged();
 
 private:
     // The configuration of the key on the current page, or nullptr. Points

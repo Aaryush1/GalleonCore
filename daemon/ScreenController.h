@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "CoverLoader.h"
+#include "MediaController.h"
+#include "PagesConfig.h"
 #include "WallpaperCatalog.h"
 
 #include <QObject>
@@ -20,7 +23,8 @@ namespace galleond {
 class ScreenRenderer;
 
 // Keeps the Galleon's screen showing a wallpaper with the time, redrawn every
-// minute. Exposed on D-Bus as org.galleoncore.Deck (the slots below) and to
+// minute, or, while a player is playing (as the pages file allows), the track
+// with its cover and timeline, redrawn every second. Exposed on D-Bus as org.galleoncore.Deck (the slots below) and to
 // the preview window (the properties).
 //
 // Only a name from the catalog is ever accepted: D-Bus callers cannot make
@@ -35,13 +39,19 @@ class ScreenController : public QObject
     Q_PROPERTY(QUrl widgetUrl READ widgetUrl CONSTANT)
 
 public:
-    // `deck` and `renderer` are not owned and must outlive the controller.
-    // `deck` may be null (preview without hardware).
+    // `deck`, `renderer`, `media` and `nowPlayingRenderer` are not owned and
+    // must outlive the controller. `deck` may be null (preview without
+    // hardware); `media` and `nowPlayingRenderer` may be null (no track screen).
     ScreenController(galleon::StreamDeck *deck,
                      ScreenRenderer *renderer,
                      WallpaperCatalog catalog,
                      QString widgetFile,
+                     MediaController *media = nullptr,
+                     ScreenRenderer *nowPlayingRenderer = nullptr,
                      QObject *parent = nullptr);
+
+    // When to show the track, and whether covers may be downloaded.
+    void setScreenConfig(const ScreenConfig &config);
 
     [[nodiscard]] QString wallpaper() const { return m_wallpaper; }
     [[nodiscard]] bool deckAvailable() const;
@@ -66,6 +76,9 @@ Q_SIGNALS:
 private:
     void tick();
     bool draw();
+    [[nodiscard]] bool wantsNowPlaying() const;
+    bool drawNowPlaying();
+    void onNowPlayingChanged();
     void scheduleNextMinute();
     void checkDeck();
 
@@ -73,6 +86,12 @@ private:
     ScreenRenderer *m_renderer;
     WallpaperCatalog m_catalog;
     QString m_widgetFile;
+    MediaController *m_media;
+    ScreenRenderer *m_nowPlayingRenderer;
+    CoverLoader m_cover;
+    ScreenConfig m_screenConfig;
+    QString m_coverId; // changes with every cover, so the widget never reuses an old one
+    int m_coverSerial = 0;
     QString m_wallpaper; // catalog name, empty when nothing is shown
     QTimer m_minuteTimer;
     QTimer m_deckTimer;
