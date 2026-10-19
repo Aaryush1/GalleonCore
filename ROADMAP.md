@@ -2,7 +2,7 @@
 
 Référence pour reprendre le développement à tout moment, y compris dans une nouvelle session Claude Code. À mettre à jour après chaque fonctionnalité terminée **et** testée (voir « Règle de mise à jour » en bas). Les notes de conception détaillées (protocole, RGB, OpenRGB, Windows) sont dans [docs/ROADMAP.md](docs/ROADMAP.md) ; les règles de code dans [CLAUDE.md](CLAUDE.md).
 
-État au 19 octobre 2026, branche `galleond-wallpaper-clock` (non fusionnée, rien de poussé).
+État au 19 octobre 2026, branche `main` (pull request 5 fusionnée, CI verte).
 
 ## 1. Implémenté et testé
 
@@ -46,8 +46,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 
 - ~~Aperçu fluide du choix du fond~~ — réglé le 19 octobre (cause : le module n'affiche une image que si un second envoi la suit ; voir `docs/protocol/README.md`). Ancien texte : chaque cran renvoie un JPEG de l'écran. À mesurer sur le module : latence par cran, et si une rotation rapide s'accumule. Piste si trop lent : ne dessiner que le dernier fond demandé (regrouper les crans) et réduire la qualité JPEG pendant la rotation.
 - **Écran de veille : composition** — avec la vraie géométrie (écran 62,6 × 33 mm, touches 13,7 mm, pas 19,1 mm, 5,4 mm entre écran et touches) l'écran n'occupe que **30 % de la hauteur** de l'image : le visage doit être dans les 25 % du haut. Ancien texte : deux vidéos reçues (704×1280, 24 i/s, 9 s) : « Hacker dans la métropole néon » (jaune, réaliste) et « Nuit gaming sous la lune rose » (rose, animée), listées dans `~/.config/galleoncore/pages-veille-test.json` avec une géométrie *estimée* (pas mesurée) ; à ne pas ajouter au dépôt sans vérifier `ASSETS.md` (marques visibles dans l'image, conditions du service de génération). Mesures à la règle (écran, touche, espaces, distance écran → touches) à mettre dans `screensaver.geometry`, puis une vidéo verticale (piste : image générée par ChatGPT puis animée par un outil IA, en boucle ; vérifier les conditions du service et `ASSETS.md`). À confirmer sur le module : fluidité à 15 i/s, continuité de l'image entre l'écran et les touches, réveil.
-- **Pages remplies** : les thèmes sont adoptés dans le vrai `pages.json` (copie de l'ancien : `pages.json.avant-themes`, 19 octobre). Reste à ajouter les applications voulues dans chaque page.
-- **Jeux les plus joués** (thème Jeux vidéo) : classement des jeux Steam par temps de jeu. Source à étudier en lecture seule (`~/.steam/steam/userdata/<id>/config/localconfig.vdf`, `appmanifest_*.acf`) ; NeuroHell est un `.desktop` personnel (`neurohell.desktop`).
+- **Pages remplies** : fait le 19 octobre (Multimédia et Plus, Création Musicale, Jeux vidéo, Système, Pavé numérique). Le contenu est dans le `pages.json` de l'utilisateur ; reste à le confirmer sur le module.
 
 ## 3. À vérifier ou corriger
 
@@ -62,7 +61,13 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 
 ## 4. À développer
 
-1. **Interface graphique de réglage** (demandée : PyQt6) pour configurer touches, molettes, profils, thèmes et fonds d'écran. Décision à prendre avant de coder : PyQt6 (nouvelle dépendance Python, licence GPL compatible) ou QML dans `galleond` (le sélecteur `--apps` existe déjà en QML : `daemon/qml/Apps.qml`, `PagesEditor`, `AppsBackend`). Dans les deux cas : la GUI ne parle au démon que par D-Bus (`org.galleoncore.Deck`) ou par le fichier JSON validé, jamais directement au matériel ; écriture atomique avec sauvegarde `.bak` (déjà fait par `PagesEditor`).
+1. **Galleon Bosun** (interface graphique de réglage ; nom choisi le 19 octobre). Décision : **QML** (Kirigami) + un petit module C++ qui réutilise `parsePagesConfig`, `PagesEditor` et le rendu des touches (pas de seconde validation à maintenir) ; application séparée `galleon-bosun`. Elle ne parle au démon que par D-Bus ou par le fichier JSON validé, jamais au matériel ; écriture atomique avec sauvegarde datée avant chaque enregistrement. Onglets prévus (à valider avec l'utilisateur au fur et à mesure) :
+   - **Clavier / LED** : lien vers le Corsair Web Hub, ouvert par `xdg-open` (navigateur ou PWA de l'utilisateur). Pas de webview intégrée tant que les conditions d'utilisation de Corsair n'ont pas été lues et jugées compatibles ; explication honnête de ce qui marche sous Linux (OpenRGB).
+   - **Un onglet par thème** : touches par défaut mais modifiables (ajout, retrait, icône), couleur de l'onglet, ajout et suppression d'onglet (garde-fous : jamais le dernier thème ni la page de repli ; une cible de `Retour` / `Plus` ne peut pas disparaître).
+   - **Fonds d'écran** : miniatures avec nom, ajout d'image personnalisée, rognage au format de l'écran (720×384). Les images de l'utilisateur restent dans son dossier, hors dépôt.
+   - **Économiseurs d'écran** : choix, ajout de vidéo avec résolution et fps affichés (plafond mesuré : environ 20 i/s écran et touches ensemble), rognage graphique sur la vraie géométrie, conversion FFmpeg en arrière-plan (arguments fixes, pas de shell, entrée traitée comme non fiable).
+   - **Réinitialiser** : par onglet et global, avec confirmation et sauvegarde préalable.
+   À trancher : aperçu en direct sur le module pendant l'édition (demande une commande de plus au démon).
 2. **Profils** : plusieurs fichiers de pages et bascule (changement de profil selon l'application active ou au choix) ; le fichier JSON unique actuel est le profil de base.
 3. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, autres raccourcis clavier (l'action `key` existe, liste de touches limitée au pavé numérique : à étendre avec validation) ; opérateurs du pavé (+ − × ÷) : pas de place sur 12 touches, à placer sur une seconde page ou les molettes.
 4. **Windows** : backend SMTC derrière `MediaController` (MPRIS est Linux seulement) ; portage hidapi déjà couvert par `Transport`.
@@ -99,16 +104,16 @@ Décisions à ne pas perdre :
 - **Fichiers** : `~/.config/galleoncore/pages.json` (pages, thèmes, molettes, écran), `galleond.conf` (fond retenu), `~/.cache/galleoncore/thumbnails` (vignettes vidéo). Les tests isolent `XDG_CONFIG_HOME`.
 - **Modes de molette** : un appui sur une molette configurée `theme` ou `wallpaper-mode` bascule cette molette entre contrôle multimédia et choix (thème / fond) ; sortie par second appui ou après 30 s sans rotation.
 - Fonctionnalités gardées volontairement : système de profils et configuration JSON (demande explicite de l'utilisateur).
+- **CI** (GitHub Actions, Ubuntu 24.04) : Qt **6.4**, plus ancien que celui du poste de développement (6.10) ; GCC, Clang + ASan/UBSan + fuzz, lint (clang-tidy 18, qmllint, reuse). Pièges rencontrés : `Locale.toString` n'existe pas en 6.4 (le widget utilise `Date.toLocaleTimeString`), un `QLocale` C++ n'y est pas enveloppé en `Locale` (la langue est passée par son nom), `QTimeZone::UTC` demande Qt 6.5, Qt Quick 6.4 laisse un cycle d'images à la sortie (suppression ciblée dans `tests/lsan.supp`). Pour reproduire : un conteneur `ubuntu:24.04` avec `qt6-base-dev qt6-declarative-dev` et les modules `qml6-module-*`. `main` est protégée : tout passe par une pull request aux trois vérifications vertes.
 - Build : `cmake -B build -DGALLEON_WERROR=ON && cmake --build build && ctest --test-dir build` ; aussi `-DGALLEON_SANITIZE=ON`, clang-tidy, `qmllint widgets/*.qml`, `reuse lint` (non installé sur cette machine : à lancer ailleurs avant une publication).
 
 ## 6. Prochaines étapes prioritaires
 
 1. (fait) Reprise du module après une veille de l'ordinateur : confirmée. Le réglage NVIDIA de l'utilisateur est un sujet système, hors du projet.
-2. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
-3. Compléter les pages de thèmes avec les applications voulues.
-4. Classement des jeux Steam les plus joués (lecture seule des fichiers Steam).
-5. Décider PyQt6 ou QML pour l'interface de réglage, puis la construire par-dessus `PagesEditor` / D-Bus.
-6. Fusionner la branche `galleond-wallpaper-clock` après relecture (ne rien pousser sans accord).
+2. (fait) Branche `galleond-wallpaper-clock` fusionnée dans `main` (pull request 5, 19 octobre) ; la CI passe (GCC, Clang + sanitizers, lint).
+3. Confirmer sur le module les pages remplies, le classement par usage, les nouvelles touches média et le lancement de BIT SCRIPTS Musique.
+4. **Galleon Bosun** : maquette QML (onglets, grille des 12 touches rendue par le moteur existant, détail d'une touche), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
+5. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
 
 ## Règle de mise à jour
 
