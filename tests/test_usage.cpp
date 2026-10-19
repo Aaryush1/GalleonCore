@@ -24,7 +24,7 @@ bool writeFile(const QString &path, const QByteArray &bytes)
     return true;
 }
 
-const QDateTime T0 = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::UTC);
+const QDateTime T0 = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::utc());
 
 const QByteArray LocalConfig = R"("UserLocalConfigStore"
 {

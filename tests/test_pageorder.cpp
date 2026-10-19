@@ -10,7 +10,7 @@ using namespace galleond;
 
 namespace {
 
-const QDateTime Now = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::UTC);
+const QDateTime Now = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::utc());
 
 KeyConfig appKey(int key, const QString &desktop)
 {
