@@ -56,6 +56,8 @@ Le contrôleur RVB lui-même ne vit pas ici : il sera développé dans un fork d
 
 ## Compilation
 
+Facultatif : `ffmpeg` (images des vidéos) et `gio` (lancer les applications).
+
 Prérequis : CMake ≥ 3.21, un compilateur C++20 (GCC ≥ 11 ou Clang ≥ 14), Qt 6 (Core, Gui, Qml, Quick, DBus), hidapi (backend hidraw).
 
 Sous Debian/Ubuntu :
@@ -137,21 +139,45 @@ Les 12 touches et les 2 molettes exécutent les actions d'un fichier JSON, `~/.c
 
 - Les touches sont numérotées de 0 à 11, rangée par rangée depuis le haut gauche. Une touche sans `action` ne fait rien.
 - `icon` : un nom du thème d'icônes du bureau, ou un fichier à côté du fichier de pages (`.png`, `.jpg`, `.svg` ; pas de chemin). Elle peut être un objet avec un nom par état du lecteur (`playing`, `paused`, `stopped`).
-- Actions : `media` (`play-pause`, `next`, `previous`, `stop`, `volume` avec `step` en pourcent, `seek` avec `seconds`), `page` (ouvrir une page), `back`, `none`. Le `turn` d'une molette prend `volume` ou `seek`, appliqué à chaque cran.
+- Actions : `media` (`play-pause`, `next`, `previous`, `stop`, `volume` avec `step` en pourcent, `seek` avec `seconds`), `page` (ouvrir une page), `back`, `app` (lancer une application, voir plus bas), `none`. Le `turn` d'une molette prend `volume` ou `seek`, appliqué à chaque cran.
 - Le lecteur de musique est trouvé par MPRIS : celui qui joue, sinon le dernier qui a joué.
-- Les actions viennent de ce fichier seulement ; rien ne lance de programme.
+- Les actions viennent de ce fichier seulement. La seule façon de lancer un programme est une touche `app`, qui désigne un fichier `.desktop` : aucune commande ne peut s'écrire dans le fichier.
 - `galleond --render-keys touches.png` dessine les touches de la première page dans une image, sans le matériel.
+
+### Applications sur les touches
+
+Une touche peut lancer une application de ton bureau, sans commande à taper : elle désigne le fichier `.desktop` de l'application, dont le nom et l'icône servent à la touche, sauf si tu donnes les tiens.
+
+```json
+{ "key": 4, "action": { "type": "app", "desktop": "firefox.desktop" } }
+```
+
+`desktop` est un identifiant de fichier (`firefox.desktop`, `org.kde.dolphin.desktop`) ou le chemin absolu d'un fichier `.desktop`. C'est le lanceur du bureau qui la démarre (`gio launch`, sinon `gtk-launch`, sinon `kioclient`) : `Exec`, les arguments et `Terminal=true` sont traités comme le fait le bureau. Un double appui ne la lance qu'une fois. Par sécurité, le fichier de pages doit t'appartenir et ne pas être modifiable par les autres, sinon les touches d'application sont désactivées.
+
+Tu n'as jamais besoin de modifier le JSON pour cela :
+
+```sh
+./build/daemon/galleond --apps                              # une fenêtre : choisir une application, choisir une touche
+./build/daemon/galleond --list-apps --filter vlc            # les applications installées
+./build/daemon/galleond --assign-app vlc.desktop --key 4    # en mettre une sur une touche (--page NOM pour une autre page)
+./build/daemon/galleond --clear-key 4
+```
+
+La modification est vérifiée comme tout fichier de pages, l'ancienne version est gardée dans `pages.json.bak`, et un `galleond` en marche relit le changement tout seul.
 
 ### En cours de lecture sur l'écran
 
 Quand un lecteur joue, l'écran affiche le morceau (pochette, titre, artiste, temps et barre de progression) à la place du fond d'écran, et revient au fond quand la musique s'arrête. Une section `screen` facultative du fichier de pages le règle :
 
 ```json
-"screen": { "now_playing": "playing", "remote_covers": true }
+"screen": { "now_playing": "playing", "remote_covers": true, "video_thumbnails": true }
 ```
 
 - `now_playing` : `playing` (par défaut), `playing-or-paused` ou `never`.
+- `video_thumbnails` : `false` pour ne jamais faire d'image d'une vidéo avec FFmpeg.
 - `remote_covers` : `false` pour ne charger que les pochettes de fichiers locaux. Les pochettes en `https://` sont téléchargées par `galleond` ; il ne télécharge jamais depuis `http://`, depuis une adresse IP ni depuis un nom local, limite la taille, la durée et les redirections, et ne décode que du JPEG, du PNG et du WebP.
+- La pochette est, dans l'ordre : celle que donne le lecteur, une image à côté du fichier lu (`cover.jpg`, `folder.png`, `front.jpg`, `albumart.jpg`, `album.jpg`, ou une image du même nom que le fichier), une image de la vidéo faite avec FFmpeg et gardée dans `~/.cache/galleoncore/thumbnails` (300 images ou 100 Mo au plus), l'icône du lecteur (le cône de VLC), puis une note. Un morceau sans titre affiche le nom de son fichier.
+- L'écran suit le lecteur immédiatement : les changements de morceau et d'état arrivent par des notifications D-Bus, et seule la barre de progression est lue une fois par seconde.
 - `galleond --render-now-playing ecran.png --wallpaper cinematic/cinematic-02.jpg` dessine un écran d'exemple sans le matériel.
 
 ## Notes matérielles

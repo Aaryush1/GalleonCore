@@ -56,6 +56,8 @@ The RGB controller itself does not live here: it will be developed in a fork of 
 
 ## Building
 
+Optional: `ffmpeg` (pictures of videos) and `gio` (starting applications).
+
 Requirements: CMake ≥ 3.21, a C++20 compiler (GCC ≥ 11 or Clang ≥ 14), Qt 6 (Core, Gui, Qml, Quick, DBus), hidapi (hidraw backend).
 
 On Debian/Ubuntu:
@@ -137,21 +139,45 @@ The 12 keys and the 2 dials run the actions of a JSON file, `~/.config/galleonco
 
 - Keys are numbered 0 to 11, row by row from the top left. A key without an `action` does nothing.
 - `icon`: a name of the desktop icon theme, or a file next to the pages file (`.png`, `.jpg`, `.svg`; no path). It can be an object with one name per player state (`playing`, `paused`, `stopped`).
-- Actions: `media` (`play-pause`, `next`, `previous`, `stop`, `volume` with `step` in percent, `seek` with `seconds`), `page` (open a page), `back`, `none`. A dial `turn` takes `volume` or `seek`, applied once per click.
+- Actions: `media` (`play-pause`, `next`, `previous`, `stop`, `volume` with `step` in percent, `seek` with `seconds`), `page` (open a page), `back`, `app` (start an application, see below), `none`. A dial `turn` takes `volume` or `seek`, applied once per click.
 - The music player is found through MPRIS: the one that is playing, else the last one that played.
-- Actions come from this file only; nothing runs a program.
+- Actions come from this file only. The only way to start a program is an `app` key, which names a `.desktop` file: no command can be written in the file.
 - `galleond --render-keys keys.png` draws the keys of the first page into an image, without the hardware.
+
+### Applications on the keys
+
+A key can start an application of your desktop, with no command to type: it names the application's `.desktop` file, and its name and icon are used for the key unless you give your own.
+
+```json
+{ "key": 4, "action": { "type": "app", "desktop": "firefox.desktop" } }
+```
+
+`desktop` is a desktop file ID (`firefox.desktop`, `org.kde.dolphin.desktop`) or the absolute path of a `.desktop` file. The desktop's own launcher starts it (`gio launch`, else `gtk-launch`, else `kioclient`), so `Exec`, arguments and `Terminal=true` are handled as the desktop does it. A double press starts the application once. For safety the pages file must be yours and not writable by others, or application keys are disabled.
+
+You never need to edit the JSON for this:
+
+```sh
+./build/daemon/galleond --apps                              # a window: pick an application, pick a key
+./build/daemon/galleond --list-apps --filter vlc            # the installed applications
+./build/daemon/galleond --assign-app vlc.desktop --key 4    # put one on a key (--page NAME for another page)
+./build/daemon/galleond --clear-key 4
+```
+
+The edit is checked like any pages file, the previous version is kept as `pages.json.bak`, and a running `galleond` reads the change by itself.
 
 ### Now playing on the screen
 
 While a player is playing, the screen shows the track (cover, title, artist, time and a progress bar) instead of the wallpaper, and goes back to the wallpaper when the music stops. This is set by an optional `screen` section of the pages file:
 
 ```json
-"screen": { "now_playing": "playing", "remote_covers": true }
+"screen": { "now_playing": "playing", "remote_covers": true, "video_thumbnails": true }
 ```
 
 - `now_playing`: `playing` (default), `playing-or-paused` or `never`.
+- `video_thumbnails`: `false` to never make a picture of a video with FFmpeg.
 - `remote_covers`: `false` to load covers from local files only. Covers given as `https://` are downloaded by `galleond`; it never downloads from `http://`, from an IP address or from a local name, limits size, time and redirects, and only decodes JPEG, PNG and WebP.
+- The cover is, in this order: the one the player gives, an image next to the playing file (`cover.jpg`, `folder.png`, `front.jpg`, `albumart.jpg`, `album.jpg`, or one named like the file), a picture of the video made with FFmpeg and kept in `~/.cache/galleoncore/thumbnails` (at most 300 pictures or 100 MB), the icon of the player (the VLC cone), then a note. A track without a title shows its file name.
+- The screen follows the player at once: track and status changes arrive as D-Bus notifications, and only the progress bar is read once a second.
 - `galleond --render-now-playing screen.png --wallpaper cinematic/cinematic-02.jpg` draws a sample screen without the hardware.
 
 ## Hardware notes
