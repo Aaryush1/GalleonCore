@@ -35,6 +35,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 | Choix du fond validé tout seul après 4 s sans toucher la molette (`screen.wallpaper_validate_seconds`) ; le fond choisi reste affiché avec un décompte (`wallpaper_hold_seconds`) avant le retour de la lecture | oui | à confirmer |
 | Choix du fond précis : la molette compte chaque cran, le premier cran est dessiné tout de suite (≈45 ms mesurées : rendu 20 ms, encodage 1 ms, envoi ≈ 25 ms) et la rafale suivante est regroupée, le réglage n'est écrit qu'à la validation, ordre naturel stable du catalogue (styles par nom, `-2` avant `-10`), nom et position (`portrait-01   10/24`) affichés pendant le choix | oui | à confirmer |
 | Lecture des molettes : tous les rapports en attente sont lus à chaque tour (avant : un seul toutes les 10 ms, une file pouvait retarder un cran de plusieurs secondes) ; témoins de blocage du démon dans le journal | oui (`test_streamdeck`) | à confirmer (retard d'environ 2 s mesuré sur la vidéo du 19 octobre) |
+| Choix du fond : après un cran accepté, les rotations suivantes sont ignorées (pas mises en file) pendant `screen.wallpaper_step_delay_ms` (600 par défaut, 0 = chaque cran compte) ; images allégées pendant le choix | oui | à confirmer |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 
 ## 2. En cours

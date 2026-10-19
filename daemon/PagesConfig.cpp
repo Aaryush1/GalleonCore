@@ -460,7 +460,8 @@ struct Parser
         const QJsonObject object = value.toObject();
         rejectUnknown(object,
                       {QStringLiteral("now_playing"), QStringLiteral("remote_covers"), QStringLiteral("video_thumbnails"),
-                       QStringLiteral("wallpaper_hold_seconds"), QStringLiteral("wallpaper_validate_seconds")},
+                       QStringLiteral("wallpaper_hold_seconds"), QStringLiteral("wallpaper_validate_seconds"),
+                       QStringLiteral("wallpaper_step_delay_ms")},
                       QStringLiteral("screen"));
         if (object.contains(QStringLiteral("now_playing"))) {
             const QJsonValue mode = object.value(QStringLiteral("now_playing"));
@@ -473,6 +474,9 @@ struct Parser
                                            : text == QLatin1String("playing-or-paused") ? NowPlayingMode::PlayingOrPaused
                                                                                          : NowPlayingMode::Playing;
         }
+        if (object.contains(QStringLiteral("wallpaper_step_delay_ms")))
+            integer(object.value(QStringLiteral("wallpaper_step_delay_ms")), 0, 5000,
+                    QStringLiteral("screen.wallpaper_step_delay_ms"), config.screen.wallpaperStepDelayMs);
         if (object.contains(QStringLiteral("wallpaper_validate_seconds")))
             integer(object.value(QStringLiteral("wallpaper_validate_seconds")), 1, 120,
                     QStringLiteral("screen.wallpaper_validate_seconds"), config.screen.wallpaperValidateSeconds);

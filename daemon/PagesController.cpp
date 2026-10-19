@@ -522,7 +522,17 @@ void PagesController::onDialRotated(int dial, int steps)
         qInfo() << "galleond: dial" << dial << "step" << steps << "ignored: it is the click";
         return; // the click's own movement, not a turn
     }
-    const int counted = steps; // as many places as the dial counts detents
+    int counted = steps; // as many places as the dial counts detents
+    if (dial == m_wallpaperDial && m_config.screen.wallpaperStepDelayMs > 0) {
+        // A wallpaper takes a moment to show: turns that come before it is up are
+        // not queued, they are ignored, so that the screen never runs behind the
+        // dial. One place at a time, then.
+        m_wallpaperTimeout.start(); // the dial is being touched: the choice is not validated yet
+        if (now - m_lastWallpaperStepAt < m_config.screen.wallpaperStepDelayMs)
+            return;
+        m_lastWallpaperStepAt = now;
+        counted = std::clamp(steps, -1, 1);
+    }
     auto &recent = m_recentTurns[index];
     std::rotate(recent.begin(), recent.begin() + 1, recent.end()); // the oldest slot is reused
     recent.back() = {now, counted};

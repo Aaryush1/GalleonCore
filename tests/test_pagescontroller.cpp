@@ -663,7 +663,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
             {"version", 1},
             {"home", "main"},
-            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}}},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 0}}},
             {"pages", QJsonObject{{"main", page({})}}},
             {"dials", QJsonObject{{"1", QJsonObject{{"turn", mediaAction("volume").value("type").toString() == "media"
                                                               ? QJsonObject{{"type", "media"}, {"command", "seek"}, {"seconds", 5}}
@@ -823,7 +823,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
             {"version", 1},
             {"home", "main"},
-            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}}},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 0}}},
             {"pages", QJsonObject{{"main", page({})}}},
             {"themes", QJsonArray{QJsonObject{{"name", "Control"}, {"page", "main"}, {"color", "#ffd600"}}}},
             {"dials", QJsonObject{{"0", QJsonObject{{"press", QJsonObject{{"type", "theme"}}}}},
@@ -848,7 +848,7 @@ private Q_SLOTS:
         const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
             {"version", 1},
             {"home", "main"},
-            {"screen", QJsonObject{{"wallpaper_validate_seconds", 2}}},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 2}, {"wallpaper_step_delay_ms", 0}}},
             {"pages", QJsonObject{{"main", page({})}}},
             {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
@@ -868,6 +868,35 @@ private Q_SLOTS:
         QCOMPARE(steps.count(), 3);
         // Left alone for the time: validated, the dial is the player control again.
         QTRY_VERIFY_WITH_TIMEOUT(!f.controller->wallpaperMode(), 5000);
+    }
+
+    void turnsDuringTheStepDelayAreIgnoredNotQueued()
+    {
+        const auto parsed = parsePagesConfig(QJsonDocument(QJsonObject{
+            {"version", 1},
+            {"home", "main"},
+            {"screen", QJsonObject{{"wallpaper_validate_seconds", 60}, {"wallpaper_step_delay_ms", 1500}}},
+            {"pages", QJsonObject{{"main", page({})}}},
+            {"dials", QJsonObject{{"1", QJsonObject{{"press", QJsonObject{{"type", "wallpaper-mode"}}}}}}}}).toJson());
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        Fixture f;
+        f.controller->setConfig(*parsed.config);
+        QSignalSpy steps(f.controller.get(), &PagesController::wallpaperStep);
+        f.pressDial(1, true);
+        f.pressDial(1, false);
+        QTest::qWait(400);
+
+        f.turnDial(1, 3);  // taken, and as one place
+        QCOMPARE(steps.count(), 1);
+        QCOMPARE(steps.last().first().toInt(), 1);
+        f.turnDial(1, 1);  // too soon: ignored, not queued
+        f.turnDial(1, 1);
+        QCOMPARE(steps.count(), 1);
+        QTest::qWait(1600); // the delay is over, and nothing was waiting
+        QCOMPARE(steps.count(), 1);
+        f.turnDial(1, -2); // taken again
+        QCOMPARE(steps.count(), 2);
+        QCOMPARE(steps.last().first().toInt(), -1);
     }
 };
 

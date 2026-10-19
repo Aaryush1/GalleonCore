@@ -142,6 +142,7 @@ private:
     // (letting go): steps up to this long before a press, or after a press or a release, are the click's.
     static constexpr int ClickBeforeMs = 350;
     static constexpr int ClickAfterMs = 250;
+    qint64 m_lastWallpaperStepAt = -100000; // when the last wallpaper step was taken
     QElapsedTimer m_clock;
     std::array<std::array<RecentTurn, 6>, galleon::protocol::DialCount> m_recentTurns{};
     std::array<qint64, galleon::protocol::DialCount> m_lastPressAt{};   // a press or a release
