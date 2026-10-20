@@ -58,8 +58,8 @@ private Q_SLOTS:
     }
     void relativeVolumeUsesPercentagePointsAndClamps()
     {
-        QFETCH(int, delta);
-        QFETCH(float, expected);
+        QFETCH(const int, delta);
+        QFETCH(const float, expected);
         FakeEndpoint endpoint;
         endpoint.mute = true;
         changeEndpointVolume(endpoint, delta);
@@ -85,10 +85,10 @@ private Q_SLOTS:
     }
     void invalidReadingsNeverBecomeVolumeWrites()
     {
-        for (float value : {-0.1F, 1.1F, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
+        for (const float value : {-0.1F, 1.1F, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
             FakeEndpoint endpoint;
             endpoint.level = value;
-            QVERIFY_EXCEPTION_THROWN(changeEndpointVolume(endpoint, 1), std::runtime_error);
+            QVERIFY_THROWS_EXCEPTION(std::runtime_error, changeEndpointVolume(endpoint, 1));
             QCOMPARE(endpoint.writes, 0);
         }
     }
@@ -96,12 +96,12 @@ private Q_SLOTS:
     {
         FakeEndpoint endpoint;
         endpoint.failRead = true;
-        QVERIFY_EXCEPTION_THROWN(changeEndpointVolume(endpoint, 10), std::runtime_error);
-        QVERIFY_EXCEPTION_THROWN(toggleEndpointMute(endpoint), std::runtime_error);
+        QVERIFY_THROWS_EXCEPTION(std::runtime_error, changeEndpointVolume(endpoint, 10));
+        QVERIFY_THROWS_EXCEPTION(std::runtime_error, toggleEndpointMute(endpoint));
         endpoint.failRead = false;
         endpoint.failWrite = true;
-        QVERIFY_EXCEPTION_THROWN(changeEndpointVolume(endpoint, 10), std::runtime_error);
-        QVERIFY_EXCEPTION_THROWN(toggleEndpointMute(endpoint), std::runtime_error);
+        QVERIFY_THROWS_EXCEPTION(std::runtime_error, changeEndpointVolume(endpoint, 10));
+        QVERIFY_THROWS_EXCEPTION(std::runtime_error, toggleEndpointMute(endpoint));
         QCOMPARE(endpoint.writes, 0);
         endpoint.failWrite = false;
         changeEndpointVolume(endpoint, 10);
