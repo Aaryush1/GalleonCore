@@ -132,6 +132,9 @@ bool DesktopEntries::isValidReference(const QString &desktop)
 
 DesktopApp DesktopEntries::read(const QString &file, const QString &id)
 {
+    // Never resolve network targets or remote shortcut icon handlers during discovery.
+    if (QDir::fromNativeSeparators(file).startsWith(QStringLiteral("//")))
+        return {};
     const QFileInfo info(file);
     if (!allowedFile(info))
         return {};
@@ -142,7 +145,7 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
     const QString target = info.suffix().compare(QStringLiteral("lnk"), Qt::CaseInsensitive) == 0 ? shortcutTarget(file) : app.file;
     if (!usefulShortcut(app.name, target))
         return {};
-    app.iconPath = cachedIcon(app.file);
+    app.iconPath = cachedIcon(target);
     app.categories = windowsAppCategories(app.name, info.absolutePath());
     return app;
 }

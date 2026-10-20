@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "DaemonStatus.h"
 #include "DesktopEntries.h"
+#include "AppsBackend.h"
 #include "LocalControl.h"
 #include <QImage>
 #include <QFile>
@@ -49,6 +50,11 @@ private slots:
         QVERIFY(app.isValid());
         QVERIFY(!app.iconPath.isEmpty());
         QVERIFY(!QImage(app.iconPath).isNull());
+        galleond::ThemeIconProvider provider;
+        const QPixmap shown = provider.requestPixmap(app.iconPath, nullptr, QSize(32, 32));
+        QImage placeholder(32, 32, QImage::Format_ARGB32);
+        placeholder.fill(QColor(0x40, 0x46, 0x50));
+        QVERIFY(shown.toImage() != placeholder);
         QCOMPARE(galleond::DesktopEntries::lookup(file).iconPath, app.iconPath);
     }
 

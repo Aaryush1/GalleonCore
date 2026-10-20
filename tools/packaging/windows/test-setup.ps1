@@ -31,7 +31,7 @@ function Run-Installer([string]$Program, [string]$Arguments) {
 }
 function Start-Applications {
     $daemon = Start-Process (Join-Path $root 'bin/galleond.exe') -ArgumentList "--pages `"$pages`"" -PassThru
-    $bosun = Start-Process (Join-Path $root 'bin/galleon-bosun.exe') -ArgumentList "--pages `"$pages`"" -PassThru
+    $bosun = Start-Process (Join-Path $root 'bin/galleon-bosun.exe') -ArgumentList "--minimized --pages `"$pages`"" -PassThru
     $script:processes = @($daemon, $bosun)
     $ready = $false
     for ($attempt = 0; $attempt -lt 20; $attempt++) {

@@ -202,6 +202,9 @@ void ScreensaverController::stop(bool wait)
     m_process = nullptr;
     process->disconnect(this);
     if (!wait) {
+        // Discard late frames while the decoder exits instead of buffering them.
+        connect(process, &QProcess::readyReadStandardOutput, process, [process] { static_cast<void>(process->readAllStandardOutput()); });
+        connect(process, &QProcess::readyReadStandardError, process, [process] { static_cast<void>(process->readAllStandardError()); });
         connect(process, &QProcess::finished, process, &QObject::deleteLater);
         process->terminate();
         QTimer::singleShot(StopWaitMs, process, [process] {
