@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "DesktopEntries.h"
+#include "InitialPages.h"
 
 #include <QDesktopServices>
 #include <QDir>
@@ -53,8 +54,7 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
     app.file = info.absoluteFilePath();
     app.id = id;
     app.name = info.completeBaseName();
-    const QString folder = info.absolutePath().toLower();
-    app.categories << (folder.contains(QStringLiteral("/games")) ? QStringLiteral("Game") : QStringLiteral("Utility"));
+    app.categories = windowsAppCategories(app.name, info.absolutePath());
     return app;
 }
 

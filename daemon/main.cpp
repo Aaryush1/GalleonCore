@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <InitialPages.h>
+
 #include "AppsBackend.h"
 #include "DesktopEntries.h"
 #include "PlatformBackends.h"
@@ -329,7 +331,7 @@ QString defaultPagesFile(const QString &fromCommandLine)
 // for checking the icons without the hardware.
 bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QString &state, const QString &pageName)
 {
-    QByteArray json = galleond::defaultPagesJson();
+    QByteArray json = galleond::initialPagesJson();
     QFile file(pagesFile);
     if (file.exists() && file.open(QIODevice::ReadOnly))
         json = file.read(galleond::MaxPagesFileBytes + 1);

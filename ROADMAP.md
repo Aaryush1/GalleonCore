@@ -152,3 +152,20 @@ la mise à niveau et la désinstallation avec les deux applications ouvertes, ai
 que la conservation des données personnelles et des réglages. Le mode capture de Bosun capture
 maintenant ses valeurs par copie, pour éviter des références détruites au
 moment où le minuteur s'exécute.
+
+### Retour du premier essai Windows et correction des contenus initiaux
+
+Le propriétaire confirme le 20 octobre 2026 que les fonds d’écran fonctionnent
+sous Windows. Il signale les pages initiales manquantes et demande les deux
+vidéos du dépôt par défaut. Correction sur `codex/windows-default-content` :
+cinq thèmes initiaux, découverte des navigateurs/lecteurs du menu Démarrer,
+jeux Steam installés et raccourcis de jeux du menu, utilitaires Windows et
+pavé numérique. Les deux vidéos sont installées avec le Setup ; la géométrie
+reprend celle de la configuration Linux du propriétaire (écran 62,6 × 33 mm,
+touches 13,7 × 13,7 mm, espacements 5,4 mm). Les configurations personnelles
+existantes ne sont pas remplacées. Validation de cette correction en cours ;
+aucun tag avant nouvel essai Windows réussi.
+
+Le même essai signale des accents corrompus dans les textes français du Setup :
+le script et les manifestes NSIS sont explicitement UTF-8 (BOM), et le compilateur
+reçoit `/INPUTCHARSET UTF8`, indépendamment de la page de codes du runner Windows.

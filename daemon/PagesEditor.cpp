@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <InitialPages.h>
+
 #include "PagesEditor.h"
 
 #include "DesktopEntries.h"
@@ -29,7 +31,7 @@ EditResult failure(const QString &message)
 // hands back its JSON. `original` tells whether a file existed.
 bool load(const QString &file, QJsonObject &root, bool &original, EditResult &error)
 {
-    QByteArray bytes = defaultPagesJson();
+    QByteArray bytes = initialPagesJson();
     original = QFileInfo::exists(file);
     if (original) {
         QFile in(file);

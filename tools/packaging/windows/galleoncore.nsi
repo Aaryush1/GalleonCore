@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2026 Paul Woisard
+﻿; SPDX-FileCopyrightText: 2026 Paul Woisard
 ; SPDX-License-Identifier: GPL-3.0-or-later
 Unicode true
 !include "MUI2.nsh"

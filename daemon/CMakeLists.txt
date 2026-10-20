@@ -9,6 +9,7 @@ add_library(galleond_core STATIC
     DesktopEntries.h
     PageOrder.h PageOrder.cpp
     PagesConfig.h PagesConfig.cpp
+    InitialPages.h InitialPages.cpp
     PagesEditor.h PagesEditor.cpp
     PagesController.h PagesController.cpp
     WallpaperCatalog.h WallpaperCatalog.cpp

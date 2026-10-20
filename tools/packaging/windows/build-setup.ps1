@@ -29,11 +29,11 @@ foreach ($entry in ($entries | Where-Object { $_.PSIsContainer } | Sort-Object {
 $payloadManifest = Join-Path $output 'install-payload.txt'
 $entries | Where-Object { -not $_.PSIsContainer } | ForEach-Object {
     $_.FullName.Substring($root.Length + 1)
-} | Set-Content $payloadManifest -Encoding utf8
+} | Set-Content $payloadManifest -Encoding utf8BOM
 $manifest = Join-Path $output 'uninstall-payload.nsh' 
-$lines | Set-Content $manifest -Encoding utf8
+$lines | Set-Content $manifest -Encoding utf8BOM
 $setup = Join-Path $output "GalleonCore-$Version-Windows-x86_64-Setup.exe"
-& $nsis '/WX' "/DVERSION=$Version" "/DSTAGING_DIR=$root" "/DOUTPUT_FILE=$setup" "/DUNINSTALL_MANIFEST=$manifest" "/DPAYLOAD_MANIFEST=$payloadManifest" "$PSScriptRoot/galleoncore.nsi"
+& $nsis '/INPUTCHARSET' 'UTF8' '/WX' "/DVERSION=$Version" "/DSTAGING_DIR=$root" "/DOUTPUT_FILE=$setup" "/DUNINSTALL_MANIFEST=$manifest" "/DPAYLOAD_MANIFEST=$payloadManifest" "$PSScriptRoot/galleoncore.nsi"
 if ($LASTEXITCODE -ne 0) { throw 'NSIS compilation failed.' }
 (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower() + '  ' + [System.IO.Path]::GetFileName($setup) |
     Set-Content (Join-Path $output 'Windows-Setup-SHA256SUMS') -Encoding ascii
