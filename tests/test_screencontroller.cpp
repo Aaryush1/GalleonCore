@@ -15,6 +15,7 @@
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTest>
+#include <QScopeGuard>
 
 #include <memory>
 
@@ -171,6 +172,27 @@ class TestScreenController : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void aPersonalWallpaperImportedAfterStartupCanBeApplied()
+    {
+        const Fixture f;
+        const auto oldHome = qgetenv("XDG_DATA_HOME");
+        const auto restore = qScopeGuard([&] { qputenv("XDG_DATA_HOME", oldHome); });
+        qputenv("XDG_DATA_HOME", f.dir.filePath("data").toUtf8());
+        const QString own = WallpaperCatalog::userRoot();
+        QVERIFY(!QFileInfo::exists(own));
+        ScreenController controller(f.deck.get(), f.wallpaperRenderer.get(),
+                                    WallpaperCatalog(WallpaperCatalog::defaultRoots({}, f.dir.filePath("wall"))),
+                                    widgetsDir() + "/WallpaperClock.qml");
+        QDir().mkpath(QDir(own).filePath("mine"));
+        QImage picture(720, 384, QImage::Format_RGB32);
+        picture.fill(QColor(40, 60, 200));
+        QVERIFY(picture.save(QDir(own).filePath("mine/personal.png")));
+        QVERIFY(controller.SetWallpaper("mine/personal.png"));
+        QCOMPARE(controller.wallpaper(), QStringLiteral("mine/personal.png"));
+        QTRY_VERIFY_WITH_TIMEOUT(!f.lastScreen().isNull()
+                                 && near(f.lastScreen().pixel(700, 200), qRgb(40, 60, 200)), 3000);
+    }
+
     void nothingIsDrawnBeforeAWallpaperIsChosen()
     {
         Fixture f;

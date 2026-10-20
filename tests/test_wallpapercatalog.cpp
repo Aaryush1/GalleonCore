@@ -8,6 +8,7 @@
 #include <QImage>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QScopeGuard>
 
 using galleond::WallpaperCatalog;
 
@@ -94,6 +95,22 @@ private Q_SLOTS:
             qunsetenv("GALLEONCORE_WALLPAPERS");
         else
             qputenv("GALLEONCORE_WALLPAPERS", oldEnv);
+    }
+
+    void theFirstPersonalPictureIsDiscoveredWithoutRestartingTheCatalog()
+    {
+        const QTemporaryDir home;
+        const auto oldHome = qgetenv("XDG_DATA_HOME");
+        const auto restore = qScopeGuard([&] { qputenv("XDG_DATA_HOME", oldHome); });
+        qputenv("XDG_DATA_HOME", home.filePath("data").toUtf8());
+        const QString own = WallpaperCatalog::userRoot();
+        QVERIFY(!QFileInfo::exists(own));
+        WallpaperCatalog catalog(WallpaperCatalog::defaultRoots({}, {}));
+        QVERIFY(!catalog.find("mine/first.png"));
+        QVERIFY(writeImage(QDir(own).filePath("mine/first.png"), 64, 36, "PNG"));
+        catalog.rescan();
+        QVERIFY(catalog.find("mine/first.png"));
+        QCOMPARE(catalog.find("mine/first.png")->path, QDir(own).filePath("mine/first.png"));
     }
 
     void missingFolderGivesAnEmptyCatalog()

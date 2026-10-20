@@ -3,6 +3,7 @@
 
 #include "BosunBackend.h"
 #include "DaemonStatus.h"
+#include "FilePicker.h"
 #include "Tray.h"
 #include "WallpaperLibrary.h"
 
@@ -11,6 +12,7 @@
 #include <QCommandLineParser>
 #include <QDebug>
 #include <QDir>
+
 #include <QApplication>
 #include <QIcon>
 #include <QImage>
@@ -20,6 +22,7 @@
 #include <QTimer>
 
 #include <optional>
+#include <memory>
 
 int main(int argc, char *argv[])
 {
@@ -73,12 +76,14 @@ int main(int argc, char *argv[])
     bosun::WallpaperLibrary library(bosun::WallpaperLibrary::defaultPlaces());
 #endif
 
+    const auto filePicker = std::make_unique<bosun::FilePicker>();
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
     engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
     engine.addImageProvider(QStringLiteral("wallpapers"), new bosun::WallpaperThumbnails(&library));
     engine.addImageProvider(QStringLiteral("wallpaperpreview"), new bosun::WallpaperPreview(&library));
-    engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)},
+    engine.setInitialProperties({{QStringLiteral("filePicker"), QVariant::fromValue(filePicker.get())},
+                                 {QStringLiteral("backend"), QVariant::fromValue(&backend)},
                                  {QStringLiteral("daemon"), QVariant::fromValue(&daemon)},
                                  {QStringLiteral("library"), QVariant::fromValue(&library)}});
     engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));

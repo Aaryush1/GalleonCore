@@ -11,6 +11,7 @@ import QtQuick
 Flickable {
     id: page
 
+    property var filePicker: null
     required property var library
     required property var backend // for the crop maths
     property string style: "" // "" shows them all
@@ -219,13 +220,29 @@ Flickable {
                     wrapMode: Text.Wrap
                     color: "#9aa0a6"
                     font.pixelSize: 13
-                    text: qsTr("Drop a picture here, or write its path. You choose the part that goes to the screen; the result is saved in your own folder, and the original is not touched. The pictures you add stay on your computer.")
+                    text: qsTr("Choose a picture with Browse, drop it here, or write its path. You choose the part that goes to the screen; the result is saved in your own folder, and the original is not touched. The pictures you add stay on your computer.")
                 }
                 Row {
                     spacing: 10
+                    Pill {
+                        id: browseButton
+                        objectName: "browseWallpaper"
+                        text: qsTr("Browse…")
+                        selected: true
+                        enabledLook: page.filePicker !== null
+                        onClicked: {
+                            const path = page.filePicker.picture()
+                            if (path !== "") {
+                                pathField.input.text = path
+                                page.library.inspect(path)
+                                page.message = ""
+                            }
+                        }
+                    }
                     Field {
                         id: pathField
-                        width: addColumn.width - lookButton.width - 10
+                        objectName: "wallpaperPath"
+                        width: addColumn.width - browseButton.width - lookButton.width - 20
                         placeholder: qsTr("/path/to/picture.jpg")
                         maximumLength: 400
                     }
@@ -249,44 +266,46 @@ Flickable {
                     text: addBox.candidate.why !== undefined ? addBox.candidate.why : ""
                 }
 
-                Loader {
-                    active: addBox.chosen && addBox.candidate.state === "ready"
-                    visible: active
-                    sourceComponent: Component {
-                        CropEditor {
-                            id: cropEditor
-                            backend: page.backend
-                            preview: addBox.candidate.preview
-                            sourceWidth: addBox.candidate.width
-                            sourceHeight: addBox.candidate.height
-                            canvasWidth: addBox.candidate.canvasWidth
-                            canvasHeight: addBox.candidate.canvasHeight
-                            identity: addBox.candidate.chosen
-                            help: qsTr("Drag the picture to move the frame, turn the wheel to come closer. The module's screen shows what is inside the yellow frame.")
-                            Field {
-                                id: nameField
-                                width: parent.width
-                                maximumLength: 60
-                                placeholder: addBox.candidate.suggestedName !== undefined ? addBox.candidate.suggestedName : qsTr("Name")
+                // Keep the editor in this context: Qt 6.4 cannot load a bound
+                // inline component from Loader's separate creation context.
+                CropEditor {
+                    id: cropEditor
+                    visible: addBox.chosen && addBox.candidate.state === "ready"
+                    objectName: "wallpaperCrop"
+                    backend: page.backend
+                    preview: addBox.candidate.preview !== undefined ? addBox.candidate.preview : ""
+                    sourceWidth: addBox.candidate.width !== undefined ? addBox.candidate.width : 1
+                    sourceHeight: addBox.candidate.height !== undefined ? addBox.candidate.height : 1
+                    canvasWidth: addBox.candidate.canvasWidth !== undefined ? addBox.candidate.canvasWidth : 720
+                    canvasHeight: addBox.candidate.canvasHeight !== undefined ? addBox.candidate.canvasHeight : 384
+                    identity: addBox.candidate.chosen !== undefined ? addBox.candidate.chosen : ""
+                    onIdentityChanged: {
+                        if (nameField)
+                            nameField.input.text = ""
+                    }
+                    help: qsTr("Drag the picture to move the frame, turn the wheel to come closer. The module's screen shows what is inside the yellow frame.")
+                    Field {
+                        id: nameField
+                        width: parent.width
+                        maximumLength: 60
+                        placeholder: addBox.candidate.suggestedName !== undefined ? addBox.candidate.suggestedName : qsTr("Name")
+                    }
+                    Row {
+                        spacing: 10
+                        Pill {
+                            selected: true
+                            text: qsTr("Save it")
+                            onClicked: {
+                                const name = nameField.input.text
+                                page.answered(page.library.addCandidate(cropEditor.crop.x, cropEditor.crop.y, cropEditor.crop.width,
+                                                                        cropEditor.crop.height, name),
+                                              qsTr("Saved among your pictures."))
+                                pathField.input.text = ""
                             }
-                            Row {
-                                spacing: 10
-                                Pill {
-                                    selected: true
-                                    text: qsTr("Save it")
-                                    onClicked: {
-                                        const name = nameField.input.text
-                                        page.answered(page.library.addCandidate(cropEditor.crop.x, cropEditor.crop.y, cropEditor.crop.width,
-                                                                                cropEditor.crop.height, name),
-                                                      qsTr("Saved among your pictures."))
-                                        pathField.input.text = ""
-                                    }
-                                }
-                                Pill {
-                                    text: qsTr("Cancel")
-                                    onClicked: page.library.clearCandidate()
-                                }
-                            }
+                        }
+                        Pill {
+                            text: qsTr("Cancel")
+                            onClicked: page.library.clearCandidate()
                         }
                     }
                 }
