@@ -16,11 +16,11 @@ private slots:
         const QString name = QStringLiteral("galleon-test-") + QUuid::createUuid().toString(QUuid::Id128);
         auto server = std::make_unique<galleond::LocalControl>();
         QVERIFY(server->listen(name));
-        QSignalSpy stops(server.get(), &galleond::LocalControl::stopRequested);
+        const auto stops = std::make_unique<QSignalSpy>(server.get(), &galleond::LocalControl::stopRequested);
         bosun::DaemonStatus status({}, name, nullptr);
         QTRY_VERIFY(status.running());
         QVERIFY(status.stop().isEmpty());
-        QTRY_COMPARE(stops.size(), 1);
+        QTRY_COMPARE(stops->size(), 1);
         server.reset();
         QTRY_VERIFY(!status.running());
     }

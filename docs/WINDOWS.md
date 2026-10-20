@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Windows port: incremental backend separation
 
-Linux and Windows share `main`. The temporary `codex/windows-port` branch prepares
+Linux and Windows share `main`. The temporary `codex/windows-desktop` branch prepares
 small changes for review; it is not a second product branch.
 
 ## First stage
@@ -29,9 +29,9 @@ uinput class and Linux headers live in `LinuxKeyInjector.*`.
 
 Use Qt 6.4 or later, a C++20 compiler and hidapi installed through vcpkg. The CI
 uses Qt 6.8.3 and MSVC 2022. Configure with the vcpkg toolchain and
-`-DGALLEON_BUILD_DESKTOP=OFF -DGALLEON_SOURCE_TREE_PATHS=OFF`, build, then run
+`-DGALLEON_BUILD_DESKTOP=ON -DGALLEON_SOURCE_TREE_PATHS=OFF -DGALLEON_WERROR=ON`, build, then run
 `ctest --test-dir build -C Release --output-on-failure`. Qt and hidapi
-DLLs must be on PATH when running tests.
+DLLs must be on PATH when running tests. Use `GALLEON_BUILD_DESKTOP=OFF` to build only the portable subset. Windows 10 (1809+) or Windows 11 x64 is the target; the MSVC x64 runtime must be installed.
 
 ## Remaining desktop work
 

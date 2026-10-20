@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Paul Woisard
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-name: Windows core and SMTC
+name: Windows desktop
 on:
   push:
     branches: [main, codex/windows-port, codex/windows-smtc, codex/windows-core-audio, codex/windows-keyboard, codex/windows-desktop]
@@ -21,7 +21,7 @@ jobs:
       - name: Install Windows HID backend
         shell: pwsh
         run: vcpkg install hidapi:x64-windows
-      - name: Configure portable library
+      - name: Configure desktop
         shell: pwsh
         run: >-
           cmake -S . -B build -A x64
@@ -35,6 +35,18 @@ jobs:
         run: |
           $env:PATH = "$pwd/build/lib/Release;$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
           ctest --test-dir build -C Release --output-on-failure
+          $result = $LASTEXITCODE
+          if ($result -ne 0) {
+            Get-ChildItem build/tests -Filter test_*.txt | ForEach-Object { Get-Content $_.FullName }
+          }
+          exit $result
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-test-logs
+          path: |
+            build/tests/test_*.txt
+            build/Testing/Temporary/LastTest.log
       - name: Check library installation
         run: cmake --install build --config Release --prefix staging
       - name: Deploy Windows desktop dependencies

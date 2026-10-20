@@ -5,6 +5,7 @@
 [![Website](https://img.shields.io/badge/website-GalleonCore-46505E)](https://paullux.github.io/GalleonCore/)
 [![CI](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml)
 [![Linux packages](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
+[![Windows desktop](https://github.com/Paullux/GalleonCore/actions/workflows/windows-core.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/windows-core.yml)
 [![Release](https://img.shields.io/github/v/release/Paullux/GalleonCore)](https://github.com/Paullux/GalleonCore/releases)
 [![GitHub downloads](https://img.shields.io/github/downloads/Paullux/GalleonCore/total?label=GitHub%20downloads)](https://github.com/Paullux/GalleonCore/releases)
 [![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
@@ -22,7 +23,7 @@
 
 Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique est remplacé par un module Elgato Stream Deck : 12 touches LCD, un écran et deux molettes. Corsair et Elgato ne supportent la partie Stream Deck que sous Windows et macOS. GalleonCore vise à rendre chaque partie du clavier utilisable sous Linux, et à l'intégrer au bureau.
 
-> **En développement actif.** Les touches, l’écran et les molettes du Stream Deck fonctionnent sous Linux. Galleon Bosun permet de configurer le module. Les widgets Plasma et Windows restent prévus ; consulte la [feuille de route](ROADMAP.md) pour les validations détaillées.
+> **En développement actif.** Les touches, l’écran et les molettes du Stream Deck fonctionnent sous Linux. Galleon Bosun permet de configurer le module. Les widgets Plasma restent prévus. Une préversion Windows se prépare pour les essais interactifs ([détails](docs/WINDOWS.md)) ; consulte la [feuille de route](ROADMAP.md) pour les validations détaillées.
 
 > GalleonCore n'est affilié ni à Corsair ni à Elgato.
 
@@ -32,7 +33,7 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 - **Widgets partagés** : les mêmes widgets QML (horloge, moniteur système, lecture en cours…) rendus sur l'écran du clavier *et* affichés en widgets KDE Plasma sur le bureau.
 - **Éclairage RVB** : RVB par touche, barre d'ambiance et anneaux des molettes, via [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB).
 - **Plugin OpenRGB** : configurer le deck depuis OpenRGB et synchroniser ses thèmes avec l'éclairage.
-- **Portage Windows**, plus tard, pour tout ce qui n'est pas spécifique à KDE.
+- **Préversion Windows**, avec le même cœur et des backends natifs pour les médias, le son et le clavier ; validation matérielle encore attendue.
 
 ## État
 
@@ -45,7 +46,7 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 | Widgets KDE Plasma | Squelette |
 | Éclairage RVB | **En cours d'investigation.** Le protocole (Corsair « V2 »/Bragi) n'est encore supporté nulle part. Le support doit être intégré en amont dans OpenRGB. |
 | Plugin OpenRGB | Anneaux des molettes implémentés dans le plugin séparé ; RVB du clavier toujours en investigation |
-| Windows | Prévu, en dernier |
+| Windows | Préversion desktop ; CI native et essais interactifs suivis dans [WINDOWS.md](docs/WINDOWS.md) |
 
 ## Architecture
 

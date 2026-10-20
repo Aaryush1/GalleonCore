@@ -4,6 +4,7 @@
 #include <QtTest>
 #include <QLocalSocket>
 #include <QUuid>
+#include <memory>
 
 using namespace galleond;
 class TestLocalControl : public QObject
@@ -12,9 +13,9 @@ class TestLocalControl : public QObject
 private slots:
     void refusesUnexpectedCommands()
     {
-        for (const QByteArray &frame : {QByteArray{}, QByteArray("[]"), QByteArray("{\"action\":\"exec\"}"),
-                 QByteArray("{\"action\":\"stop\",\"extra\":true}"), QByteArray("{\"action\":\"wallpaper\",\"name\":1}"),
-                 QByteArray("{\"action\":\"wallpaper\",\"name\":\"\"}"), QByteArray(4097, 'x')})
+        for (const QByteArray &frame : {QByteArray{}, QByteArray("[]"), QByteArray(R"({"action":"exec"})"),
+                 QByteArray(R"({"action":"stop","extra":true})"), QByteArray(R"({"action":"wallpaper","name":1})"),
+                 QByteArray(R"({"action":"wallpaper","name":""})"), QByteArray(4097, 'x')})
             QVERIFY(!parseLocalCommand(frame).has_value());
     }
     void roundTripWallpaper()
@@ -32,23 +33,23 @@ private slots:
         QVERIFY(server.listen(name));
         LocalControl second;
         QVERIFY(!second.listen(name));
-        QSignalSpy requests(&server, &LocalControl::wallpaperRequested);
+        const auto requests = std::make_unique<QSignalSpy>(&server, &LocalControl::wallpaperRequested);
         sendLocalCommand(name, {LocalAction::Wallpaper, QStringLiteral("personal/example.jpg")}, &server);
-        QTRY_COMPARE(requests.size(), 1);
-        QCOMPARE(requests.first().first().toString(), QStringLiteral("personal/example.jpg"));
+        QTRY_COMPARE(requests->size(), 1);
+        QCOMPARE(requests->first().first().toString(), QStringLiteral("personal/example.jpg"));
     }
     void invalidInputCannotStopDaemon()
     {
         const QString name = QStringLiteral("galleon-test-") + QUuid::createUuid().toString(QUuid::Id128);
         LocalControl server;
         QVERIFY(server.listen(name));
-        QSignalSpy stops(&server, &LocalControl::stopRequested);
+        const auto stops = std::make_unique<QSignalSpy>(&server, &LocalControl::stopRequested);
         QLocalSocket client;
         client.connectToServer(name);
         QVERIFY(client.waitForConnected());
         client.write("{\"action\":\"stop\",\"extra\":true}\n");
         QTRY_COMPARE(client.state(), QLocalSocket::UnconnectedState);
-        QCOMPARE(stops.size(), 0);
+        QCOMPARE(stops->size(), 0);
     }
 };
 QTEST_GUILESS_MAIN(TestLocalControl)

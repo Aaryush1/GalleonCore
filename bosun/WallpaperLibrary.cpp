@@ -41,7 +41,7 @@ QSettings galleondSettings(const QString &file)
 {
     if (file.isEmpty())
         return QSettings(QStringLiteral("galleoncore"), QStringLiteral("galleond"));
-    return QSettings(file, QSettings::IniFormat);
+    return {file, QSettings::IniFormat};
 }
 
 // A picture that is worth reading: a regular file, not huge, with sane dimensions.
