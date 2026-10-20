@@ -68,7 +68,7 @@ private Q_SLOTS:
 #ifdef Q_OS_WIN
     void nativeBackendCanShutDownWithoutAnInteractivePlayer()
     {
-        SmtcController controller(createNativeSmtcSession());
+        const SmtcController controller(createNativeSmtcSession());
         QTest::qWait(100);
         // Headless CI may deny session access. Either result must shut down safely.
     }
@@ -88,8 +88,8 @@ private Q_SLOTS:
     {
         auto state = std::make_shared<SessionState>();
         state->snapshot = playing();
-        SmtcController controller(std::make_unique<FakeSession>(state));
-        QSignalSpy changes(&controller, &MediaController::nowPlayingChanged);
+        const SmtcController controller(std::make_unique<FakeSession>(state));
+        const QSignalSpy changes(&controller, &MediaController::nowPlayingChanged);
         QTRY_COMPARE(controller.nowPlaying().title, QStringLiteral("Song"));
         {
             const std::lock_guard lock(state->mutex);
@@ -146,7 +146,7 @@ private Q_SLOTS:
         state->snapshot.track.artist = QStringLiteral("a\nb");
         state->snapshot.track.durationSeconds = 30;
         state->snapshot.track.positionSeconds = 90;
-        SmtcController controller(std::make_unique<FakeSession>(state));
+        const SmtcController controller(std::make_unique<FakeSession>(state));
         QTRY_COMPARE(controller.state(), MediaController::State::Playing);
         QCOMPARE(controller.nowPlaying().title.size(), qsizetype{MaxMetadataLength});
         QCOMPARE(controller.nowPlaying().artist, QStringLiteral("a b"));
@@ -164,7 +164,7 @@ private Q_SLOTS:
     {
         auto state = std::make_shared<SessionState>();
         state->snapshot = playing();
-        SmtcController controller(std::make_unique<FakeSession>(state));
+        const SmtcController controller(std::make_unique<FakeSession>(state));
         QTRY_COMPARE(controller.state(), MediaController::State::Playing);
         {
             const std::lock_guard lock(state->mutex);
@@ -188,7 +188,7 @@ private Q_SLOTS:
         {
             std::shared_ptr<SessionState> state;
             ~Unblock() { state->blockCommand = false; }
-        } unblock{state}; // releases the worker even if a Qt assertion returns early
+        } const unblock{state}; // releases the worker even if a Qt assertion returns early
         QTRY_COMPARE(controller.state(), MediaController::State::Playing);
         state->blockCommand = true;
         controller.next();
@@ -209,7 +209,7 @@ private Q_SLOTS:
     {
         auto state = std::make_shared<SessionState>();
         {
-            SmtcController controller(std::make_unique<FakeSession>(state));
+            const SmtcController controller(std::make_unique<FakeSession>(state));
             QTRY_VERIFY(state->started.load());
         }
         QVERIFY(state->stopped.load());

@@ -17,7 +17,7 @@ SmtcController::SmtcController(std::unique_ptr<SmtcSession> session, QObject *pa
     : MediaController(parent), m_session(std::move(session))
 {
     Q_ASSERT(m_session);
-    m_worker = std::jthread([this](std::stop_token stop) { run(stop); });
+    m_worker = std::jthread([this](std::stop_token stop) { run(std::move(stop)); });
 }
 
 SmtcController::~SmtcController()
