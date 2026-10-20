@@ -83,6 +83,22 @@ Column {
             }
         }
     }
+    // A second page for this tab: "<tab>-plus", reached from its last free key.
+    Row {
+        visible: editor.backend.subPagesOf(editor.theme.page).length === 0
+        spacing: 10
+        Pill {
+            text: qsTr("Add a “plus” page")
+            onClicked: editor.answered(editor.backend.addSubPage(editor.theme.page), qsTr("Page created: its key is the last free one of this page."))
+        }
+        Text {
+            height: 32
+            verticalAlignment: Text.AlignVCenter
+            color: "#7d8591"
+            font.pixelSize: 12
+            text: qsTr("12 more keys, reached from a “More” key.")
+        }
+    }
     Text {
         width: parent.width
         wrapMode: Text.Wrap

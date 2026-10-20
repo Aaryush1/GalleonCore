@@ -56,6 +56,12 @@ public:
     // go; the words of a shuffle or repeat key stay when it stays one).
     static EditResult setKey(const QString &file, const QString &page, int key, const KeySpec &spec);
 
+    // A second page for `parent` (a "plus" page): `name` is made, empty but for a key that goes
+    // back, and a key of `parent` leads to it (the last free one, the 12th when it is free). Refused
+    // when `parent` has no free key or `name` exists.
+    static EditResult addSubPage(const QString &file, const QString &parent, const QString &name, const QString &moreLabel,
+                                 const QString &backLabel);
+
     // The themes (the tabs of the window). `page` is the name of the page a new theme opens: it is
     // made, empty. A theme that is gone takes its page with it unless something still leads there.
     static EditResult addTheme(const QString &file, const QString &name, const QString &color, const QString &page);
