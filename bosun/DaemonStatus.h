@@ -29,6 +29,10 @@ public:
     // Empty selects systemctl on Linux or the sibling galleond.exe on Windows.
     // Tests can supply a fake program.
     explicit DaemonStatus(QString systemctl = {}, QObject *parent = nullptr);
+#ifdef Q_OS_WIN
+    // An explicit endpoint lets tests use a private fake daemon.
+    DaemonStatus(QString program, QString endpoint, QObject *parent);
+#endif
 
     [[nodiscard]] bool running() const { return m_running; }
 
@@ -49,6 +53,7 @@ private:
     QString m_systemctl;
 #ifdef Q_OS_WIN
     void setRunning(bool running);
+    QString m_endpoint;
     QTimer m_poll;
     QLocalSocket m_probe;
 #else

@@ -65,6 +65,8 @@ endfunction()
 if(WIN32)
     # Native desktop smoke rendering; Linux service/launcher tests stay on Linux.
     galleond_add_test(test_screenrenderer)
+    galleon_add_test(test_windowsdesktop)
+    target_link_libraries(test_windowsdesktop PRIVATE bosun_core)
     return()
 endif()
 

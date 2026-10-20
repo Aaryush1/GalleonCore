@@ -8,7 +8,11 @@
 
 namespace bosun {
 DaemonStatus::DaemonStatus(QString systemctl, QObject *parent)
-    : QObject(parent), m_systemctl(std::move(systemctl))
+    : DaemonStatus(std::move(systemctl), galleond::localControlName(), parent)
+{
+}
+DaemonStatus::DaemonStatus(QString program, QString endpoint, QObject *parent)
+    : QObject(parent), m_systemctl(std::move(program)), m_endpoint(std::move(endpoint))
 {
     m_poll.setInterval(1000);
     connect(&m_poll, &QTimer::timeout, this, &DaemonStatus::look);
@@ -33,7 +37,7 @@ void DaemonStatus::look()
 {
     if (m_probe.state() != QLocalSocket::UnconnectedState)
         return;
-    m_probe.connectToServer(galleond::localControlName());
+    m_probe.connectToServer(m_endpoint);
     QTimer::singleShot(500, &m_probe, [this] {
         if (m_probe.state() != QLocalSocket::UnconnectedState) {
             m_probe.abort();
@@ -51,7 +55,7 @@ QStringList DaemonStatus::userCommand(const QString &verb)
 QString DaemonStatus::ask(const QString &verb)
 {
     if (verb == QStringLiteral("stop")) {
-        galleond::sendLocalCommand(galleond::localControlName(), {galleond::LocalAction::Stop, {}}, this);
+        galleond::sendLocalCommand(m_endpoint, {galleond::LocalAction::Stop, {}}, this);
         return {};
     }
     const QString program = m_systemctl.isEmpty()
