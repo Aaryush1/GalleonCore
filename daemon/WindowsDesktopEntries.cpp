@@ -49,7 +49,7 @@ QString shortcutTarget(const QString &file)
     if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(link.GetAddressOf()))))
         return {};
     Microsoft::WRL::ComPtr<IPersistFile> persist;
-    if (FAILED(link.As(&persist)) || FAILED(persist->Load(file.toStdWString().c_str(), STGM_READ)))
+    if (FAILED(link.As(&persist)) || FAILED(persist->Load(QDir::toNativeSeparators(file).toStdWString().c_str(), STGM_READ)))
         return {};
     std::array<wchar_t, 32768> target{};
     if (FAILED(link->GetPath(target.data(), static_cast<int>(target.size()), nullptr, SLGP_RAWPATH)))
@@ -71,7 +71,7 @@ QString cachedIcon(const QString &file)
     if (QFileInfo::exists(output))
         return output;
     SHFILEINFOW shellInfo{};
-    if (!SHGetFileInfoW(file.toStdWString().c_str(), 0, &shellInfo, static_cast<UINT>(sizeof(shellInfo)), SHGFI_ICON | SHGFI_LARGEICON)) {
+    if (!SHGetFileInfoW(QDir::toNativeSeparators(file).toStdWString().c_str(), 0, &shellInfo, static_cast<UINT>(sizeof(shellInfo)), SHGFI_ICON | SHGFI_LARGEICON)) {
         qWarning() << "galleond: Shell icon lookup failed" << file << GetLastError();
         return {};
     }
