@@ -37,6 +37,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -45,6 +46,10 @@ from pathlib import Path
 IMAGE = "galleoncore-ci:24.04"
 TIDY_DIRS = ("lib/src/", "daemon/", "bosun/", "tests/")
 LONG_FUZZ_SECONDS = 60
+CI_FILE = ".github/workflows/ci.yml"
+# The steps of the CI lint job that need no build: replayed as the CI writes them, in a clean
+# copy of the tree, so that what one step leaves behind (a cache folder...) is seen by the next.
+CI_STEPS_REPLAYED = ("qmllint", "Decisions of tools/check.py", "REUSE licensing")
 STALE_SHARE_FOR_FULL = 0.6  # more than this share of the tests stale: a shared header changed
 
 # Where a changed file sends the checks. The first matching pattern wins.
@@ -122,6 +127,41 @@ def stale(now: dict[str, str], passed: dict[str, str]) -> set[str]:
 def too_many_stale(chosen: set[str], every: set[str]) -> bool:
     """A change that makes most of the tests stale is a shared one: run everything."""
     return bool(every) and len(chosen) / len(every) > STALE_SHARE_FOR_FULL
+
+
+def parse_steps(text: str) -> dict[str, str]:
+    """The `run:` command of each named step of a GitHub workflow file. Pure. (A step may
+    run a single line or a `|` block; that is all this reads, not YAML in general.)"""
+    steps: dict[str, str] = {}
+    name = ""
+    lines = text.splitlines()
+    for number, line in enumerate(lines):
+        named = re.match(r"\s*- name: (.+?)\s*$", line)
+        single = re.match(r"\s*run: (?!\|)(.+?)\s*$", line)
+        if named:
+            name = named.group(1)
+        elif single and name:
+            steps[name] = single.group(1)
+        elif re.match(r"\s*run: \|\s*$", line) and name:
+            indent = len(line) - len(line.lstrip())
+            block = []
+            for following in lines[number + 1:]:
+                if following.strip() and len(following) - len(following.lstrip()) <= indent:
+                    break
+                block.append(following.strip())
+            steps[name] = "\n".join(part for part in block if part)
+    return steps
+
+
+def ci_command(command: str) -> str:
+    """A CI command as it runs in the container, where reuse is installed already. Pure."""
+    return command.replace("pipx run reuse", "reuse")
+
+
+def tidy_folders(command: str) -> tuple[str, ...]:
+    """The folders a `run-clang-tidy` command with a `(a|b/c)/[^/]+...` pattern looks at. Pure."""
+    found = re.search(r"\(([^()]*)\)/\[", command)
+    return tuple(part + "/" for part in found.group(1).split("|")) if found else ()
 
 
 def tidy_key(version: str, config: str, preprocessed: str) -> str:
@@ -334,13 +374,34 @@ class Checks:
         bad = [os.path.relpath(file, self.root) for file, ok, _ in results if not ok]
         return self.step("clang-tidy", not bad, f"({len(results)} files, {self.tidy_stats['cached']} already verified with the same content and rules)" + (f" failing: {', '.join(bad)}" if bad else ""))
 
+    def clean_copy(self, destination: Path) -> None:
+        """The files that would be committed (tracked or new, not ignored), as a fresh checkout
+        would have them."""
+        names = git(["ls-files", "-co", "--exclude-standard", "-z"], self.root).split("\0")
+        for name in filter(None, names):
+            source = self.root / name
+            if source.is_file():
+                (destination / name).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination / name)
+
+    def replay_ci_steps(self) -> None:
+        """qmllint, the tests of this tool and reuse, with the commands of the CI file, one after
+        the other in a clean copy: the same way the CI job runs them."""
+        steps = parse_steps((self.root / CI_FILE).read_text())
+        with tempfile.TemporaryDirectory() as folder:
+            copy = Path(folder)
+            self.clean_copy(copy)
+            for name in CI_STEPS_REPLAYED:
+                if name not in steps:
+                    self.step(f"CI step '{name}'", False, f"(no longer in {CI_FILE}: update CI_STEPS_REPLAYED)")
+                    continue
+                done = run(["sh", "-c", ci_command(steps[name])], cwd=copy, quiet=True)
+                if done.returncode != 0:
+                    print(done.stdout[-3000:], done.stderr[-2000:], flush=True)
+                self.step(f"CI step '{name}'", done.returncode == 0)
+
     def static_checks(self) -> None:
-        qml = sorted(str(path) for folder in ("widgets", "bosun/qml", "daemon/qml") for path in (self.root / folder).glob("*.qml"))
-        self.step("qmllint", run(["/usr/lib/qt6/bin/qmllint", *qml], cwd=self.root).returncode == 0, f"({len(qml)} files)")
-        licensing = run(["reuse", "lint"], cwd=self.root, quiet=True)
-        if licensing.returncode != 0:
-            print(licensing.stdout[-3000:], flush=True)
-        self.step("reuse lint", licensing.returncode == 0)
+        self.replay_ci_steps()
 
     def fuzz(self) -> None:
         target = self.build / "asan" / "fuzz" / "fuzz_input_report"
