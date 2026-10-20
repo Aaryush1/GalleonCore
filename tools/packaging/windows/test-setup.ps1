@@ -51,12 +51,23 @@ try {
     # First installation, then upgrade while both applications are running.
     Run-Installer (Resolve-Path $Setup).Path "/S /D=$root"
     $startup = [System.Environment]::GetFolderPath('Startup')
-    $shell = New-Object -ComObject WScript.Shell
-    $daemonStartup = $shell.CreateShortcut((Join-Path $startup 'GalleonCore.lnk'))
-    $bosunStartup = $shell.CreateShortcut((Join-Path $startup 'Galleon Bosun.lnk'))
-    if ($daemonStartup.TargetPath -ne (Join-Path $root 'bin/galleond.exe')) { throw 'Daemon startup shortcut missing.' }
-    if ($bosunStartup.TargetPath -ne (Join-Path $root 'bin/galleon-bosun.exe') -or $bosunStartup.Arguments -ne '--minimized') { throw 'Bosun tray startup shortcut missing.' }
-    Start-Applications
+    $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $daemonCommand = '"' + (Join-Path $root 'bin/galleond.exe') + '"'
+    $bosunCommand = '"' + (Join-Path $root 'bin/galleon-bosun.exe') + '" --minimized'
+    if ((Get-ItemPropertyValue $runKey GalleonCore) -ne $daemonCommand) { throw 'Daemon sign-in command missing or incorrectly quoted.' }
+    if ((Get-ItemPropertyValue $runKey GalleonBosun) -ne $bosunCommand) { throw 'Bosun tray sign-in command missing or incorrectly quoted.' }
+    # Launch Bosun alone, as from the Start menu: it must start its missing daemon.
+    $bosun = Start-Process (Join-Path $root 'bin/galleon-bosun.exe') -ArgumentList '--minimized' -PassThru
+    $script:processes = @($bosun)
+    $ready = $false
+    for ($attempt = 0; $attempt -lt 40; $attempt++) {
+        & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper -InstallDir $root -Mode Probe
+        if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+        Start-Sleep -Milliseconds 300
+    }
+    $daemon = @(Get-Process galleond -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq (Join-Path $root 'bin/galleond.exe') })
+    $script:processes += $daemon
+    if (-not $ready -or $daemon.Count -ne 1) { throw 'Bosun did not automatically start one installed daemon.' }
     Run-Installer (Resolve-Path $Setup).Path "/S /D=$root"
     Assert-Closed
     if (-not (Test-Path $sentinel)) { throw 'Upgrade removed personal data.' }
@@ -74,6 +85,9 @@ try {
         Start-Sleep -Milliseconds 100
     } while ([System.DateTime]::UtcNow -lt $deadline)
     if ($remaining.Count -gt 0) { throw "Uninstall left files: $($remaining -join ', ')" }
+    foreach ($name in @('GalleonCore', 'GalleonBosun')) {
+        if ($null -ne (Get-ItemProperty $runKey -Name $name -ErrorAction SilentlyContinue)) { throw 'Uninstall left a sign-in command.' }
+    }
     if (-not (Test-Path $sentinel)) { throw 'Uninstall removed personal data.' }
     if ((Get-ItemPropertyValue $settingsKey SetupPreservationTest) -ne 'Keep settings') { throw 'Uninstall removed settings.' }
 } finally {

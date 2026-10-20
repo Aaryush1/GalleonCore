@@ -111,6 +111,8 @@ Section "$(CoreLabel)" Core
     WriteUninstaller "$INSTDIR\Uninstall.exe"
     Delete "$SMSTARTUP\GalleonCore.lnk"
     Delete "$SMSTARTUP\Galleon Bosun.lnk"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "GalleonCore"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "GalleonBosun"
     CreateDirectory "$SMPROGRAMS\GalleonCore"
     CreateShortCut "$SMPROGRAMS\GalleonCore\Galleon Bosun.lnk" "$INSTDIR\bin\galleon-bosun.exe"
     CreateShortCut "$SMPROGRAMS\GalleonCore\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
@@ -128,8 +130,8 @@ Section /o "$(DesktopLabel)" Desktop
     CreateShortCut "$DESKTOP\Galleon Bosun.lnk" "$INSTDIR\bin\galleon-bosun.exe"
 SectionEnd
 Section "$(StartupLabel)" Startup
-    CreateShortCut "$SMSTARTUP\GalleonCore.lnk" "$INSTDIR\bin\galleond.exe"
-    CreateShortCut "$SMSTARTUP\Galleon Bosun.lnk" "$INSTDIR\bin\galleon-bosun.exe" "--minimized"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "GalleonCore" '$\"$INSTDIR\bin\galleond.exe$\"'
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "GalleonBosun" '$\"$INSTDIR\bin\galleon-bosun.exe$\" --minimized'
 SectionEnd
 Section "Uninstall"
     Call un.StopApplications
@@ -140,6 +142,8 @@ Section "Uninstall"
     Delete "$DESKTOP\Galleon Bosun.lnk"
     Delete "$SMSTARTUP\GalleonCore.lnk"
     Delete "$SMSTARTUP\Galleon Bosun.lnk"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "GalleonCore"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "GalleonBosun"
     DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\GalleonCore"
     DeleteRegKey HKCU "Software\GalleonCore\Installer"
     Delete "$INSTDIR\install-payload.txt"

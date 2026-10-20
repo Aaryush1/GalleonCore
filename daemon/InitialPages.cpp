@@ -11,6 +11,10 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSet>
+#include <QElapsedTimer>
+#include <algorithm>
+#include <utility>
 
 namespace galleond {
 QStringList windowsAppCategories(const QString &name, const QString &folder)
@@ -130,36 +134,145 @@ QByteArray windowsInitialPagesJson(const QString &systemFolder, const QString &s
     return QJsonDocument(root).toJson();
 }
 
+QJsonObject paginateWindowsLaunchers(QJsonObject root, const QList<DesktopApp> &apps, const QList<SteamGame> &games)
+{
+    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    const QJsonArray themes = root.value(QStringLiteral("themes")).toArray();
+    for (const auto &themeValue : themes) {
+        const QJsonObject theme = themeValue.toObject();
+        const QString name = theme.value(QStringLiteral("page")).toString();
+        const QString moreName = name + QStringLiteral("-plus");
+        QJsonObject page = pages.value(name).toObject();
+        const QString category = page.value(QStringLiteral("menu")).toObject().value(QStringLiteral("category")).toString();
+        if (category.isEmpty() || pages.contains(moreName) || moreName.size() > 32 || pages.size() >= MaxPages)
+            continue;
+        QJsonArray launchers = page.value(QStringLiteral("keys")).toArray();
+        bool onlyLaunchers = true;
+        QSet<QString> seen;
+        const auto identity = [](const QJsonObject &key) {
+            const QJsonObject action = key.value(QStringLiteral("action")).toObject();
+            return action.value(QStringLiteral("type")).toString() == QStringLiteral("steam")
+                ? QStringLiteral("steam:%1").arg(action.value(QStringLiteral("appid")).toInt())
+                : action.value(QStringLiteral("desktop")).toString().toCaseFolded();
+        };
+        for (const auto &key : std::as_const(launchers)) {
+            const QString type = key.toObject().value(QStringLiteral("action")).toObject().value(QStringLiteral("type")).toString();
+            onlyLaunchers = onlyLaunchers && (type == QStringLiteral("app") || type == QStringLiteral("steam"));
+            seen.insert(identity(key.toObject()));
+        }
+        if (!onlyLaunchers)
+            continue; // Custom navigation and control keys belong to the user.
+        QMap<int, QJsonObject> placed;
+        for (const auto &key : std::as_const(launchers))
+            placed.insert(key.toObject().value(QStringLiteral("key")).toInt(), key.toObject());
+        launchers = {};
+        for (const auto &key : std::as_const(placed))
+            launchers.append(key);
+        const auto append = [&](const QString &label, const QJsonObject &action) {
+            const QJsonObject key{{QStringLiteral("label"), label.left(MaxLabelLength)}, {QStringLiteral("action"), action}};
+            const QString id = identity(key);
+            if (launchers.size() < 22 && !seen.contains(id)) {
+                seen.insert(id);
+                launchers.append(key);
+            }
+        };
+        if (page.value(QStringLiteral("steam")).toObject().value(QStringLiteral("max")).toInt() > 0) {
+            for (const SteamGame &game : games) {
+                if (SteamLibrary::isTool(game))
+                    continue;
+                append(game.name, QJsonObject{{QStringLiteral("type"), QStringLiteral("steam")}, {QStringLiteral("appid"), game.appid}});
+            }
+        }
+        for (const DesktopApp &app : apps) {
+            if (!app.categories.contains(category))
+                continue;
+            if (app.steamAppId > 0 && seen.contains(QStringLiteral("steam:%1").arg(app.steamAppId)))
+                continue;
+            append(app.name, QJsonObject{{QStringLiteral("type"), QStringLiteral("app")}, {QStringLiteral("desktop"), app.file}});
+        }
+        // A single page retains all 12 positions. Two pages reserve key 11 for navigation.
+        if (launchers.size() <= 12) {
+            for (qsizetype index = placed.size(); index < launchers.size(); ++index) {
+                int free = 0;
+                while (placed.contains(free))
+                    ++free;
+                QJsonObject key = launchers.at(index).toObject();
+                key.insert(QStringLiteral("key"), free);
+                placed.insert(free, key);
+            }
+            QJsonArray keys;
+            for (const auto &key : std::as_const(placed))
+                keys.append(key);
+            page.insert(QStringLiteral("keys"), keys);
+            pages.insert(name, page);
+            continue;
+        }
+        QJsonArray first;
+        QJsonArray second;
+        for (qsizetype index = 0; index < launchers.size(); ++index) {
+            QJsonObject key = launchers.at(index).toObject();
+            key.insert(QStringLiteral("key"), static_cast<int>(index < 11 ? index : index - 11));
+            if (index < 11)
+                first.append(key);
+            else
+                second.append(key);
+        }
+        first.append(QJsonObject{{QStringLiteral("key"), 11},
+            {QStringLiteral("label"), (theme.value(QStringLiteral("name")).toString() + QStringLiteral("-Plus")).left(MaxLabelLength)},
+            {QStringLiteral("action"), QJsonObject{{QStringLiteral("type"), QStringLiteral("page")}, {QStringLiteral("page"), moreName}}}});
+        second.append(QJsonObject{{QStringLiteral("key"), 11}, {QStringLiteral("label"), QStringLiteral("Retour")},
+            {QStringLiteral("action"), QJsonObject{{QStringLiteral("type"), QStringLiteral("back")}}}});
+        page.insert(QStringLiteral("keys"), first);
+        pages.insert(name, page);
+        pages.insert(moreName, QJsonObject{{QStringLiteral("keys"), second}, {QStringLiteral("sort"), page.value(QStringLiteral("sort"))}});
+    }
+    root.insert(QStringLiteral("pages"), pages);
+    return root;
+}
+
+QByteArray preparePagesJson(const QByteArray &bytes)
+{
+#ifdef Q_OS_WIN
+    if (!parsePagesConfig(bytes).config)
+        return bytes;
+    const QJsonObject root = QJsonDocument::fromJson(bytes).object();
+    bool automatic = false;
+    const QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    for (auto page = pages.constBegin(); page != pages.constEnd(); ++page) {
+        if (!page.value().toObject().contains(QStringLiteral("menu")) || pages.contains(page.key() + QStringLiteral("-plus")))
+            continue;
+        bool launchersOnly = true;
+        const auto keys = page.value().toObject().value(QStringLiteral("keys")).toArray();
+        for (const auto &key : keys) {
+            const QString type = key.toObject().value(QStringLiteral("action")).toObject().value(QStringLiteral("type")).toString();
+            launchersOnly = launchersOnly && (type == QStringLiteral("app") || type == QStringLiteral("steam"));
+        }
+        automatic = automatic || launchersOnly;
+    }
+    if (!automatic)
+        return bytes;
+    // Shared by initial content and reloads; never re-enumerate the Shell per key or edit.
+    static QElapsedTimer age;
+    static QList<DesktopApp> apps;
+    static QList<SteamGame> games;
+    if (!age.isValid() || age.elapsed() > 300000) {
+        apps = DesktopEntries::list();
+        games = SteamLibrary::installedGames();
+        age.start();
+    }
+    const QByteArray expanded = QJsonDocument(paginateWindowsLaunchers(root, apps, games)).toJson();
+    return parsePagesConfig(expanded).config ? expanded : bytes;
+#else
+    return bytes;
+#endif
+}
+
 QByteArray initialPagesJson()
 {
 #ifdef Q_OS_WIN
-    QJsonObject root = QJsonDocument::fromJson(windowsInitialPagesJson(
+    return preparePagesJson(windowsInitialPagesJson(
         QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32")),
-        QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../share/galleoncore/screensavers")))).object();
-    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
-    for (const QString &pageName : {QStringLiteral("multimedia"), QStringLiteral("jeux")}) {
-        QJsonObject page = pages.value(pageName).toObject();
-        QJsonArray keys;
-        if (pageName == QStringLiteral("jeux")) {
-            for (const SteamGame &game : SteamLibrary::installedGames()) {
-                if (keys.size() >= 12)
-                    break;
-                keys.append(QJsonObject{{QStringLiteral("key"), static_cast<int>(keys.size())}, {QStringLiteral("label"), game.name.left(MaxLabelLength)},
-                    {QStringLiteral("action"), QJsonObject{{QStringLiteral("type"), QStringLiteral("steam")}, {QStringLiteral("appid"), game.appid}}}});
-            }
-        }
-        const QString category = page.value(QStringLiteral("menu")).toObject().value(QStringLiteral("category")).toString();
-        for (const DesktopApp &app : DesktopEntries::listCategory(category)) {
-            if (keys.size() >= 12)
-                break;
-            keys.append(QJsonObject{{QStringLiteral("key"), static_cast<int>(keys.size())}, {QStringLiteral("label"), app.name.left(MaxLabelLength)},
-                {QStringLiteral("action"), QJsonObject{{QStringLiteral("type"), QStringLiteral("app")}, {QStringLiteral("desktop"), app.file}}}});
-        }
-        page.insert(QStringLiteral("keys"), keys);
-        pages.insert(pageName, page);
-    }
-    root.insert(QStringLiteral("pages"), pages);
-    return QJsonDocument(root).toJson();
+        QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../share/galleoncore/screensavers"))));
 #else
     return defaultPagesJson();
 #endif

@@ -167,9 +167,12 @@ also passes `/INPUTCHARSET UTF8` so French installer strings are independent
 of the build runner ANSI code page. Keep this separate from `Unicode true`,
 which selects the installer runtime encoding.
 
-Windows sign-in defaults enable galleond and Bosun for the current user. Bosun's
-shortcut uses `--minimized` and starts hidden when a notification area exists.
-Both shortcuts are removed on uninstall and can be deselected during upgrade.
+Windows sign-in defaults enable galleond and Bosun for the current user through
+quoted HKCU Run entries. Bosun uses `--minimized` and starts hidden when a
+notification area exists. Legacy Startup shortcuts are removed. Both Run entries
+are removed on uninstall and can be deselected during upgrade. Windows can still
+disable a startup app through its own Startup settings; Setup does not override that choice.
 Native app icons are extracted on the user's machine; they are not redistributed
-inside the installer. Official OpenRGB ring ownership remains a separate hardware
-integration item and must not be reported as fixed by these packaging changes.
+inside the installer. The owner traced the ring conflict to Windows Dynamic Lighting being enabled.
+No installer change claims exclusive RGB ownership. Bosun also starts a missing
+daemon once when opened with its default profile; installed CI tests this path.

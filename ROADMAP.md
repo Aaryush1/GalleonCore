@@ -183,8 +183,9 @@ la zone de notification. Le test du Setup vérifie ces raccourcis et leur retrai
 
 Anneaux : le propriétaire utilise OpenRGB officiel ; le périphérique « Keyboard »
 commande les anneaux, « Corsair Galleon 100 SD » désigne le clavier RGB. Le conflit
-de contrôle reste à résoudre/valider : aucun mécanisme de priorité garanti n’est
-annoncé, aucune course de réécriture des couleurs n’est ajoutée. Réveil prolongé
+provenait, selon le nouvel essai du propriétaire, de l’option « Éclairage dynamique »
+de Windows activée. Ne pas ajouter de course de réécriture des couleurs ; aucune
+priorité sur les autres contrôleurs n’est revendiquée. Réveil prolongé
 et rendu Windows à confirmer sur le module ; pas de premier tag.
 
 Le diagnostic Linux précédent a montré une déconnexion USB spontanée puis un
@@ -192,3 +193,20 @@ réveil court réussi après réénumération. Le correctif expérimental d’en
 du keep-alive a été retiré ; il n’est pas publié comme solution. Le réveil après
 veille prolongée reste à confirmer. La nouvelle correction asynchrone traite le
 délai d’arrêt du décodeur ; ses tests incluent un faux décodeur console natif.
+
+### Troisième retour Windows : pagination et ouverture de session
+
+Le propriétaire identifie l’Éclairage dynamique de Windows comme cause du conflit
+d’éclairage. Il signale une perte de contrôle avec plus de 12 lanceurs et l’absence
+de démarrage automatique (Bosun ouvert manuellement demande encore « Start it »).
+Correction en préparation : les thèmes automatiques Windows utilisent au plus
+22 lanceurs, répartis en deux pages de 11 avec « Nom Onglet-Plus » puis « Retour »
+sur la touche en bas à droite. Jusqu’à 12 lanceurs, une seule page. Les thèmes
+avec navigation personnalisée sont conservés ; aucun troisième écran automatique.
+La préparation est commune au démon et à Bosun, y compris lors de l’édition d’un
+fichier existant ; sa sauvegarde habituelle conserve la copie `.bak`.
+Le Setup utilise des entrées HKCU Run sélectionnées par défaut, retire les anciens
+raccourcis de démarrage et nettoie ses propres entrées à la désinstallation.
+Bosun tente de lancer une fois le démon absent (hors capture et profil `--pages`
+explicite). La découverte initiale se fait avant l’ouverture HID, avec cache de
+cinq minutes. Validation en cours ; essai matériel et premier tag toujours en attente.

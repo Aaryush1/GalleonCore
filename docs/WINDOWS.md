@@ -196,10 +196,10 @@ registrations. Browse also accepts an explicit executable or shortcut. It does
 not claim to enumerate every packaged Store app. User labels no longer suppress
 the application's icon. Steam artwork also checks older flat cache layouts.
 
-Setup enables sign-in shortcuts for galleond and Bosun by default. Bosun's sign-in
-shortcut passes `--minimized`; with a notification area it hides its window and
+Setup enables per-user HKCU Run commands for galleond and Bosun by default.
+Bosun receives `--minimized`; with a notification area it hides its window and
 keeps the tray icon. Without a tray the window remains accessible. Clearing the
-component during an upgrade removes previous sign-in shortcuts. Uninstall removes
+component during an upgrade removes previous sign-in commands. Uninstall removes
 both. These are interactive user-session processes, not Session 0 services.
 
 Waking a screensaver now releases the display without synchronously waiting for
@@ -208,8 +208,28 @@ grace period. The wake gesture is still consumed. Interactive immediate and long
 idle wake tests remain required.
 
 With official OpenRGB the owner reports the dial LampArray as `Keyboard` and the
-keyboard RGB separately as `Corsair Galleon 100 SD`. Ring ownership must be given
-to galleond; repeatedly fighting another RGB writer does not establish priority.
-Diagnose by exiting OpenRGB, changing the Galleon theme and checking ring colors,
-then checking the relevant detector/device exclusions in that OpenRGB version.
-No global RGB configuration is changed by GalleonCore.
+keyboard RGB separately as `Corsair Galleon 100 SD`. The owner traced the conflict
+to Windows Dynamic Lighting being enabled. Repeatedly fighting another RGB writer
+does not establish priority. No global RGB configuration is changed by GalleonCore.
+
+## Windows feedback: bounded launcher themes and sign-in
+
+Automatic launcher themes show up to 12 items on one page. Above that, they use
+11 launchers plus a bottom-right `<theme>-Plus` key, then at most 11 launchers
+plus a bottom-right Back key. The combined Steam/menu limit is 22, with duplicate
+Steam shortcuts excluded. Existing automatic pages are expanded in memory on
+load and use the normal backed-up editor save; pages with custom navigation are
+left alone. Linux keeps its existing page configuration and navigation actions.
+Shell discovery is cached for five minutes and warmed before HID is opened.
+
+Setup registers quoted per-user HKCU Run commands for galleond and minimized
+Bosun, enabled by default; it removes its old Startup shortcuts. Deselecting the
+component or uninstalling removes only these two Run values. This is an
+interactive sign-in startup, not a Session 0 service. Windows Startup settings
+can disable these applications; the installer does not clear that user choice.
+Opening Bosun with its default profile also starts a missing daemon once after
+the IPC probe. Screenshots and explicit `--pages` profiles do not start a daemon.
+
+The owner identified enabled Windows Dynamic Lighting as the cause of the ring
+color conflict. No repeated RGB writes or claim of priority over OpenRGB is added.
+Physical confirmation of pagination, wake and sign-in remains required.

@@ -92,8 +92,14 @@ accepted as Windows app references.
 
 Windows follow-up: application icons are extracted from Shell metadata and cached
 as PNG; a custom label must not suppress its app icon. Keep the icon loader's file
-size/dimension limits. Startup uses user-session shortcuts (Bosun `--minimized`),
+size/dimension limits. Startup uses per-user HKCU Run commands (Bosun `--minimized`),
 never a Session 0 media controller. Screensaver wake must not wait synchronously
 for a decoder process; test an ignored termination request as well as consumed
 wake input. Official OpenRGB ring ownership remains a hardware integration item;
 do not claim priority from repeated color writes.
+
+Windows automatic launcher themes are bounded to two pages and 22 launchers.
+Keep navigation on key 11 (Plus/Back), preserve custom navigation, and use the
+same expansion when the daemon, Bosun and editor read a configuration. Discover
+initial Shell launchers before opening HID; keep repeated discovery cached.
+The owner identified Windows Dynamic Lighting as the ring conflict source.

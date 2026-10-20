@@ -217,7 +217,7 @@ void PagesController::reload()
     if (!owned && m_appsAllowed)
         qWarning() << "galleond: the pages file" << m_file << "is not owned by you or is writable by others: its application keys are disabled";
     m_appsAllowed = owned;
-    const QByteArray bytes = file.read(MaxPagesFileBytes + 1);
+    const QByteArray bytes = preparePagesJson(file.read(MaxPagesFileBytes + 1));
     const PagesParseResult result = parsePagesConfig(bytes);
     if (!result.config) {
         qWarning() << "galleond: the pages file" << m_file << "has errors and is not used:";

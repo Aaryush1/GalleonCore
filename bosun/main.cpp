@@ -89,6 +89,15 @@ int main(int argc, char *argv[])
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
     bosun::DaemonStatus daemon;
+#ifdef Q_OS_WIN
+    if (!parser.isSet(shotOption) && !parser.isSet(pagesOption)) {
+        // Let the asynchronous IPC probe finish before starting a missing daemon.
+        QTimer::singleShot(1000, &daemon, [&daemon] {
+            if (const QString error = daemon.start(); !error.isEmpty())
+                qWarning().noquote() << error;
+        });
+    }
+#endif
 #ifdef GALLEON_SOURCE_WALLPAPERS
     bosun::WallpaperLibrary library(bosun::WallpaperLibrary::defaultPlaces(QStringLiteral(GALLEON_SOURCE_WALLPAPERS))); // and the source tree, when running from the build
 #else
