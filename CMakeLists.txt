@@ -36,6 +36,7 @@ include(GNUInstallDirs)
 
 add_subdirectory(lib)
 add_subdirectory(daemon)
+add_subdirectory(bosun)
 
 if(BUILD_TESTING)
     enable_testing()

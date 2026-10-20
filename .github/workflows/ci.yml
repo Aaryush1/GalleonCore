@@ -29,7 +29,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake g++ clang libclang-rt-18-dev \
             qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config \
-            qml6-module-qtquick qml6-module-qtqml qml6-module-qtqml-workerscript
+            qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml qml6-module-qtqml-workerscript
       - name: Configure
         run: cmake -B build -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DGALLEON_WERROR=ON ${{ matrix.flags }}
       - name: Build
@@ -49,14 +49,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake g++ clang-tidy \
             qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config pipx \
-            qml6-module-qtquick qml6-module-qtqml qml6-module-qtqml-workerscript
+            qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml qml6-module-qtqml-workerscript
       - name: Configure
         run: cmake -B build
       - name: Build (generates moc files)
         run: cmake --build build -j
       - name: clang-tidy
-        run: run-clang-tidy -quiet -p build '(lib/src|daemon|tests)/[^/]+\.cpp$'
+        run: run-clang-tidy -quiet -p build '(lib/src|daemon|bosun|tests)/[^/]+\.cpp$'
       - name: qmllint
-        run: /usr/lib/qt6/bin/qmllint widgets/*.qml
+        run: /usr/lib/qt6/bin/qmllint widgets/*.qml bosun/qml/*.qml
       - name: REUSE licensing
         run: pipx run reuse lint

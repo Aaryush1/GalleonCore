@@ -43,5 +43,5 @@ Checks: >
 # that reason. Raw new/delete is still caught by cppcoreguidelines-*.
 WarningsAsErrors: '*'
 # Only our own headers; excludes Qt's generated .moc files.
-HeaderFilterRegex: '(lib/include/galleon|lib/src|daemon|tests)/[^/]+\.h$'
+HeaderFilterRegex: '(lib/include/galleon|lib/src|daemon|bosun|tests)/[^/]+\.h$'
 FormatStyle: none
