@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[Desktop Entry]
+Type=Application
+Name=Galleon Bosun
+GenericName=Module settings
+Comment=Settings for the Corsair Galleon 100 SD keys, screen and dials
+Exec=galleon-bosun
+Icon=galleon-bosun
+Terminal=false
+Categories=Settings;HardwareSettings;Qt;
+Keywords=Galleon;Corsair;Stream Deck;keys;wallpaper;
+StartupWMClass=galleon-bosun
