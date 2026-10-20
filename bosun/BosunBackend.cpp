@@ -390,8 +390,11 @@ void BosunBackend::setConversion(const QString &state, double fraction, const QS
 QString BosunBackend::startConversion(int x, int y, int width, int height, const QString &title)
 {
     if (m_candidatePath.isEmpty() || !m_candidate.value(QStringLiteral("canCut")).toBool()) {
-        const QString why = m_candidate.value(QStringLiteral("cutWhy")).toString();
-        return why.isEmpty() ? m_candidate.value(QStringLiteral("why")).toString().isEmpty() ? tr("No video can be converted now.") : m_candidate.value(QStringLiteral("why")).toString() : why;
+        for (const QString &field : {QStringLiteral("cutWhy"), QStringLiteral("why")}) {
+            if (const QString why = m_candidate.value(field).toString(); !why.isEmpty())
+                return why;
+        }
+        return tr("No video can be converted now.");
     }
     const galleond::VideoInfo info = m_videoInfo.value(m_candidatePath);
     const galleond::ScreensaverConfig saver = m_config ? m_config->screensaver : galleond::ScreensaverConfig{};
