@@ -14,7 +14,6 @@
 #include <QDir>
 
 #include <QApplication>
-#include <QPointer>
 #ifdef Q_OS_WIN
 #include "LocalControl.h"
 #endif
@@ -172,9 +171,13 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(shotOption)) {
         const QString png = parser.value(shotOption);
-        const QPointer<QQuickWindow> previewWindow = window;
-        QTimer::singleShot(700, &app, [previewWindow, png] {
-            const bool saved = previewWindow && previewWindow->grabWindow().save(png);
+        if (!window) {
+            qCritical() << "galleon-bosun: no preview window";
+            return 1;
+        }
+        // The context cancels the callback if the window is destroyed.
+        QTimer::singleShot(700, window, [window, png] {
+            const bool saved = window->grabWindow().save(png);
             if (!saved)
                 qCritical().noquote() << "galleon-bosun: cannot save" << png;
             QGuiApplication::exit(saved ? 0 : 1);

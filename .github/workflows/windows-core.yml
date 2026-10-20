@@ -82,14 +82,28 @@ jobs:
           $picture = Get-ChildItem $root -Recurse -Filter *.jpg | Select-Object -First 1
           if (-not $picture) { throw "No packaged wallpaper" }
           $name = $picture.FullName.Substring($root.Length + 1).Replace('\', '/')
+          $env:QT_FORCE_STDERR_LOGGING = "1"
           function Invoke-Preview([string]$Program, [string]$Arguments) {
-            $child = Start-Process -FilePath $Program -ArgumentList $Arguments -PassThru
-            if (-not $child.WaitForExit(30000)) { $child.Kill(); throw "Preview exceeded its deadline" }
-            if ($child.ExitCode -ne 0) { throw "Installed preview failed: $($child.ExitCode)" }
+            $label = [System.IO.Path]::GetFileNameWithoutExtension($Program)
+            Write-Host "Launching installed $label"
+            $child = Start-Process -FilePath $Program -ArgumentList $Arguments -PassThru -RedirectStandardOutput "$label-stdout.log" -RedirectStandardError "$label-stderr.log"
+            $finished = $child.WaitForExit(30000)
+            if (-not $finished) { $child.Kill(); $child.WaitForExit() }
+            Get-Content "$label-stdout.log", "$label-stderr.log"
+            if (-not $finished) { throw "$label preview exceeded its deadline" }
+            if ($child.ExitCode -ne 0) { throw "$label installed preview failed: $($child.ExitCode)" }
           }
           Invoke-Preview "$pwd/staging/bin/galleond.exe" "--render-to `"$pwd/daemon-preview.png`" --wallpaper `"$name`""
           Invoke-Preview "$pwd/staging/bin/galleon-bosun.exe" "--pages `"$env:RUNNER_TEMP/galleon-smoke-pages.json`" --screenshot `"$pwd/bosun-preview.png`""
           if (-not (Test-Path daemon-preview.png) -or -not (Test-Path bosun-preview.png)) { throw "Missing previews" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-preview-logs
+          path: |
+            *-stdout.log
+            *-stderr.log
+            *-preview.png
       - name: Include licenses and test instructions
         shell: pwsh
         run: |
