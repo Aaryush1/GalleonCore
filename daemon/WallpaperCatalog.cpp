@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QImageReader>
+#include <QStandardPaths>
 
 #include <algorithm>
 
@@ -82,37 +83,83 @@ bool WallpaperCatalog::isAcceptable(const QString &file)
            && size.height() <= MaxDimension;
 }
 
-WallpaperCatalog::WallpaperCatalog(const QString &root)
+namespace {
+
+// The pictures of one folder, styles by name and the files of a style by name.
+QList<WallpaperEntry> scanRoot(const QString &root)
 {
+    QList<WallpaperEntry> found;
     if (root.isEmpty())
-        return;
+        return found;
     const QDir rootDir(root);
     if (!rootDir.exists())
-        return;
-
-    // A natural order, the same on every machine and in every language: styles by
-    // name, then the files of a style by name with numbers read as numbers
-    // (wallpaper-2 before wallpaper-10), not by the file system's order.
-    const auto sorted = [](QFileInfoList list) {
-        std::ranges::stable_sort(list,
-                         [](const QFileInfo &x, const QFileInfo &y) { return naturalLess(x.fileName(), y.fileName()); });
-        return list;
-    };
-
-    const QFileInfoList styles = sorted(rootDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name));
+        return found;
+    const QFileInfoList styles = rootDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
     for (const QFileInfo &styleInfo : styles) {
         if (styleInfo.isSymLink())
             continue;
         const QDir styleDir(styleInfo.absoluteFilePath());
-        const QFileInfoList files = sorted(styleDir.entryInfoList(QDir::Files, QDir::Name));
-        for (const QFileInfo &file : files) {
-            if (!isAcceptable(file.absoluteFilePath()))
+        for (const QFileInfo &file : styleDir.entryInfoList(QDir::Files, QDir::Name)) {
+            if (!WallpaperCatalog::isAcceptable(file.absoluteFilePath()))
                 continue;
-            m_entries.append({.style=styleInfo.fileName(),
-                              .name=styleInfo.fileName() + QLatin1Char('/') + file.fileName(),
-                              .path=file.absoluteFilePath()});
+            found.append({.style = styleInfo.fileName(),
+                          .name = styleInfo.fileName() + QLatin1Char('/') + file.fileName(),
+                          .path = file.absoluteFilePath()});
         }
     }
+    return found;
+}
+
+} // namespace
+
+WallpaperCatalog::WallpaperCatalog(const QString &root)
+    : WallpaperCatalog(root.isEmpty() ? QStringList() : QStringList{root})
+{
+}
+
+WallpaperCatalog::WallpaperCatalog(QStringList roots)
+    : m_roots(std::move(roots))
+{
+    rescan();
+}
+
+void WallpaperCatalog::rescan()
+{
+    m_entries.clear();
+    for (const QString &root : std::as_const(m_roots)) {
+        for (const WallpaperEntry &entry : scanRoot(root)) {
+            if (!find(entry.name))
+                m_entries.append(entry);
+        }
+    }
+    // A natural order, the same on every machine and in every language: styles by
+    // name, then the files of a style by name with numbers read as numbers
+    // (wallpaper-2 before wallpaper-10), not by the file system's order.
+    std::ranges::stable_sort(m_entries, [](const WallpaperEntry &x, const WallpaperEntry &y) {
+        if (x.style != y.style)
+            return naturalLess(x.style, y.style);
+        return naturalLess(QFileInfo(x.name).fileName(), QFileInfo(y.name).fileName());
+    });
+}
+
+QString WallpaperCatalog::userRoot()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/galleoncore/wallpaper");
+}
+
+QStringList WallpaperCatalog::defaultRoots(const QString &fromCommandLine, const QString &buildTree)
+{
+    QStringList candidates{fromCommandLine, qEnvironmentVariable("GALLEONCORE_WALLPAPERS")};
+    for (const QString &base : QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation))
+        candidates << base + QStringLiteral("/galleoncore/wallpaper");
+    candidates << buildTree;
+    QStringList roots;
+    for (const QString &path : std::as_const(candidates)) {
+        const QFileInfo info(path);
+        if (!path.isEmpty() && info.isDir() && !roots.contains(info.absoluteFilePath()))
+            roots << info.absoluteFilePath();
+    }
+    return roots;
 }
 
 const WallpaperEntry *WallpaperCatalog::find(const QString &name) const

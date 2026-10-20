@@ -5,9 +5,12 @@
 add_library(bosun_core STATIC
     BosunBackend.h BosunBackend.cpp
     CropMath.h CropMath.cpp
+    FileNames.h FileNames.cpp
     DaemonStatus.h DaemonStatus.cpp
     PageName.h PageName.cpp
+    TrayMenu.h TrayMenu.cpp
     VideoAdvice.h VideoAdvice.cpp
+    WallpaperLibrary.h WallpaperLibrary.cpp
     VideoConverter.h VideoConverter.cpp
 )
 target_include_directories(bosun_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -16,13 +19,18 @@ set_target_properties(bosun_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 qt_add_resources(bosun_core "bosun_ui"
     PREFIX "/bosun"
-    FILES qml/Bosun.qml qml/Pill.qml qml/Stepper.qml qml/Field.qml qml/Swatches.qml qml/KeyEditor.qml qml/TabEditor.qml qml/NewTab.qml qml/ScreensaversPage.qml qml/CropEditor.qml
+    FILES qml/Bosun.qml qml/Pill.qml qml/Stepper.qml qml/Field.qml qml/Swatches.qml qml/KeyEditor.qml qml/TabEditor.qml qml/NewTab.qml qml/ScreensaversPage.qml qml/CropEditor.qml qml/WallpapersPage.qml
           icons/galleon-bosun.svg
 )
 
-add_executable(galleon-bosun main.cpp)
-target_compile_definitions(galleon-bosun PRIVATE PROJECT_VERSION_STRING="${PROJECT_VERSION}")
-target_link_libraries(galleon-bosun PRIVATE bosun_core galleon_warnings)
+# The icon in the notification area needs QSystemTrayIcon (Qt Widgets): only the program has it, not the library the tests use.
+add_executable(galleon-bosun main.cpp Tray.h Tray.cpp)
+target_compile_definitions(galleon-bosun PRIVATE
+    PROJECT_VERSION_STRING="${PROJECT_VERSION}"
+    # When run from the build tree, the project's own wallpapers; an installed one finds them in the data folders.
+    GALLEON_SOURCE_WALLPAPERS="${CMAKE_SOURCE_DIR}/public/wallpaper"
+)
+target_link_libraries(galleon-bosun PRIVATE bosun_core Qt6::Widgets galleon_warnings)
 install(TARGETS galleon-bosun RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES icons/galleon-bosun.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
 install(FILES galleon-bosun.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)

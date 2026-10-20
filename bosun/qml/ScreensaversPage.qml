@@ -495,10 +495,33 @@ Flickable {
                     visible: active
                     sourceComponent: Component {
                         CropEditor {
+                            id: cropEditor
                             backend: saverPage.backend
-                            candidate: addBox.candidate
-                            title: newTitle.text !== "" ? newTitle.text : (addBox.candidate.suggestedTitle !== undefined ? addBox.candidate.suggestedTitle : "")
-                            onAnswered: (error, done) => saverPage.answered(error, done)
+                            preview: addBox.candidate.thumbnail
+                            sourceWidth: addBox.candidate.width
+                            sourceHeight: addBox.candidate.height
+                            canvasWidth: addBox.candidate.canvasWidth
+                            canvasHeight: addBox.candidate.canvasHeight
+                            identity: addBox.candidate.path
+                            screenRegion: addBox.candidate.screen
+                            keyRegions: addBox.candidate.keyRegions
+                            help: qsTr("Drag the picture to move the frame, turn the wheel to come closer. The module shows what is inside the yellow frame: the cyan part is its screen, the squares are its 12 keys.")
+                            Pill {
+                                selected: true
+                                text: qsTr("Cut and add to the list")
+                                enabledLook: saverPage.backend.conversion.state !== "running"
+                                onClicked: saverPage.answered(
+                                    saverPage.backend.startConversion(cropEditor.crop.x, cropEditor.crop.y, cropEditor.crop.width, cropEditor.crop.height,
+                                                                      newTitle.text !== "" ? newTitle.text : addBox.candidate.suggestedTitle),
+                                    qsTr("Cutting the video…"))
+                            }
+                            Text {
+                                width: parent.width
+                                wrapMode: Text.Wrap
+                                color: "#7d8591"
+                                font.pixelSize: 12
+                                text: qsTr("FFmpeg writes a new video of the module's size in your screensavers folder. Your original file is not touched.")
+                            }
                         }
                     }
                 }

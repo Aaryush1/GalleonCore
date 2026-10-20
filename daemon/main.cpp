@@ -384,15 +384,13 @@ bool renderKeysTo(const QString &pagesFile, const QString &pngFile, const QStrin
     return sheet.save(pngFile);
 }
 
-QString defaultWallpaperDir(const QString &fromCommandLine)
+QStringList defaultWallpaperRoots(const QString &fromCommandLine)
 {
-    QStringList candidates{fromCommandLine, qEnvironmentVariable("GALLEONCORE_WALLPAPERS")};
-    for (const QString &base : QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation))
-        candidates << base + QStringLiteral("/galleoncore/wallpaper");
 #ifdef GALLEON_SOURCE_WALLPAPERS
-    candidates << QStringLiteral(GALLEON_SOURCE_WALLPAPERS); // running from the build tree
+    return galleond::WallpaperCatalog::defaultRoots(fromCommandLine, QStringLiteral(GALLEON_SOURCE_WALLPAPERS)); // and the source tree, when running from the build
+#else
+    return galleond::WallpaperCatalog::defaultRoots(fromCommandLine);
 #endif
-    return firstExisting(candidates, false);
 }
 
 QString defaultWidgetFile(const QString &fromCommandLine)
@@ -489,7 +487,7 @@ int main(int argc, char *argv[])
                        listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption, displayLagOption, renderSaverOption, saverVideoOption, saverAtOption, calibrationOption});
     parser.process(app);
 
-    const QString wallpaperDir = defaultWallpaperDir(parser.value(wallpapersOption));
+    const QStringList wallpaperRoots = defaultWallpaperRoots(parser.value(wallpapersOption));
     const QString widgetFile = defaultWidgetFile(parser.value(widgetsOption));
     // ---- applications on the keys: no deck, no daemon, only the pages file.
     if (parser.isSet(listAppsOption)) {
@@ -546,7 +544,7 @@ int main(int argc, char *argv[])
         qCritical() << "galleond: WallpaperClock.qml not found (see --widgets)";
         return 1;
     }
-    if (wallpaperDir.isEmpty())
+    if (wallpaperRoots.isEmpty())
         qWarning() << "galleond: no wallpaper folder found (see --wallpapers)";
 
     if (parser.isSet(renderSaverOption)) {
@@ -567,7 +565,7 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(renderNowPlayingOption)) {
         // A sample track, for looking at the layout: the cover is a wallpaper.
-        const galleond::WallpaperCatalog catalog(wallpaperDir);
+        const galleond::WallpaperCatalog catalog(wallpaperRoots);
         const galleond::WallpaperEntry *entry = catalog.find(parser.value(wallpaperOption));
         galleond::ScreenRenderer sample(QFileInfo(widgetFile).absolutePath() + QStringLiteral("/NowPlaying.qml"));
         if (!sample.isValid())
@@ -594,7 +592,7 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(renderOption)) {
         // Offline mode: no deck, no D-Bus.
-        const galleond::WallpaperCatalog catalog(wallpaperDir);
+        const galleond::WallpaperCatalog catalog(wallpaperRoots);
         const galleond::WallpaperEntry *entry = catalog.find(parser.value(wallpaperOption));
         if (!entry) {
             qCritical() << "galleond: --render-to needs --wallpaper with a name from the catalog";
@@ -689,7 +687,7 @@ int main(int argc, char *argv[])
     if (usePages)
         thumbnails = std::make_unique<galleond::VideoThumbnails>(
             QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + QStringLiteral("/galleoncore/thumbnails"));
-    galleond::ScreenController controller(&deck, &renderer, galleond::WallpaperCatalog(wallpaperDir), widgetFile,
+    galleond::ScreenController controller(&deck, &renderer, galleond::WallpaperCatalog(wallpaperRoots), widgetFile,
                                           media.get(), nowPlayingRenderer.isValid() ? &nowPlayingRenderer : nullptr,
                                           thumbnails.get());
 

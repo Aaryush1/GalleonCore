@@ -178,6 +178,20 @@ private Q_SLOTS:
         QCOMPARE(f.frames(), std::size_t{0});
     }
 
+    void aPictureAddedWhileItRunsCanBeShown()
+    {
+        Fixture f;
+        QVERIFY(!f.controller->SetWallpaper("mine/new.png")); // not there yet
+        QImage red(1600, 900, QImage::Format_RGB32);
+        red.fill(QColor(200, 30, 30));
+        QDir().mkpath(f.dir.filePath("wall/mine"));
+        QVERIFY(red.save(f.dir.filePath("wall/mine/new.png"))); // the settings window adds it
+        QVERIFY(f.controller->SetWallpaper("mine/new.png"));    // the catalog is read again before refusing
+        QVERIFY(near(pixelOf(f.lastScreen(), FarRightX, Row), qRgb(200, 30, 30)));
+        QVERIFY(f.controller->Wallpapers().contains("mine/new.png"));
+        QVERIFY(!f.controller->SetWallpaper("mine/never-there.png"));
+    }
+
     void theWallpaperShowsWhenNothingPlays()
     {
         Fixture f;

@@ -18,10 +18,13 @@ Window {
 
     required property var backend
     required property var daemon
+    required property var library
 
     property int currentTab: 0
     property int selectedKey: -1
     property bool cropOpen: false // only for a picture of the crop window (--crop)
+    // With the icon in the notification area, closing the window only hides it.
+    property bool hideOnClose: false
     // The page shown inside a theme's tab: its own, or one of the sub-pages it leads to.
     property string shownPage: ""
     // What the last edit said, in the status bar.
@@ -29,6 +32,13 @@ Window {
     property bool messageIsError: false
     // The last theme looked at: its colour is the keyboard tab's (the left dial of the module shows it).
     property int lastTheme: 0
+
+    onClosing: close => {
+        if (win.hideOnClose) {
+            close.accepted = false
+            win.visible = false
+        }
+    }
 
     title: qsTr("Galleon Bosun")
     width: 1240
@@ -284,34 +294,56 @@ Window {
         onCreated: win.currentTab = win.backend.themes.length - 1
     }
 
-    // ---- the tabs still to build
+    // ---- the keyboard
     Column {
-        visible: (win.tab.kind === "keyboard" || win.tab.kind === "wallpapers") && win.backend.problem === ""
+        visible: win.tab.kind === "keyboard" && win.backend.problem === ""
         x: 30
         y: 90
-        width: win.width - 60
-        spacing: 10
+        width: Math.min(win.width - 60, 760)
+        spacing: 12
 
         Text {
             color: "white"
             font.pixelSize: 18
             font.bold: true
-            text: win.tab.title
+            text: qsTr("Keyboard lighting")
         }
         Text {
             width: parent.width
-            color: "#9aa0a6"
-            font.pixelSize: 14
             wrapMode: Text.Wrap
-            text: {
-                switch (win.tab.kind) {
-                case "keyboard":
-                    return qsTr("Planned: a link to the Corsair Web Hub, opened in your browser. The keyboard's own lighting is not controlled from Linux yet (see the OpenRGB plugin).")
-                default:
-                    return qsTr("Planned: thumbnails of the wallpapers, adding your own pictures, and cropping them to the screen (720 × 384).")
-                }
-            }
+            color: "#c9ced6"
+            font.pixelSize: 14
+            text: qsTr("Corsair's own page, the Web Hub, sets the keyboard's lighting and keys in your browser. It needs a Chromium-based browser (Chrome, Chromium, Edge, Opera).")
         }
+        Pill {
+            selected: true
+            text: qsTr("Open the Corsair Web Hub in your browser")
+            onClicked: Qt.openUrlExternally("https://www.corsair.com/web-hub")
+        }
+        Text {
+            width: parent.width
+            wrapMode: Text.Wrap
+            color: "#9aa0a6"
+            font.pixelSize: 13
+            text: qsTr("It opens in your browser, not in this window. Careful: what the Web Hub saves into the keyboard's own memory is the keyboard's business, and this application never writes there. The screen, the 12 keys and the dials of the module are set from the other tabs.")
+        }
+        Text {
+            width: parent.width
+            wrapMode: Text.Wrap
+            color: "#7d8591"
+            font.pixelSize: 13
+            text: qsTr("The lighting can also be driven from Linux with OpenRGB (the dials' rings already are, through this project's plugin); the per-key lighting of the keyboard is not available there yet.")
+        }
+    }
+
+    WallpapersPage {
+        visible: win.tab.kind === "wallpapers" && win.backend.problem === ""
+        x: 30
+        y: 84
+        width: win.width - 60
+        height: win.height - 104 - statusBar.height
+        library: win.library
+        backend: win.backend
     }
 
     ScreensaversPage {

@@ -5,6 +5,7 @@
 
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 namespace galleond {
 
@@ -28,6 +29,21 @@ public:
     static constexpr int MaxDimension = 8192;
 
     explicit WallpaperCatalog(const QString &root = {});
+    // Several folders laid out the same way: a name that two of them have is listed once, from
+    // the first. The order is the same whichever folder a file is in.
+    explicit WallpaperCatalog(QStringList roots);
+
+    // Reads the folders again (a file was added or removed while the program runs).
+    void rescan();
+    [[nodiscard]] const QStringList &roots() const { return m_roots; }
+
+    // The user's own folder, ~/.local/share/galleoncore/wallpaper: where added pictures go. It is
+    // not made until something is written in it.
+    [[nodiscard]] static QString userRoot();
+    // The folders to read: the one asked for on the command line, the one of the environment
+    // variable GALLEONCORE_WALLPAPERS, the user's own, the system ones and `buildTree` (the
+    // wallpapers of the source tree, when running from the build), those that exist, once each.
+    [[nodiscard]] static QStringList defaultRoots(const QString &fromCommandLine, const QString &buildTree = {});
 
     [[nodiscard]] const QList<WallpaperEntry> &entries() const { return m_entries; }
     // The entry with this name, or nullptr. Names come from D-Bus or the UI:
@@ -37,6 +53,7 @@ public:
     [[nodiscard]] static bool isAcceptable(const QString &file);
 
 private:
+    QStringList m_roots;
     QList<WallpaperEntry> m_entries;
 };
 

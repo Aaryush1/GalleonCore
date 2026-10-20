@@ -3,6 +3,8 @@
 
 #include "VideoConverter.h"
 
+#include "FileNames.h"
+
 #include <VideoThumbnails.h>
 
 #include <QCoreApplication>
@@ -78,27 +80,12 @@ QString VideoConverter::chooseEncoder(const QString &encodersText)
 
 QString VideoConverter::safeName(const QString &wished)
 {
-    QString name;
-    for (const QChar character : wished.trimmed()) {
-        const bool plain = character.isLetterOrNumber() || character == QLatin1Char(' ') || character == QLatin1Char('-')
-                           || character == QLatin1Char('_') || character == QLatin1Char('.');
-        name.append(plain ? character : QLatin1Char('-'));
-    }
-    while (name.startsWith(QLatin1Char('.')) || name.startsWith(QLatin1Char(' ')))
-        name.remove(0, 1);
-    name = name.left(MaxNameLength).trimmed();
-    return name.isEmpty() ? QStringLiteral("video") : name;
+    return filenames::safeName(wished, QStringLiteral("video"));
 }
 
 QString VideoConverter::freePath(const QString &folder, const QString &base)
 {
-    const QDir dir(folder);
-    for (int number = 1; number < 10000; ++number) {
-        const QString file = number == 1 ? base + QStringLiteral(".mp4") : QStringLiteral("%1-%2.mp4").arg(base).arg(number);
-        if (!QFileInfo::exists(dir.filePath(file)))
-            return dir.filePath(file);
-    }
-    return dir.filePath(base + QStringLiteral("-x.mp4")); // not reached in practice
+    return filenames::freePath(folder, base, QStringLiteral(".mp4"));
 }
 
 QString VideoConverter::problemWith(const ConversionJob &job)
