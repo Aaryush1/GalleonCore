@@ -64,12 +64,16 @@ try {
     Start-Applications
     Run-Installer (Join-Path $root 'Uninstall.exe') '/S'
     Assert-Closed
-    if ((Test-Path (Join-Path $startup 'GalleonCore.lnk')) -or (Test-Path (Join-Path $startup 'Galleon Bosun.lnk'))) { throw 'Uninstall left startup shortcuts.' }
+    # NSIS launches a temporary uninstaller copy; its launcher can exit before cleanup ends.
+    $markers = @((Join-Path $root 'bin/galleond.exe'), (Join-Path $root 'Uninstall.exe'),
+        (Join-Path $startup 'GalleonCore.lnk'), (Join-Path $startup 'Galleon Bosun.lnk'))
     $deadline = [System.DateTime]::UtcNow.AddSeconds(20)
-    while ((Test-Path (Join-Path $root 'bin/galleond.exe')) -and [System.DateTime]::UtcNow -lt $deadline) {
+    do {
+        $remaining = @($markers | Where-Object { Test-Path -LiteralPath $_ })
+        if ($remaining.Count -eq 0) { break }
         Start-Sleep -Milliseconds 100
-    }
-    if (Test-Path (Join-Path $root 'bin/galleond.exe')) { throw 'Uninstall left application binaries.' }
+    } while ([System.DateTime]::UtcNow -lt $deadline)
+    if ($remaining.Count -gt 0) { throw "Uninstall left files: $($remaining -join ', ')" }
     if (-not (Test-Path $sentinel)) { throw 'Uninstall removed personal data.' }
     if ((Get-ItemPropertyValue $settingsKey SetupPreservationTest) -ne 'Keep settings') { throw 'Uninstall removed settings.' }
 } finally {
