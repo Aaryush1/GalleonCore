@@ -16,16 +16,16 @@ option(GALLEON_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSaniti
 option(GALLEON_SOURCE_TREE_PATHS "Let galleond and galleon-bosun find the widgets and wallpapers in the source tree when run from the build folder (turn OFF for a package: the paths of the build machine must not end up in the programs)" ON)
 option(GALLEON_FUZZ "Build the libFuzzer targets (Clang only)" OFF)
 
-# The desktop integration still uses Linux services. Windows starts with the
-# portable HID/protocol library and its hardware-free tests.
+# Linux desktop integration remains the default. Windows desktop builds are
+# explicit while native integration and deployment are being validated.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(galleon_desktop_default ON)
 else()
     set(galleon_desktop_default OFF)
 endif()
-option(GALLEON_BUILD_DESKTOP "Build galleond and Bosun (currently Linux only)" ${galleon_desktop_default})
-if(GALLEON_BUILD_DESKTOP AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    message(FATAL_ERROR "Desktop backends are currently Linux only; use -DGALLEON_BUILD_DESKTOP=OFF for the portable library")
+option(GALLEON_BUILD_DESKTOP "Build galleond and Bosun (Linux and Windows)" ${galleon_desktop_default})
+if(GALLEON_BUILD_DESKTOP AND NOT (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+    message(FATAL_ERROR "Desktop backends support Linux and Windows; use -DGALLEON_BUILD_DESKTOP=OFF for the portable library")
 endif()
 
 # Strict warnings, applied to our own targets only (Qt headers are SYSTEM).
@@ -44,11 +44,15 @@ if(GALLEON_SANITIZE)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Network)
 if(GALLEON_BUILD_DESKTOP)
-    find_package(Qt6 6.4 REQUIRED COMPONENTS Qml Quick DBus Network Widgets)
+    find_package(Qt6 6.4 REQUIRED COMPONENTS Qml Quick Widgets)
+    if(NOT WIN32)
+        find_package(Qt6 6.4 REQUIRED COMPONENTS DBus)
+    endif()
 endif()
 if(WIN32)
+    enable_language(RC)
     find_package(hidapi CONFIG REQUIRED)
     set(GALLEON_HIDAPI_TARGET hidapi::hidapi)
 else()
@@ -78,6 +82,8 @@ endif()
 if(GALLEON_BUILD_DESKTOP)
 install(DIRECTORY widgets/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/widgets)
 install(DIRECTORY public/wallpaper/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/wallpaper)
+if(NOT WIN32)
 install(FILES tools/udev/70-galleon.rules tools/udev/71-galleon-uinput.rules DESTINATION lib/udev/rules.d)
 install(FILES tools/systemd/galleond.service DESTINATION lib/systemd/user)
+endif()
 endif()

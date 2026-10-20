@@ -14,6 +14,9 @@
 #include <QDir>
 
 #include <QApplication>
+#ifdef Q_OS_WIN
+#include "LocalControl.h"
+#endif
 #include <QIcon>
 #include <QImage>
 #include <QQmlApplicationEngine>
@@ -64,9 +67,23 @@ int main(int argc, char *argv[])
     parser.addOption(shotOption);
     parser.process(app);
 
+#ifdef Q_OS_WIN
+    std::unique_ptr<galleond::LocalControl> applicationControl;
+    if (!parser.isSet(shotOption)) {
+        applicationControl = std::make_unique<galleond::LocalControl>();
+        const QString endpoint = galleond::localControlName();
+        if (endpoint.isEmpty() || !applicationControl->listen(endpoint + QStringLiteral("-bosun"))) {
+            qCritical() << "galleon-bosun: another instance is running, or local control is unavailable";
+            return 1;
+        }
+        QObject::connect(applicationControl.get(), &galleond::LocalControl::stopRequested,
+                         &app, [] { QCoreApplication::quit(); });
+    }
+#endif
+
     const QString pagesFile = parser.isSet(pagesOption)
                                   ? QDir::current().absoluteFilePath(parser.value(pagesOption))
-                                  : QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+                                  : QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
     bosun::DaemonStatus daemon;
@@ -154,13 +171,16 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(shotOption)) {
         const QString png = parser.value(shotOption);
-        int result = 0;
-        QTimer::singleShot(700, &app, [&] {
-            if (!window || !window->grabWindow().save(png)) {
+        if (!window) {
+            qCritical() << "galleon-bosun: no preview window";
+            return 1;
+        }
+        // The context cancels the callback if the window is destroyed.
+        QTimer::singleShot(700, window, [window, png] {
+            const bool saved = window->grabWindow().save(png);
+            if (!saved)
                 qCritical().noquote() << "galleon-bosun: cannot save" << png;
-                result = 1;
-            }
-            QGuiApplication::exit(result);
+            QGuiApplication::exit(saved ? 0 : 1);
         });
     }
     return QGuiApplication::exec();

@@ -1,16 +1,23 @@
 # SPDX-FileCopyrightText: 2026 Paul Woisard
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-name: Windows core and SMTC
+name: Windows desktop
 on:
+  workflow_call:
+  workflow_dispatch:
   push:
-    branches: [main, codex/windows-port, codex/windows-smtc, codex/windows-core-audio, codex/windows-keyboard]
+    branches: [main]
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: windows-desktop-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   core:
     runs-on: windows-2022
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: jurplel/install-qt-action@v4
@@ -21,19 +28,122 @@ jobs:
       - name: Install Windows HID backend
         shell: pwsh
         run: vcpkg install hidapi:x64-windows
-      - name: Configure portable library
+      - name: Configure desktop
         shell: pwsh
         run: >-
           cmake -S . -B build -A x64
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows
-          -DGALLEON_BUILD_DESKTOP=OFF -DGALLEON_SOURCE_TREE_PATHS=OFF
+          -DGALLEON_BUILD_DESKTOP=ON -DGALLEON_SOURCE_TREE_PATHS=OFF -DGALLEON_WERROR=ON
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Test without hardware
         shell: pwsh
         run: |
           $env:PATH = "$pwd/build/lib/Release;$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          $env:QT_QPA_FONTDIR = "$env:SystemRoot/Fonts"
           ctest --test-dir build -C Release --output-on-failure
+          $result = $LASTEXITCODE
+          if ($result -ne 0) {
+            Get-ChildItem build/tests -Filter test_*.txt | ForEach-Object { Get-Content $_.FullName }
+          }
+          exit $result
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-test-logs
+          path: |
+            build/tests/test_*.txt
+            build/Testing/Temporary/LastTest.log
       - name: Check library installation
         run: cmake --install build --config Release --prefix staging
+      - name: Deploy Windows desktop dependencies
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          windeployqt --release --no-translations --qmldir bosun/qml staging/bin/galleon-bosun.exe
+          if ($LASTEXITCODE -ne 0) { throw "Bosun deployment failed" }
+          windeployqt --release --no-translations --qmldir daemon/qml staging/bin/galleond.exe
+          if ($LASTEXITCODE -ne 0) { throw "Daemon deployment failed" }
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/hidapi.dll" staging/bin/
+          # windeployqt selects qwindows; the isolated smoke tests also need qoffscreen.
+          Copy-Item "$env:QT_ROOT_DIR/plugins/platforms/qoffscreen.dll" staging/bin/platforms/
+          "[Paths]`nPrefix=.`nPlugins=.`nQmlImports=qml" | Set-Content staging/bin/qt.conf
+      - name: Smoke test installed desktop without hardware
+        shell: pwsh
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:QT_QUICK_BACKEND = "software"
+          $env:QT_QPA_FONTDIR = "$env:SystemRoot/Fonts"
+          $env:PATH = "$env:SystemRoot/System32;$env:SystemRoot"
+          $env:QT_PLUGIN_PATH = (Resolve-Path staging/bin).Path
+          $env:QT_QPA_PLATFORM_PLUGIN_PATH = (Resolve-Path staging/bin/platforms).Path
+          $env:QML_IMPORT_PATH = (Resolve-Path staging/bin/qml).Path
+          $env:QML2_IMPORT_PATH = $env:QML_IMPORT_PATH
+          $root = (Resolve-Path staging/share/galleoncore/wallpaper).Path
+          $picture = Get-ChildItem $root -Recurse -Filter *.jpg | Select-Object -First 1
+          if (-not $picture) { throw "No packaged wallpaper" }
+          $name = $picture.FullName.Substring($root.Length + 1).Replace('\', '/')
+          $env:QT_FORCE_STDERR_LOGGING = "1"
+          function Invoke-Preview([string]$Program, [string]$Arguments) {
+            $label = [System.IO.Path]::GetFileNameWithoutExtension($Program)
+            Write-Host "Launching installed $label"
+            $child = Start-Process -FilePath $Program -ArgumentList $Arguments -PassThru -RedirectStandardOutput "$label-stdout.log" -RedirectStandardError "$label-stderr.log"
+            $finished = $child.WaitForExit(30000)
+            if (-not $finished) { $child.Kill(); $child.WaitForExit() }
+            Get-Content "$label-stdout.log", "$label-stderr.log"
+            if (-not $finished) { throw "$label preview exceeded its deadline" }
+            if ($child.ExitCode -ne 0) { throw "$label installed preview failed: $($child.ExitCode)" }
+          }
+          Invoke-Preview "$pwd/staging/bin/galleond.exe" "--render-to `"$pwd/daemon-preview.png`" --wallpaper `"$name`""
+          Invoke-Preview "$pwd/staging/bin/galleon-bosun.exe" "--pages `"$env:RUNNER_TEMP/galleon-smoke-pages.json`" --screenshot `"$pwd/bosun-preview.png`""
+          if (-not (Test-Path daemon-preview.png) -or -not (Test-Path bosun-preview.png)) { throw "Missing previews" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-preview-logs
+          path: |
+            *-stdout.log
+            *-stderr.log
+            *-preview.png
+      - name: Include licenses and test instructions
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force staging/licenses | Out-Null
+          Copy-Item LICENSE staging/
+          Copy-Item LICENSES/* staging/licenses/
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/share/hidapi/copyright" staging/licenses/hidapi.txt
+          Copy-Item docs/WINDOWS.md staging/WINDOWS.md
+      - name: Build NSIS Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}/NSIS/makensis.exe")) {
+            choco install nsis --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "NSIS installation failed" }
+          }
+          $version = [regex]::Match((Get-Content CMakeLists.txt -Raw), 'project\(GalleonCore VERSION ([0-9.]+)').Groups[1].Value
+          ./tools/packaging/windows/build-setup.ps1 -StagingDir staging -Version $version -OutputDir setup
+      - name: Install, upgrade and uninstall with both apps running
+        shell: pwsh
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:QT_QUICK_BACKEND = "software"
+          $env:QT_QPA_FONTDIR = "$env:SystemRoot/Fonts"
+          $setup = (Get-ChildItem setup/*-Setup.exe | Select-Object -First 1).FullName
+          ./tools/packaging/windows/test-setup.ps1 -Setup $setup
+      - name: Archive desktop for interactive testing
+        shell: pwsh
+        run: |
+          Compress-Archive -Path staging/* -DestinationPath GalleonCore-Windows-x86_64.zip
+          $digest = (Get-FileHash GalleonCore-Windows-x86_64.zip -Algorithm SHA256).Hash.ToLower()
+          "$digest  GalleonCore-Windows-x86_64.zip" | Set-Content Windows-SHA256SUMS -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-x86_64
+          path: |
+            GalleonCore-Windows-x86_64.zip
+            Windows-SHA256SUMS
+            setup/*-Setup.exe
+            setup/Windows-Setup-SHA256SUMS
+            daemon-preview.png
+            bosun-preview.png

@@ -6,7 +6,7 @@ find_package(Qt6 REQUIRED COMPONENTS Test)
 # The tests put fake music players and services on the D-Bus session bus. Run on
 # the user's own bus, they would be seen by a galleond that is running (it took
 # them for real players and changed theme). A private bus keeps them apart.
-if(GALLEON_BUILD_DESKTOP)
+if(GALLEON_BUILD_DESKTOP AND NOT WIN32)
 find_program(GALLEON_DBUS_RUN_SESSION dbus-run-session)
 if(NOT GALLEON_DBUS_RUN_SESSION)
     message(WARNING "dbus-run-session not found: the tests will use the session bus of the user running them")
@@ -18,6 +18,8 @@ function(galleon_add_test name)
     target_link_libraries(${name} PRIVATE galleon galleon_warnings Qt6::Test)
     if(GALLEON_DBUS_RUN_SESSION)
         add_test(NAME ${name} COMMAND ${GALLEON_DBUS_RUN_SESSION} -- $<TARGET_FILE:${name}>)
+    elseif(WIN32)
+        add_test(NAME ${name} COMMAND ${name} -o "${CMAKE_CURRENT_BINARY_DIR}/${name}.txt,txt")
     else()
         add_test(NAME ${name} COMMAND ${name})
     endif()
@@ -25,6 +27,14 @@ function(galleon_add_test name)
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config;ASAN_OPTIONS=detect_leaks=1;LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/lsan.supp"
     )
 endfunction()
+
+galleon_add_test(test_localcontrol)
+target_link_libraries(test_localcontrol PRIVATE galleon_platform)
+galleon_add_test(test_filetrust)
+target_link_libraries(test_filetrust PRIVATE galleon_platform)
+if(WIN32)
+    target_compile_definitions(test_filetrust PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
 
 galleon_add_test(test_keyinjector)
 target_link_libraries(test_keyinjector PRIVATE galleon_keys)
@@ -53,6 +63,14 @@ function(galleond_add_test name)
         GALLEON_SOURCE_WALLPAPERS="${CMAKE_SOURCE_DIR}/public/wallpaper"
     )
 endfunction()
+
+if(WIN32)
+    # Native desktop smoke rendering; Linux service/launcher tests stay on Linux.
+    galleond_add_test(test_screenrenderer)
+    galleon_add_test(test_windowsdesktop)
+    target_link_libraries(test_windowsdesktop PRIVATE bosun_core)
+    return()
+endif()
 
 galleond_add_test(test_wallpapercatalog)
 galleond_add_test(test_screenrenderer)

@@ -5,6 +5,7 @@
 [![Website](https://img.shields.io/badge/website-GalleonCore-46505E)](https://paullux.github.io/GalleonCore/)
 [![CI](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml)
 [![Linux packages](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
+[![Windows desktop](https://github.com/Paullux/GalleonCore/actions/workflows/windows-core.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/windows-core.yml)
 [![Release](https://img.shields.io/github/v/release/Paullux/GalleonCore)](https://github.com/Paullux/GalleonCore/releases)
 [![GitHub downloads](https://img.shields.io/github/downloads/Paullux/GalleonCore/total?label=GitHub%20downloads)](https://github.com/Paullux/GalleonCore/releases)
 [![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
@@ -22,7 +23,7 @@
 
 The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced by an Elgato Stream Deck module: 12 LCD keys, a screen and two dials. Corsair and Elgato only support the Stream Deck part on Windows and macOS. GalleonCore aims to make every part of the keyboard usable on Linux, and to integrate it with the desktop.
 
-> **Active development.** The Stream Deck keys, screen and dials work on Linux, with Galleon Bosun for module settings. Plasma widgets and Windows support remain planned; see the [roadmap](ROADMAP.md) for detailed validation status.
+> **Active development.** The Stream Deck keys, screen and dials work on Linux, with Galleon Bosun for module settings. Plasma widgets remain planned. A Windows desktop preview with a Bosun-branded NSIS Setup and portable ZIP is being prepared for interactive testing ([details](docs/WINDOWS.md)); see the [roadmap](ROADMAP.md) for detailed validation status.
 
 > GalleonCore is not affiliated with Corsair or Elgato.
 
@@ -32,7 +33,7 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 - **Shared widgets**: the same QML widgets (clock, system monitor, now playing…) rendered on the keyboard screen *and* shown as KDE Plasma widgets on the desktop.
 - **RGB lighting**: per-key RGB, mood bar and dial rings, through [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB).
 - **OpenRGB plugin**: configure the deck from OpenRGB and sync deck themes with the lighting.
-- **Windows port**, later, for everything that is not KDE-specific.
+- **Windows desktop preview**, sharing the same core, with native media, audio and keyboard backends; hardware validation remains pending.
 
 ## Status
 
@@ -45,7 +46,7 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 | KDE Plasma widgets | Skeleton |
 | RGB lighting | **Under investigation.** The protocol (Corsair "V2"/Bragi) is not supported anywhere yet. Support is meant to land upstream in OpenRGB. |
 | OpenRGB plugin | Dial rings implemented in the separate plugin; keyboard RGB remains under investigation |
-| Windows | Planned, last |
+| Windows | Desktop preview; native CI and interactive validation tracked in [WINDOWS.md](docs/WINDOWS.md) |
 
 ## Architecture
 

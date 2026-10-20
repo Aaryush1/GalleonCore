@@ -6,7 +6,7 @@ add_library(bosun_core STATIC
     BosunBackend.h BosunBackend.cpp
     CropMath.h CropMath.cpp
     FileNames.h FileNames.cpp
-    DaemonStatus.h DaemonStatus.cpp
+    DaemonStatus.h
     PageName.h PageName.cpp
     TrayMenu.h TrayMenu.cpp
     VideoAdvice.h VideoAdvice.cpp
@@ -14,7 +14,13 @@ add_library(bosun_core STATIC
     VideoConverter.h VideoConverter.cpp
 )
 target_include_directories(bosun_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(bosun_core PUBLIC galleond_core Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus PRIVATE galleon_warnings)
+target_link_libraries(bosun_core PUBLIC galleond_core Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick PRIVATE galleon_warnings)
+if(WIN32)
+    target_sources(bosun_core PRIVATE WindowsDaemonStatus.cpp)
+else()
+    target_sources(bosun_core PRIVATE DaemonStatus.cpp)
+    target_link_libraries(bosun_core PUBLIC Qt6::DBus)
+endif()
 set_target_properties(bosun_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 qt_add_resources(bosun_core "bosun_ui"
@@ -24,7 +30,7 @@ qt_add_resources(bosun_core "bosun_ui"
 )
 
 # The icon in the notification area needs QSystemTrayIcon (Qt Widgets): only the program has it, not the library the tests use.
-add_executable(galleon-bosun main.cpp Tray.h Tray.cpp FilePicker.h FilePicker.cpp)
+qt_add_executable(galleon-bosun main.cpp Tray.h Tray.cpp FilePicker.h FilePicker.cpp)
 target_compile_definitions(galleon-bosun PRIVATE PROJECT_VERSION_STRING="${PROJECT_VERSION}")
 if(GALLEON_SOURCE_TREE_PATHS)
     # When run from the build tree, the project's own wallpapers; an installed one finds them in the data folders.
@@ -33,4 +39,13 @@ endif()
 target_link_libraries(galleon-bosun PRIVATE bosun_core Qt6::Widgets galleon_warnings)
 install(TARGETS galleon-bosun RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES icons/galleon-bosun.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+if(NOT WIN32)
 install(FILES galleon-bosun.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+
+endif()
+
+if(WIN32)
+    set_target_properties(galleon-bosun PROPERTIES WIN32_EXECUTABLE TRUE)
+    configure_file(${PROJECT_SOURCE_DIR}/tools/packaging/windows/bosun-icon.rc.in ${CMAKE_CURRENT_BINARY_DIR}/bosun-icon.rc @ONLY)
+    target_sources(galleon-bosun PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bosun-icon.rc)
+endif()

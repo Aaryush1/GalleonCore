@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "SteamLibrary.h"
+#ifdef Q_OS_WIN
+#include <QSettings>
+#endif
 
 #include "UsageStats.h"
 
@@ -235,6 +238,12 @@ bool SteamLibrary::isTool(const SteamGame &game)
 
 QString SteamLibrary::defaultRoot()
 {
+#ifdef Q_OS_WIN
+    const QSettings steam(QStringLiteral("HKEY_CURRENT_USER\\Software\\Valve\\Steam"), QSettings::NativeFormat);
+    const QString installed = steam.value(QStringLiteral("SteamPath")).toString();
+    if (!installed.isEmpty() && QFileInfo(installed + QStringLiteral("/steamapps")).isDir())
+        return QFileInfo(installed).canonicalFilePath();
+#endif
     for (const QString &candidate : {QDir::homePath() + QStringLiteral("/.steam/steam"),
                                      QDir::homePath() + QStringLiteral("/.local/share/Steam")}) {
         if (QFileInfo(candidate + QStringLiteral("/steamapps")).isDir())

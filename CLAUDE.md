@@ -10,7 +10,7 @@ Project status and next steps: `ROADMAP.md` at the root (French). Read it at the
   - `Transport.h` (interface), `HidTransport` (hidapi). Raw I/O only.
   - `StreamDeck`: logic (keep-alive, polling, signals). Takes a `Transport`, so it is testable with `tests/FakeTransport.h`.
   - `Layout.h/.cpp`: pure geometry, splits one image over the key grid.
-- `daemon/` galleond, GPL-3.0-or-later. Drives the deck, exposes D-Bus (`org.galleoncore.Deck`).
+- `daemon/` galleond, GPL-3.0-or-later. Drives the deck; Linux exposes D-Bus (`org.galleoncore.Deck`), Windows uses per-user local IPC.
 - `widgets/` shared pure-QML widgets. **No PlasmaCore/Kirigami imports here**: they must render off-screen in galleond.
 - `plasmoid/` KDE Plasma 6 widgets reusing `widgets/`.
 - `tests/` Qt Test, `fuzz/` libFuzzer targets for the protocol layer.
@@ -69,3 +69,14 @@ reuse lint
   keyboard tests must inject a fake sender and must not type real input.
 - The first release tag and PPA/COPR/AUR publication wait for the owner's explicit
   confirmation of interactive Windows testing, after all port PRs are merged.
+- Windows desktop integration is being prepared on `codex/windows-desktop`:
+  per-user local IPC and instance locks, native launcher/file ACL checks, and
+  deployed ZIP smoke tests. Keep Linux D-Bus/systemd behavior covered by tests.
+  Do not confuse a successful Windows build with physical-device validation.
+- Windows NSIS Setup uses the staged ZIP payload and Bosun artwork. Both upgrade
+  and uninstall must request explicit per-user IPC shutdown of Bosun and galleond
+  and wait for exit before changing files. Never replace this with window-close
+  alone (tray mode keeps Bosun alive), or force-kill user processes on timeout.
+  Keep native CI's running-app upgrade/uninstall and personal-data preservation
+  tests. The Windows pipe suffix derives from the current user's SID; the
+  PowerShell helper must use the same UTF-8 SHA-256/24-hex contract.

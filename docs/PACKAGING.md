@@ -145,3 +145,19 @@ Do not create the first release tag until the Windows port is merged, the final
 main commit passes all CI workflows, and the owner confirms interactive Windows
 tests. Building Linux artifacts remains enabled before that confirmation;
 publishing the first PPA/COPR/AUR release waits for the tag decision.
+
+The Windows workflow also prepares a desktop ZIP as a GitHub Actions artifact
+for pre-release interactive testing. It deploys Qt and hidapi and checks installed
+resources with `GALLEON_SOURCE_TREE_PATHS=OFF`; it does not publish a release or
+install a Windows service. Video functionality requires FFmpeg on PATH.
+
+After the owner approves Windows testing and creates the exact version tag, the
+release workflow requires the Windows desktop workflow as well as Linux checks
+and packages. It attaches the tested Windows ZIP and its SHA-256 checksum to the
+same GitHub release before publishing the enabled Linux repositories.
+
+The Windows artifact also includes `GalleonCore-<version>-Windows-x86_64-Setup.exe`
+and `Windows-Setup-SHA256SUMS`. NSIS receives the same staged payload as the ZIP;
+CI tests installation, upgrade and uninstall with both native apps running.
+The future exact-version tag uploads the tested Setup alongside the ZIP and
+Linux packages. See `docs/WINDOWS.md` for lifecycle and personal-data handling.
