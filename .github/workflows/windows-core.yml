@@ -27,7 +27,7 @@ jobs:
           cmake -S . -B build -A x64
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows
-          -DGALLEON_BUILD_DESKTOP=ON -DGALLEON_SOURCE_TREE_PATHS=OFF
+          -DGALLEON_BUILD_DESKTOP=ON -DGALLEON_SOURCE_TREE_PATHS=OFF -DGALLEON_WERROR=ON
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Test without hardware
@@ -60,6 +60,14 @@ jobs:
           staging/bin/galleon-bosun.exe --pages "$env:RUNNER_TEMP/galleon-smoke-pages.json" --screenshot bosun-preview.png
           if ($LASTEXITCODE -ne 0) { throw "Installed Bosun rendering failed" }
           if (-not (Test-Path daemon-preview.png) -or -not (Test-Path bosun-preview.png)) { throw "Missing previews" }
+      - name: Include licenses and test instructions
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force staging/licenses | Out-Null
+          Copy-Item LICENSE staging/
+          Copy-Item LICENSES/* staging/licenses/
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/share/hidapi/copyright" staging/licenses/hidapi.txt
+          Copy-Item docs/WINDOWS.md staging/WINDOWS.md
       - name: Archive desktop for interactive testing
         shell: pwsh
         run: Compress-Archive -Path staging/* -DestinationPath GalleonCore-Windows-x86_64.zip
