@@ -3,6 +3,7 @@
 
 name: Windows desktop
 on:
+  workflow_call:
   push:
     branches: [main, codex/windows-port, codex/windows-smtc, codex/windows-core-audio, codex/windows-keyboard, codex/windows-desktop]
   pull_request:
@@ -90,11 +91,15 @@ jobs:
           Copy-Item docs/WINDOWS.md staging/WINDOWS.md
       - name: Archive desktop for interactive testing
         shell: pwsh
-        run: Compress-Archive -Path staging/* -DestinationPath GalleonCore-Windows-x86_64.zip
+        run: |
+          Compress-Archive -Path staging/* -DestinationPath GalleonCore-Windows-x86_64.zip
+          $digest = (Get-FileHash GalleonCore-Windows-x86_64.zip -Algorithm SHA256).Hash.ToLower()
+          "$digest  GalleonCore-Windows-x86_64.zip" | Set-Content Windows-SHA256SUMS -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
           name: windows-desktop-x86_64
           path: |
             GalleonCore-Windows-x86_64.zip
+            Windows-SHA256SUMS
             daemon-preview.png
             bosun-preview.png

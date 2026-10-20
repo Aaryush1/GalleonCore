@@ -150,3 +150,8 @@ The Windows workflow also prepares a desktop ZIP as a GitHub Actions artifact
 for pre-release interactive testing. It deploys Qt and hidapi and checks installed
 resources with `GALLEON_SOURCE_TREE_PATHS=OFF`; it does not publish a release or
 install a Windows service. Video functionality requires FFmpeg on PATH.
+
+After the owner approves Windows testing and creates the exact version tag, the
+release workflow requires the Windows desktop workflow as well as Linux checks
+and packages. It attaches the tested Windows ZIP and its SHA-256 checksum to the
+same GitHub release before publishing the enabled Linux repositories.
