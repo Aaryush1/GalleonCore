@@ -471,21 +471,38 @@ QVariantMap rectMapF(const QRectF &rect)
 
 } // namespace
 
+QVariantMap BosunBackend::cropCenteredFor(int sourceWidth, int sourceHeight, int canvasWidth, int canvasHeight) const
+{
+    return rectMap(crop::centered(QSize(sourceWidth, sourceHeight), QSize(canvasWidth, canvasHeight)));
+}
+
+QVariantMap BosunBackend::cropMovedFor(const QVariantMap &crop, int dx, int dy, int sourceWidth, int sourceHeight, int canvasWidth,
+                                       int canvasHeight) const
+{
+    const QRect moved = crop::moved(rectOf(crop), QPoint(dx, dy), QSize(sourceWidth, sourceHeight), QSize(canvasWidth, canvasHeight));
+    return moved.isEmpty() ? crop : rectMap(moved);
+}
+
+QVariantMap BosunBackend::cropZoomedFor(const QVariantMap &crop, double factor, double anchorX, double anchorY, int sourceWidth, int sourceHeight,
+                                        int canvasWidth, int canvasHeight) const
+{
+    const QRect zoomed = crop::zoomed(rectOf(crop), factor, QPointF(anchorX, anchorY), QSize(sourceWidth, sourceHeight), QSize(canvasWidth, canvasHeight));
+    return zoomed.isEmpty() ? crop : rectMap(zoomed);
+}
+
 QVariantMap BosunBackend::cropCentered() const
 {
-    return rectMap(crop::centered(candidateSource(), canvas()));
+    return cropCenteredFor(candidateSource().width(), candidateSource().height(), canvas().width(), canvas().height());
 }
 
 QVariantMap BosunBackend::cropMoved(const QVariantMap &crop, int dx, int dy) const
 {
-    const QRect moved = crop::moved(rectOf(crop), QPoint(dx, dy), candidateSource(), canvas());
-    return moved.isEmpty() ? crop : rectMap(moved);
+    return cropMovedFor(crop, dx, dy, candidateSource().width(), candidateSource().height(), canvas().width(), canvas().height());
 }
 
 QVariantMap BosunBackend::cropZoomed(const QVariantMap &crop, double factor, double anchorX, double anchorY) const
 {
-    const QRect zoomed = crop::zoomed(rectOf(crop), factor, QPointF(anchorX, anchorY), candidateSource(), canvas());
-    return zoomed.isEmpty() ? crop : rectMap(zoomed);
+    return cropZoomedFor(crop, factor, anchorX, anchorY, candidateSource().width(), candidateSource().height(), canvas().width(), canvas().height());
 }
 
 void BosunBackend::buildCandidate()

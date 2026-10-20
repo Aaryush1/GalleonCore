@@ -150,6 +150,9 @@ void ScreenController::restore()
 
 bool ScreenController::SetWallpaper(const QString &name)
 {
+    // A picture may have been added since the start (by the settings window): look again before refusing.
+    if (!m_catalog.find(name))
+        m_catalog.rescan();
     if (!m_catalog.find(name)) {
         qWarning() << "galleond: unknown wallpaper" << name;
         return false;
@@ -257,6 +260,7 @@ void ScreenController::setBottomBar(std::uint32_t rgb, bool choosingWallpaper)
     } else if (choosingWallpaper) {
         m_holdTimer.stop();
         m_holding = false;
+        m_catalog.rescan(); // the choice starts: with the pictures that are there now
     }
     m_barRgb = rgb;
     m_choosingWallpaper = choosingWallpaper;

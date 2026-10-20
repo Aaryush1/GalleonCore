@@ -28,6 +28,74 @@ class TestWallpaperCatalog : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void severalFoldersAreMergedAndTheFirstWinsOnAName()
+    {
+        QTemporaryDir const user;
+        QTemporaryDir const shared;
+        QVERIFY(writeImage(user.filePath("mine/m-01.jpg"), 32, 18, "JPEG"));
+        QVERIFY(writeImage(user.filePath("common/c-01.jpg"), 40, 18, "JPEG"));  // the same name in both
+        QVERIFY(writeImage(shared.filePath("common/c-01.jpg"), 20, 18, "JPEG"));
+        QVERIFY(writeImage(shared.filePath("common/c-02.jpg"), 32, 18, "JPEG"));
+        QVERIFY(writeImage(shared.filePath("zeta/z-01.png"), 32, 18, "PNG"));
+
+        const WallpaperCatalog catalog(QStringList{user.path(), shared.path()});
+        QStringList names;
+        for (const auto &entry : catalog.entries())
+            names << entry.name;
+        // Sorted as one list, whichever folder a file is in.
+        QCOMPARE(names, (QStringList{"common/c-01.jpg", "common/c-02.jpg", "mine/m-01.jpg", "zeta/z-01.png"}));
+        QVERIFY(catalog.find("common/c-01.jpg")->path.startsWith(user.path())); // the first folder's file
+        QVERIFY(catalog.find("common/c-02.jpg")->path.startsWith(shared.path()));
+    }
+
+    void aCatalogCanBeReadAgain()
+    {
+        QTemporaryDir const dir;
+        QVERIFY(writeImage(dir.filePath("s/a-01.jpg"), 32, 18, "JPEG"));
+        WallpaperCatalog catalog(dir.path());
+        QCOMPARE(catalog.entries().size(), 1);
+        QVERIFY(writeImage(dir.filePath("s/a-02.jpg"), 32, 18, "JPEG"));
+        QVERIFY(writeImage(dir.filePath("new-style/n-01.png"), 32, 18, "PNG"));
+        QCOMPARE(catalog.entries().size(), 1); // not before it is asked
+        catalog.rescan();
+        QCOMPARE(catalog.entries().size(), 3);
+        QVERIFY(QFile::remove(dir.filePath("s/a-01.jpg")));
+        catalog.rescan();
+        QVERIFY(!catalog.find("s/a-01.jpg"));
+        QCOMPARE(catalog.entries().size(), 2);
+    }
+
+    void theFoldersToReadAreTheOnesThatExistInOrderOnceEach()
+    {
+        QTemporaryDir const home;
+        QTemporaryDir const flag;
+        QTemporaryDir const tree;
+        const QByteArray oldData = qgetenv("XDG_DATA_HOME");
+        const QByteArray oldDirs = qgetenv("XDG_DATA_DIRS");
+        const QByteArray oldEnv = qgetenv("GALLEONCORE_WALLPAPERS");
+        qputenv("XDG_DATA_HOME", home.filePath("data").toUtf8());
+        qputenv("XDG_DATA_DIRS", home.filePath("system").toUtf8());
+        qunsetenv("GALLEONCORE_WALLPAPERS");
+        QDir().mkpath(home.filePath("data/galleoncore/wallpaper"));
+        QDir().mkpath(home.filePath("system/galleoncore/wallpaper"));
+        QCOMPARE(WallpaperCatalog::userRoot(), home.filePath("data/galleoncore/wallpaper"));
+
+        const QStringList roots = WallpaperCatalog::defaultRoots(flag.path(), tree.path());
+        QCOMPARE(roots, (QStringList{flag.path(), home.filePath("data/galleoncore/wallpaper"), home.filePath("system/galleoncore/wallpaper"), tree.path()}));
+        // A folder that is not there is left out, and one given twice counts once.
+        QCOMPARE(WallpaperCatalog::defaultRoots("/nonexistent/x", flag.path()), (QStringList{home.filePath("data/galleoncore/wallpaper"), home.filePath("system/galleoncore/wallpaper"), flag.path()}));
+        QCOMPARE(WallpaperCatalog::defaultRoots(tree.path(), tree.path()).count(tree.path()), 1);
+        qputenv("GALLEONCORE_WALLPAPERS", flag.path().toUtf8());
+        QCOMPARE(WallpaperCatalog::defaultRoots("", "").first(), flag.path());
+
+        qputenv("XDG_DATA_HOME", oldData);
+        qputenv("XDG_DATA_DIRS", oldDirs);
+        if (oldEnv.isEmpty())
+            qunsetenv("GALLEONCORE_WALLPAPERS");
+        else
+            qputenv("GALLEONCORE_WALLPAPERS", oldEnv);
+    }
+
     void missingFolderGivesAnEmptyCatalog()
     {
         QVERIFY(WallpaperCatalog(QStringLiteral("/nonexistent/galleon")).entries().isEmpty());

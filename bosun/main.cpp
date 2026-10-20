@@ -3,6 +3,7 @@
 
 #include "BosunBackend.h"
 #include "DaemonStatus.h"
+#include "WallpaperLibrary.h"
 
 #include <AppsBackend.h>
 
@@ -47,7 +48,10 @@ int main(int argc, char *argv[])
                                            QStringLiteral("file"));
     const QCommandLineOption heightOption(QStringLiteral("height"), QStringLiteral("Open with a window this high, in pixels."), QStringLiteral("n"));
     const QCommandLineOption cropOption(QStringLiteral("crop"), QStringLiteral("With --inspect: open the crop window on the video."));
+    const QCommandLineOption pictureOption(QStringLiteral("inspect-picture"),
+                                           QStringLiteral("Open the Wallpapers tab with this picture file chosen (to be added)."), QStringLiteral("file"));
     parser.addOption(pagesOption);
+    parser.addOption(pictureOption);
     parser.addOption(cropOption);
     parser.addOption(heightOption);
     parser.addOption(inspectOption);
@@ -62,11 +66,20 @@ int main(int argc, char *argv[])
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
     const bosun::DaemonStatus daemon;
+#ifdef GALLEON_SOURCE_WALLPAPERS
+    bosun::WallpaperLibrary library(bosun::WallpaperLibrary::defaultPlaces(QStringLiteral(GALLEON_SOURCE_WALLPAPERS))); // and the source tree, when running from the build
+#else
+    bosun::WallpaperLibrary library(bosun::WallpaperLibrary::defaultPlaces());
+#endif
 
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
     engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
-    engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}, {QStringLiteral("daemon"), QVariant::fromValue(&daemon)}});
+    engine.addImageProvider(QStringLiteral("wallpapers"), new bosun::WallpaperThumbnails(&library));
+    engine.addImageProvider(QStringLiteral("wallpaperpreview"), new bosun::WallpaperPreview(&library));
+    engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)},
+                                 {QStringLiteral("daemon"), QVariant::fromValue(&daemon)},
+                                 {QStringLiteral("library"), QVariant::fromValue(&library)}});
     engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;
@@ -89,6 +102,11 @@ int main(int argc, char *argv[])
         backend.inspect(QDir::current().absoluteFilePath(parser.value(inspectOption)));
         root->setProperty("currentTab", root->property("tabs").toList().size() - 1);
         root->setProperty("cropOpen", parser.isSet(cropOption));
+    }
+
+    if (parser.isSet(pictureOption)) {
+        library.inspect(QDir::current().absoluteFilePath(parser.value(pictureOption)));
+        root->setProperty("currentTab", root->property("tabs").toList().size() - 2); // the Wallpapers tab
     }
 
     if (parser.isSet(shotOption)) {

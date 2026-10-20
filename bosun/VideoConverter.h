@@ -39,7 +39,7 @@ class VideoConverter : public QObject
 public:
     static constexpr double MaxSeconds = 120.0;
     static constexpr int TimeoutMs = 30 * 60 * 1000;
-    static constexpr int MaxNameLength = 60;
+    static constexpr int MaxNameLength = 60; // see filenames::MaxNameLength
 
     // `ffmpeg` is a program name or a path.
     explicit VideoConverter(const QString &ffmpeg = QStringLiteral("ffmpeg"), QObject *parent = nullptr);

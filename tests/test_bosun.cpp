@@ -3,6 +3,7 @@
 
 #include "BosunBackend.h"
 #include "DaemonStatus.h"
+#include "WallpaperLibrary.h"
 #include "Required.h"
 
 #include <AppsBackend.h>
@@ -691,8 +692,12 @@ private Q_SLOTS:
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
         const bosun::DaemonStatus daemon("/nonexistent/systemctl");
+        bosun::WallpaperLibrary library({.roots = {}, .userRoot = dir.filePath("own"), .settingsFile = dir.filePath("galleond.conf")});
+        engine.addImageProvider(QStringLiteral("wallpapers"), new bosun::WallpaperThumbnails(&library));
+        engine.addImageProvider(QStringLiteral("wallpaperpreview"), new bosun::WallpaperPreview(&library));
         engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
-        engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}, {QStringLiteral("daemon"), QVariant::fromValue(&daemon)}});
+        engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}, {QStringLiteral("daemon"), QVariant::fromValue(&daemon)},
+                                     {QStringLiteral("library"), QVariant::fromValue(&library)}});
         engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
         QVERIFY(!engine.rootObjects().isEmpty());
         QObject *window = engine.rootObjects().constFirst();
