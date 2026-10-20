@@ -31,7 +31,7 @@ VideoThumbnails::VideoThumbnails(QString cacheFolder, const QString& ffmpeg, QOb
 {
     if (!QFileInfo(ffmpeg).isAbsolute())
         m_program = QStandardPaths::findExecutable(ffmpeg);
-    else if (QFileInfo(ffmpeg).isExecutable())
+    else if (QFileInfo(ffmpeg).isFile() && QFileInfo(ffmpeg).isExecutable()) // not a folder, which is "executable" too
         m_program = ffmpeg;
     m_nice = QStandardPaths::findExecutable(QStringLiteral("nice"));
     if (m_program.isEmpty()) {

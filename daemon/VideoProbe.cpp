@@ -39,7 +39,7 @@ VideoProbe::VideoProbe(const QString &ffprobe, QObject *parent)
 {
     if (!QFileInfo(ffprobe).isAbsolute())
         m_program = QStandardPaths::findExecutable(ffprobe);
-    else if (QFileInfo(ffprobe).isExecutable())
+    else if (QFileInfo(ffprobe).isFile() && QFileInfo(ffprobe).isExecutable()) // not a folder, which is "executable" too
         m_program = ffprobe;
     m_nice = QStandardPaths::findExecutable(QStringLiteral("nice"));
     m_timeout.setSingleShot(true);
