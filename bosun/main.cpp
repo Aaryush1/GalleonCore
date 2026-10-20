@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "BosunBackend.h"
+#include "DaemonStatus.h"
+
+#include <AppsBackend.h>
 
 #include <QCommandLineParser>
 #include <QDebug>
@@ -43,7 +46,9 @@ int main(int argc, char *argv[])
                                            QStringLiteral("Open the Screensavers tab with this video file chosen (to be added)."),
                                            QStringLiteral("file"));
     const QCommandLineOption heightOption(QStringLiteral("height"), QStringLiteral("Open with a window this high, in pixels."), QStringLiteral("n"));
+    const QCommandLineOption cropOption(QStringLiteral("crop"), QStringLiteral("With --inspect: open the crop window on the video."));
     parser.addOption(pagesOption);
+    parser.addOption(cropOption);
     parser.addOption(heightOption);
     parser.addOption(inspectOption);
     parser.addOption(tabOption);
@@ -56,10 +61,12 @@ int main(int argc, char *argv[])
                                   : QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
+    const bosun::DaemonStatus daemon;
 
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
-    engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}});
+    engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
+    engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}, {QStringLiteral("daemon"), QVariant::fromValue(&daemon)}});
     engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;
@@ -81,6 +88,7 @@ int main(int argc, char *argv[])
     if (parser.isSet(inspectOption)) {
         backend.inspect(QDir::current().absoluteFilePath(parser.value(inspectOption)));
         root->setProperty("currentTab", root->property("tabs").toList().size() - 1);
+        root->setProperty("cropOpen", parser.isSet(cropOption));
     }
 
     if (parser.isSet(shotOption)) {

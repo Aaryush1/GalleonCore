@@ -4,9 +4,11 @@
 #include "BosunBackend.h"
 
 #include "CropMath.h"
+#include "PageName.h"
 #include "VideoAdvice.h"
 
 #include <DesktopEntries.h>
+#include <KeyInjector.h>
 #include <ScreensaverController.h>
 #include <ScreensaverSplitter.h>
 #include <SteamLibrary.h>
@@ -30,6 +32,38 @@ using galleond::ActionType;
 using galleond::MediaCommand;
 
 constexpr int KeyCount = galleon::protocol::KeyCount;
+
+// The names the pages file uses for the media commands, with the words the window shows.
+struct MediaEntry
+{
+    MediaCommand command;
+    const char *id;
+    const char *words;
+};
+
+constexpr std::array<MediaEntry, 12> MediaEntries{{
+    {.command = MediaCommand::PlayPause, .id = "play-pause", .words = "Play / pause"},
+    {.command = MediaCommand::Next, .id = "next", .words = "Next track"},
+    {.command = MediaCommand::Previous, .id = "previous", .words = "Previous track"},
+    {.command = MediaCommand::Stop, .id = "stop", .words = "Stop"},
+    {.command = MediaCommand::Shuffle, .id = "shuffle", .words = "Shuffle"},
+    {.command = MediaCommand::Repeat, .id = "repeat", .words = "Repeat"},
+    {.command = MediaCommand::Mute, .id = "mute", .words = "Mute the sound"},
+    {.command = MediaCommand::Raise, .id = "raise", .words = "Bring the player to the front"},
+    {.command = MediaCommand::Fullscreen, .id = "fullscreen", .words = "Full screen"},
+    {.command = MediaCommand::Restart, .id = "restart", .words = "Restart the track"},
+    {.command = MediaCommand::Volume, .id = "volume", .words = "Volume"},
+    {.command = MediaCommand::Seek, .id = "seek", .words = "Move in the track"},
+}};
+
+QString mediaId(MediaCommand command)
+{
+    for (const MediaEntry &entry : MediaEntries) {
+        if (entry.command == command)
+            return QLatin1String(entry.id);
+    }
+    return {};
+}
 
 QString mediaName(MediaCommand command)
 {
@@ -73,6 +107,23 @@ Described describe(const galleond::KeyConfig &key)
     }
     return {};
 }
+
+// What a key is set to, for the editor: the fields of its action as the file has them.
+QVariantMap configuredFields(const galleond::KeyConfig &key)
+{
+    const galleond::Action &action = key.action;
+    return QVariantMap{{QStringLiteral("type"), describe(key).kind},
+            {QStringLiteral("command"), action.type == ActionType::Media ? mediaId(action.command) : QString()},
+            {QStringLiteral("step"), action.step},
+            {QStringLiteral("seconds"), action.seconds},
+            {QStringLiteral("pageTarget"), action.page},
+            {QStringLiteral("desktop"), action.desktop},
+            {QStringLiteral("keyName"), action.keyName},
+            {QStringLiteral("appid"), action.appid},
+            {QStringLiteral("rawLabel"), key.label},
+            {QStringLiteral("rawIcon"), key.icon.name}};
+}
+
 
 } // namespace
 
@@ -338,9 +389,13 @@ void BosunBackend::setConversion(const QString &state, double fraction, const QS
 
 QString BosunBackend::startConversion(int x, int y, int width, int height, const QString &title)
 {
-    if (m_candidatePath.isEmpty() || !m_candidate.value(QStringLiteral("canAdd")).toBool())
-        return m_candidate.value(QStringLiteral("why")).toString().isEmpty() ? tr("No video can be converted now.")
-                                                                             : m_candidate.value(QStringLiteral("why")).toString();
+    if (m_candidatePath.isEmpty() || !m_candidate.value(QStringLiteral("canCut")).toBool()) {
+        for (const QString &field : {QStringLiteral("cutWhy"), QStringLiteral("why")}) {
+            if (const QString why = m_candidate.value(field).toString(); !why.isEmpty())
+                return why;
+        }
+        return tr("No video can be converted now.");
+    }
     const galleond::VideoInfo info = m_videoInfo.value(m_candidatePath);
     const galleond::ScreensaverConfig saver = m_config ? m_config->screensaver : galleond::ScreensaverConfig{};
     const QSize canvas = galleond::ScreensaverSplitter(saver).canvasSize();
@@ -382,6 +437,57 @@ void BosunBackend::conversionDone(const QString &outputFile)
     setConversion(QStringLiteral("done"), 1, outputFile);
 }
 
+QSize BosunBackend::canvas() const
+{
+    const galleond::ScreensaverConfig saver = m_config ? m_config->screensaver : galleond::ScreensaverConfig{};
+    return galleond::ScreensaverSplitter(saver).canvasSize();
+}
+
+QSize BosunBackend::candidateSource() const
+{
+    const galleond::VideoInfo info = m_videoInfo.value(m_candidatePath);
+    return info.valid ? QSize(info.width, info.height) : QSize();
+}
+
+namespace {
+
+QVariantMap rectMap(const QRect &rect)
+{
+    return QVariantMap{{QStringLiteral("x"), rect.x()}, {QStringLiteral("y"), rect.y()},
+                       {QStringLiteral("width"), rect.width()}, {QStringLiteral("height"), rect.height()}};
+}
+
+QRect rectOf(const QVariantMap &map)
+{
+    return {map.value(QStringLiteral("x")).toInt(), map.value(QStringLiteral("y")).toInt(), map.value(QStringLiteral("width")).toInt(),
+            map.value(QStringLiteral("height")).toInt()};
+}
+
+QVariantMap rectMapF(const QRectF &rect)
+{
+    return QVariantMap{{QStringLiteral("x"), rect.x()}, {QStringLiteral("y"), rect.y()},
+                       {QStringLiteral("width"), rect.width()}, {QStringLiteral("height"), rect.height()}};
+}
+
+} // namespace
+
+QVariantMap BosunBackend::cropCentered() const
+{
+    return rectMap(crop::centered(candidateSource(), canvas()));
+}
+
+QVariantMap BosunBackend::cropMoved(const QVariantMap &crop, int dx, int dy) const
+{
+    const QRect moved = crop::moved(rectOf(crop), QPoint(dx, dy), candidateSource(), canvas());
+    return moved.isEmpty() ? crop : rectMap(moved);
+}
+
+QVariantMap BosunBackend::cropZoomed(const QVariantMap &crop, double factor, double anchorX, double anchorY) const
+{
+    const QRect zoomed = crop::zoomed(rectOf(crop), factor, QPointF(anchorX, anchorY), candidateSource(), canvas());
+    return zoomed.isEmpty() ? crop : rectMap(zoomed);
+}
+
 void BosunBackend::buildCandidate()
 {
     m_candidate.clear();
@@ -412,6 +518,34 @@ void BosunBackend::buildCandidate()
             why = tr("This video is already in the list.");
     }
     const QString picture = m_videoPictures.value(m_candidatePath);
+    // What the crop window draws: the video, the picture of the module and where its screen and keys fall.
+    const QSize source = candidateSource();
+    const QSize frame = canvas();
+    QVariantMap cut{{QStringLiteral("canCut"), false}};
+    if (state == QStringLiteral("ready") && !source.isEmpty() && !frame.isEmpty()) {
+        const galleond::ScreensaverConfig saver = m_config ? m_config->screensaver : galleond::ScreensaverConfig{};
+        // Cutting makes a new file, so a video that is already in the list can be cut again; a full list cannot take it.
+        const bool roomLeft = saver.videos.size() < galleond::MaxScreensaverVideos;
+        const bool tool = m_converter.isAvailable();
+        const auto regions = galleond::ScreensaverSplitter(saver).regions();
+        QVariantList keys;
+        for (const QRectF &key : regions.keys)
+            keys.append(rectMapF(key));
+        QString cutWhy;
+        if (!tool)
+            cutWhy = tr("FFmpeg was not found, or it has no H.264 or MPEG-4 encoder.");
+        else if (!roomLeft)
+            cutWhy = tr("The list is full (%1 videos): remove one first.").arg(galleond::MaxScreensaverVideos);
+        cut = QVariantMap{{QStringLiteral("canCut"), tool && roomLeft},
+                          {QStringLiteral("cutWhy"), cutWhy},
+                          {QStringLiteral("width"), source.width()},
+                          {QStringLiteral("height"), source.height()},
+                          {QStringLiteral("canvasWidth"), frame.width()},
+                          {QStringLiteral("canvasHeight"), frame.height()},
+                          {QStringLiteral("screen"), rectMapF(regions.screen)},
+                          {QStringLiteral("keyRegions"), keys},
+                          {QStringLiteral("crop"), cropCentered()}};
+    }
     m_candidate = QVariantMap{{QStringLiteral("path"), m_candidatePath},
                               {QStringLiteral("name"), QFileInfo(m_candidatePath.isEmpty() ? m_candidateChosen : m_candidatePath).fileName()},
                               {QStringLiteral("state"), state},
@@ -421,6 +555,7 @@ void BosunBackend::buildCandidate()
                               {QStringLiteral("canAdd"), state == QStringLiteral("ready") && why.isEmpty()},
                               {QStringLiteral("why"), why},
                               {QStringLiteral("suggestedTitle"), QFileInfo(m_candidatePath).completeBaseName()}};
+    m_candidate.insert(cut);
 }
 
 const galleond::Page *BosunBackend::pageNamed(const QString &page) const
@@ -429,6 +564,78 @@ const galleond::Page *BosunBackend::pageNamed(const QString &page) const
         return nullptr;
     const auto it = m_config->pages.constFind(page);
     return it == m_config->pages.constEnd() ? nullptr : &it.value();
+}
+
+QStringList BosunBackend::pageNames() const
+{
+    return m_config ? m_config->pages.keys() : QStringList();
+}
+
+QVariantList BosunBackend::mediaCommands()
+{
+    QVariantList list;
+    for (const MediaEntry &entry : MediaEntries)
+        list.append(QVariantMap{{QStringLiteral("id"), QLatin1String(entry.id)}, {QStringLiteral("label"), tr(entry.words)}});
+    return list;
+}
+
+QStringList BosunBackend::keypadKeys()
+{
+    return galleond::allowedKeyNames().split(QStringLiteral(", "));
+}
+
+QVariantList BosunBackend::installedApps()
+{
+    if (!m_appsRead) {
+        for (const galleond::DesktopApp &app : galleond::DesktopEntries::list()) {
+            m_apps.append(QVariantMap{{QStringLiteral("name"), app.name},
+                                      {QStringLiteral("id"), app.id},
+                                      {QStringLiteral("icon"), app.icon.isEmpty() ? app.iconPath : app.icon}});
+        }
+        m_appsRead = true;
+    }
+    return m_apps;
+}
+
+QString BosunBackend::setKey(const QString &page, int key, const QVariantMap &spec)
+{
+    galleond::KeySpec out;
+    out.type = spec.value(QStringLiteral("type")).toString();
+    out.desktop = spec.value(QStringLiteral("desktop")).toString();
+    out.command = spec.value(QStringLiteral("command")).toString();
+    out.step = spec.value(QStringLiteral("step")).toInt();
+    out.seconds = spec.value(QStringLiteral("seconds")).toInt();
+    out.page = spec.value(QStringLiteral("page")).toString();
+    out.keyName = spec.value(QStringLiteral("keyName")).toString();
+    out.appid = spec.value(QStringLiteral("appid")).toInt();
+    out.label = spec.value(QStringLiteral("label")).toString();
+    out.icon = spec.value(QStringLiteral("icon")).toString();
+    return applied(galleond::PagesEditor::setKey(m_file, page, key, out));
+}
+
+QString BosunBackend::clearKey(const QString &page, int key)
+{
+    return applied(galleond::PagesEditor::clearKey(m_file, page, key));
+}
+
+QString BosunBackend::addTheme(const QString &name, const QString &color)
+{
+    return applied(galleond::PagesEditor::addTheme(m_file, name, color, pageNameFor(name, pageNames())));
+}
+
+QString BosunBackend::setTheme(int index, const QString &name, const QString &color)
+{
+    return applied(galleond::PagesEditor::setTheme(m_file, index, name, color));
+}
+
+QString BosunBackend::removeTheme(int index)
+{
+    return applied(galleond::PagesEditor::removeTheme(m_file, index));
+}
+
+QString BosunBackend::moveTheme(int index, int delta)
+{
+    return applied(galleond::PagesEditor::moveTheme(m_file, index, delta));
 }
 
 QVariantList BosunBackend::keys(const QString &page) const
@@ -450,11 +657,14 @@ QVariantList BosunBackend::keys(const QString &page) const
                 label = app.isValid() ? app.name : key->action.desktop;
             }
         }
-        result.append(QVariantMap{{QStringLiteral("index"), index},
-                                  {QStringLiteral("label"), label},
-                                  {QStringLiteral("kind"), what.kind},
-                                  {QStringLiteral("detail"), what.detail},
-                                  {QStringLiteral("empty"), !key.has_value()}});
+        QVariantMap entry{{QStringLiteral("index"), index},
+                          {QStringLiteral("label"), label},
+                          {QStringLiteral("kind"), what.kind},
+                          {QStringLiteral("detail"), what.detail},
+                          {QStringLiteral("empty"), !key.has_value()}};
+        if (key)
+            entry.insert(configuredFields(*key));
+        result.append(entry);
     }
     return result;
 }
@@ -475,13 +685,13 @@ QString BosunBackend::autoFill(const QString &page) const
     return parts.join(QStringLiteral(", "));
 }
 
-QPixmap BosunBackend::tile(const QString &page, int key) const
+QPixmap BosunBackend::tile(const QString &page, int key, const QString &themePage) const
 {
     // The theme of the page tints its keys, as on the module.
     qint64 tint = -1;
     if (m_config) {
         for (const galleond::Theme &theme : m_config->themes) {
-            if (theme.page == page) {
+            if (theme.page == (themePage.isEmpty() ? page : themePage)) {
                 tint = theme.rgb;
                 break;
             }
@@ -514,12 +724,17 @@ TileProvider::TileProvider(const BosunBackend *backend)
 QPixmap TileProvider::requestPixmap(const QString &id, QSize *size, const QSize &requestedSize)
 {
     Q_UNUSED(requestedSize)
-    // "<page>/<key>" and maybe "?something": anything else gives a blank key.
+    // "<page>/<key>" and maybe "?r=3&theme=<page>": anything else gives a blank key.
     const QString path = id.section(QLatin1Char('?'), 0, 0);
+    QString themePage;
+    for (const QString &pair : id.section(QLatin1Char('?'), 1).split(QLatin1Char('&'))) {
+        if (pair.startsWith(QLatin1String("theme=")))
+            themePage = pair.mid(6);
+    }
     const qsizetype slash = path.lastIndexOf(QLatin1Char('/'));
     bool ok = false;
     const int key = slash > 0 ? path.mid(slash + 1).toInt(&ok) : -1;
-    QPixmap pixmap = m_backend->tile(ok ? path.left(slash) : QString(), ok ? key : -1);
+    QPixmap pixmap = m_backend->tile(ok ? path.left(slash) : QString(), ok ? key : -1, themePage);
     if (size)
         *size = pixmap.size();
     return pixmap;

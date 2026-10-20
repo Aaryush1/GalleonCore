@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "BosunBackend.h"
+#include "DaemonStatus.h"
 #include "Required.h"
+
+#include <AppsBackend.h>
 
 #include <QDir>
 #include <QFile>
@@ -525,6 +528,160 @@ private Q_SLOTS:
         QVERIFY(!QFileInfo::exists(dir.filePath("converted")));
     }
 
+    void theKeysCarryWhatAnEditorNeeds()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        const bosun::BosunBackend backend(file);
+        const QVariantMap play = backend.keys("main").at(0).toMap();
+        QCOMPARE(play.value("type").toString(), QStringLiteral("media"));
+        QCOMPARE(play.value("command").toString(), QStringLiteral("play-pause"));
+        QCOMPARE(play.value("rawLabel").toString(), QStringLiteral("Play"));
+        QCOMPARE(backend.keys("main").at(2).toMap().value("pageTarget").toString(), QStringLiteral("music"));
+        QVERIFY(backend.keys("main").at(5).toMap().value("type").isNull()); // an empty key has no action to describe
+        QVERIFY(backend.pageNames().contains("music"));
+        QCOMPARE(backend.mediaCommands().size(), 12);
+        QVERIFY(bosun::BosunBackend::keypadKeys().contains("kp0"));
+    }
+
+    void aKeyIsEditedThroughTheBackend()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        bosun::BosunBackend backend(file);
+        const int before = backend.revision();
+        QVERIFY(backend.setKey("music", 3, {{"type", "media"}, {"command", "volume"}, {"step", -10}, {"label", "Quieter"}}).isEmpty());
+        QVERIFY(backend.revision() > before); // read again at once
+        const QVariantMap key = backend.keys("music").at(3).toMap();
+        QCOMPARE(key.value("command").toString(), QStringLiteral("volume"));
+        QCOMPARE(key.value("step").toInt(), -10);
+        QCOMPARE(key.value("label").toString(), QStringLiteral("Quieter"));
+        QVERIFY(backend.clearKey("music", 3).isEmpty());
+        QVERIFY(backend.keys("music").at(3).toMap().value("empty").toBool());
+        QVERIFY(!backend.setKey("music", 3, {{"type", "media"}, {"command", "nonsense"}}).isEmpty());
+        QVERIFY(!backend.setKey("music", 3, {{"type", "page"}, {"page", "no-such-page"}}).isEmpty());
+        QVERIFY(backend.keys("music").at(3).toMap().value("empty").toBool()); // refused: nothing written
+    }
+
+    void aTabIsAddedRenamedMovedAndRemovedThroughTheBackend()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        bosun::BosunBackend backend(file);
+        QVERIFY(backend.addTheme("Création Musicale", "#ab47bc").isEmpty());
+        QCOMPARE(backend.themes().size(), 3);
+        QCOMPARE(backend.themes().at(2).toMap().value("page").toString(), QStringLiteral("creation-musicale")); // the page name is made from the name
+        QCOMPARE(backend.themes().at(2).toMap().value("color").toString(), QStringLiteral("#ab47bc"));
+        QVERIFY(backend.addTheme("Création Musicale", "#ab47bc").isEmpty()); // same name again: its own page
+        QCOMPARE(backend.themes().at(3).toMap().value("page").toString(), QStringLiteral("creation-musicale-2"));
+        QCOMPARE(backend.keys("creation-musicale").size(), 12); // the page is there, empty
+
+        QVERIFY(backend.setTheme(2, "Studio", "#00acc1").isEmpty());
+        QCOMPARE(backend.themes().at(2).toMap().value("name").toString(), QStringLiteral("Studio"));
+        QVERIFY(backend.moveTheme(2, -1).isEmpty());
+        QCOMPARE(backend.themes().at(1).toMap().value("name").toString(), QStringLiteral("Studio"));
+        QVERIFY(backend.removeTheme(1).isEmpty());
+        QCOMPARE(backend.themes().size(), 3);
+        QVERIFY(!backend.pageNames().contains("creation-musicale"));
+        QVERIFY(!backend.removeTheme(0).isEmpty()); // the home page's tab stays
+        QVERIFY(!backend.addTheme("", "#ab47bc").isEmpty());
+    }
+
+    void aSubPageTakesTheColourOfTheTabItIsShownIn()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        const bosun::BosunBackend backend(file);
+        // "music" is the page of a theme with its own colour; shown in the tab of "main" it takes main's.
+        QVERIFY(backend.tile("music", 0, "main").toImage() != backend.tile("music", 0, "music").toImage());
+        QVERIFY(backend.tile("music", 0).toImage() == backend.tile("music", 0, "music").toImage());
+        bosun::TileProvider provider(&backend);
+        QSize size;
+        QVERIFY(provider.requestPixmap("music/0?r=7&theme=main", &size, {}).toImage() == backend.tile("music", 0, "main").toImage());
+    }
+
+    void aVideoThatCanBeCutShowsWhereTheModuleFallsAndASensibleCrop()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("v.mp4")"))); // the video is in the list already: it can still be cut
+        bosun::BosunBackend backend(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = fakeFfmpeg(dir.path(), "exit 0"),
+                                           .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        backend.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        const QVariantMap candidate = backend.candidate();
+        QVERIFY(!candidate.value("canAdd").toBool());  // already there
+        QVERIFY(candidate.value("canCut").toBool());   // but a cut is a new file
+        QCOMPARE(candidate.value("width").toInt(), 1920);
+        QCOMPARE(candidate.value("height").toInt(), 1080);
+        QCOMPARE(candidate.value("canvasWidth").toInt(), 720);
+        QCOMPARE(candidate.value("canvasHeight").toInt(), 1258);
+        QCOMPARE(candidate.value("keyRegions").toList().size(), 12);
+        QCOMPARE(candidate.value("screen").toMap().value("width").toDouble(), 720.0);
+        const QVariantMap crop = candidate.value("crop").toMap();
+        QCOMPARE(crop.value("x").toInt(), 651);
+        QCOMPARE(crop.value("width").toInt(), 618);
+        QCOMPARE(crop.value("height").toInt(), 1080);
+    }
+
+    void theCropIsMovedAndZoomedWithinTheVideo()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = fakeFfmpeg(dir.path(), "exit 0"),
+                                           .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        // Nothing chosen: what is given comes back.
+        const QVariantMap given{{"x", 5}, {"y", 6}, {"width", 7}, {"height", 8}};
+        QCOMPARE(backend.cropMoved(given, 10, 10), given);
+        QCOMPARE(backend.cropZoomed(given, 2, 0, 0), given);
+        QVERIFY(backend.cropCentered().value("width").toInt() == 0);
+
+        backend.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        const QVariantMap crop = backend.candidate().value("crop").toMap();
+        QCOMPARE(backend.cropMoved(crop, 100, 0).value("x").toInt(), 751);
+        QCOMPARE(backend.cropMoved(crop, 99999, 0).value("x").toInt(), 1302); // kept inside the video
+        QCOMPARE(backend.cropMoved(crop, -99999, 0).value("x").toInt(), 0);
+        const QVariantMap closer = backend.cropZoomed(crop, 2, 960, 540); // around the middle of the video
+        QCOMPARE(closer.value("width").toInt(), 309);
+        QCOMPARE(closer.value("height").toInt(), 540);
+        QCOMPARE(backend.cropZoomed(crop, 0.1, 960, 540).value("width").toInt(), 618); // cannot go wider than the video allows
+    }
+
+    void aFullListOrNoFfmpegMeansNoCut()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend noFfmpeg(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = "/nonexistent/none",
+                                            .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        noFfmpeg.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(noFfmpeg.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        QVERIFY(!noFfmpeg.candidate().value("canCut").toBool());
+        QVERIFY(!noFfmpeg.candidate().value("cutWhy").toString().isEmpty());
+        QVERIFY(noFfmpeg.candidate().value("canAdd").toBool()); // as it is still works
+        QVERIFY(!noFfmpeg.startConversion(651, 0, 618, 1080, "x").isEmpty());
+
+        QStringList names;
+        for (int i = 0; i < galleond::MaxScreensaverVideos; ++i)
+            names << QStringLiteral(R"("v%1.mp4")").arg(i);
+        QVERIFY(writeFile(file, saverPages(names.join(','))));
+        bosun::BosunBackend full(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = fakeFfmpeg(dir.path(), "exit 0"),
+                                        .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        full.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(full.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        QVERIFY(!full.candidate().value("canCut").toBool());
+        QVERIFY(full.candidate().value("cutWhy").toString().contains("full"));
+    }
+
     void theWindowHasATabPerThemeAndTheFixedOnes()
     {
         const QTemporaryDir dir;
@@ -533,11 +690,16 @@ private Q_SLOTS:
         const bosun::BosunBackend backend(file);
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
-        engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}});
+        const bosun::DaemonStatus daemon("/nonexistent/systemctl");
+        engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
+        engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}, {QStringLiteral("daemon"), QVariant::fromValue(&daemon)}});
         engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
         QVERIFY(!engine.rootObjects().isEmpty());
         QObject *window = engine.rootObjects().constFirst();
-        QCOMPARE(window->property("tabs").toList().size(), 2 + 3); // themes, keyboard, wallpapers, screensavers
+        // The window must be able to call what it is given (the daemon's start, the backend's edits).
+        QVERIFY(qvariant_cast<QObject *>(window->property("daemon")) != nullptr);
+        QVERIFY(qvariant_cast<QObject *>(window->property("backend")) != nullptr);
+        QCOMPARE(window->property("tabs").toList().size(), 2 + 4); // themes, the new tab, keyboard, wallpapers, screensavers
         QCOMPARE(window->property("keys").toList().size(), 12);
         QVERIFY(window->property("selected").toMap().isEmpty()); // nothing chosen yet
         window->setProperty("selectedKey", 0);
@@ -546,7 +708,7 @@ private Q_SLOTS:
         window->setProperty("currentTab", 1);
         QCOMPARE(window->property("selectedKey").toInt(), -1);
         QCOMPARE(window->property("keys").toList().size(), 12);
-        window->setProperty("currentTab", 4);
+        window->setProperty("currentTab", 5);
         QVERIFY(window->property("keys").toList().isEmpty());
         // A window that is not shown has no picture, but a shown one grabs: the pictures load.
         window->setProperty("currentTab", 0);
