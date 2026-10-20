@@ -138,3 +138,10 @@ in [the distribution guide](../tools/packaging/README.md). Builds run on Ubuntu
 `paullux/GalleonCore` on COPR and `galleoncore` on AUR. Native source builds
 run ctest before packaging; no development/test files are installed. Account
 creation and publication credentials are separate from recipe validation.
+
+## First release gate
+
+Do not create the first release tag until the Windows port is merged, the final
+main commit passes all CI workflows, and the owner confirms interactive Windows
+tests. Building Linux artifacts remains enabled before that confirmation;
+publishing the first PPA/COPR/AUR release waits for the tag decision.
