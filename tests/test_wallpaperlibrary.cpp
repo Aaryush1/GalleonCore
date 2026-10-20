@@ -3,6 +3,7 @@
 
 #include <WallpaperLibrary.h>
 
+#include <QDBusConnection>
 #include <QDir>
 #include <QFile>
 #include <QImage>
@@ -59,6 +60,23 @@ QStringList namesOf(const QVariantList &list)
     return names;
 }
 
+// A stand-in for galleond on the session bus: it keeps the wallpaper it is asked to show.
+class FakeDeck : public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.galleoncore.Deck")
+
+public:
+    QString shown;
+
+public Q_SLOTS:
+    bool SetWallpaper(const QString &name)
+    {
+        shown = name;
+        return true;
+    }
+};
+
 } // namespace
 
 class TestWallpaperLibrary : public QObject
@@ -107,6 +125,27 @@ private Q_SLOTS:
         QVERIFY(!library.apply("style/none.png").isEmpty());
         QVERIFY(!library.apply("../../etc/passwd").isEmpty());
         QCOMPARE(library.current(), QStringLiteral("style/a-02.jpg")); // a refusal changes nothing
+    }
+
+    void whenGalleondRunsTheWallpaperIsShownAtOnce()
+    {
+        const Setup s;
+        WallpaperLibrary library(s.places);
+        FakeDeck deck;
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        QVERIFY(bus.registerObject("/org/galleoncore/Deck", &deck, QDBusConnection::ExportAllSlots));
+        QVERIFY(bus.registerService("org.galleoncore.Deck"));
+        QVERIFY(library.apply("style/a-02.jpg").isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(deck.shown, QStringLiteral("style/a-02.jpg"), 3000);
+        QCOMPARE(library.current(), QStringLiteral("style/a-02.jpg")); // and kept, whoever else keeps it
+        // Not running: nothing is called, the choice is kept for its start.
+        QVERIFY(bus.unregisterService("org.galleoncore.Deck"));
+        deck.shown.clear();
+        QVERIFY(library.apply("style/a-01.png").isEmpty());
+        QTest::qWait(300);
+        QVERIFY(deck.shown.isEmpty());
+        QCOMPARE(library.current(), QStringLiteral("style/a-01.png"));
+        bus.unregisterObject("/org/galleoncore/Deck");
     }
 
     void aPictureThatCannotBeUsedIsSaidAndNotAdded()
