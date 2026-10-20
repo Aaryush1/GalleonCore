@@ -2,6 +2,18 @@
 
 # GalleonCore
 
+[![Website](https://img.shields.io/badge/website-GalleonCore-46505E)](https://paullux.github.io/GalleonCore/)
+[![CI](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml)
+[![Linux packages](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
+[![Release](https://img.shields.io/github/v/release/Paullux/GalleonCore)](https://github.com/Paullux/GalleonCore/releases)
+[![GitHub downloads](https://img.shields.io/github/downloads/Paullux/GalleonCore/total?label=GitHub%20downloads)](https://github.com/Paullux/GalleonCore/releases)
+[![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
+[![Fedora COPR](https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/)
+[![AUR recipe](https://img.shields.io/badge/AUR-recipe-1793D1?logo=archlinux&logoColor=white)](tools/packaging/README.md)
+[![AppImage builds](https://img.shields.io/badge/AppImage-CI%20builds-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
+[![Licenses](https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue)](LICENSE.md)
+[![Security policy](https://img.shields.io/badge/security-report%20privately-46505E)](SECURITY.md)
+
 🇬🇧 [Read in English](README.md) · *La version anglaise fait référence en cas de différence.*
 
 🌐 [Site web](https://paullux.github.io/GalleonCore/)
@@ -10,7 +22,7 @@
 
 Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique est remplacé par un module Elgato Stream Deck : 12 touches LCD, un écran et deux molettes. Corsair et Elgato ne supportent la partie Stream Deck que sous Windows et macOS. GalleonCore vise à rendre chaque partie du clavier utilisable sous Linux, et à l'intégrer au bureau.
 
-> ⚠️ **Projet à ses débuts.** Le dépôt contient la structure du projet, le squelette de compilation et l'outillage de tests. Rien ne communique encore avec le matériel.
+> **En développement actif.** Les touches, l’écran et les molettes du Stream Deck fonctionnent sous Linux. Galleon Bosun permet de configurer le module. Les widgets Plasma et Windows restent prévus ; consulte la [feuille de route](ROADMAP.md) pour les validations détaillées.
 
 > GalleonCore n'est affilié ni à Corsair ni à Elgato.
 
@@ -32,7 +44,7 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 | Pages de boutons (JSON) et lecteur de musique (MPRIS) | Implémentés, tests verts ; **touches, molettes, écran « en cours de lecture » (vraie pochette, titre, artiste, durée) et une touche d'application avec son icône confirmés sur le module** (rechargement à chaud, double appui, images de vidéos et fenêtre des applications : pas encore rapportés) |
 | Widgets KDE Plasma | Squelette |
 | Éclairage RVB | **En cours d'investigation.** Le protocole (Corsair « V2 »/Bragi) n'est encore supporté nulle part. Le support doit être intégré en amont dans OpenRGB. |
-| Plugin OpenRGB | Prévu |
+| Plugin OpenRGB | Anneaux des molettes implémentés dans le plugin séparé ; RVB du clavier toujours en investigation |
 | Windows | Prévu, en dernier |
 
 ## Architecture
@@ -47,7 +59,7 @@ widgets/           Widgets QML partagés, sans dépendance à Plasma
 plasmoid/          Widgets KDE Plasma réutilisant widgets/
 tests/             Tests unitaires Qt Test
 fuzz/              Cibles libFuzzer pour les parseurs du protocole
-openrgb-plugin/    (prévu) Plugin OpenRGB
+openrgb-plugin/    Plugin OpenRGB pour les anneaux des molettes
 ```
 
 Garder le protocole sans entrées/sorties permet de tester unitairement et de fuzzer chaque format de trame sans le clavier.
@@ -273,6 +285,18 @@ GalleonCore s'appuie sur la rétro-ingénierie réalisée par :
 ## Licence
 
 - `lib/` (libgalleon) : **LGPL-3.0-or-later**, pour que d'autres projets puissent réutiliser la bibliothèque de protocole.
-- Tout le reste : **GPL-3.0-or-later**.
+- Application, widgets, outils et documentation : **GPL-3.0-or-later**.
+- Fonds d’écran et vidéos du dépôt : **CC-BY-SA-4.0**, avec provenance (voir [ASSETS.md](ASSETS.md)).
 
 Les textes complets sont dans [`LICENSES/`](LICENSES/). Les fichiers portent des en-têtes SPDX, selon la convention [REUSE](https://reuse.software).
+
+## Paquets et communauté
+
+Les recettes PPA, COPR, AUR et AppImage et leur CI sont décrites dans le
+[guide de distribution](tools/packaging/README.md). Les dépôts PPA/COPR peuvent
+rester vides tant qu’une release n’a pas été publiée ; le badge AUR mène à la
+recette en attendant sa publication. Le compteur GitHub concerne uniquement les
+assets téléchargés depuis les releases GitHub, pas les installations PPA/COPR/AUR.
+
+[Contribuer](CONTRIBUTING.md) · [Code de conduite](CODE_OF_CONDUCT.md) ·
+[Sécurité](SECURITY.md) · [Licences](LICENSE.md).

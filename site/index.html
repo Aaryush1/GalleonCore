@@ -117,6 +117,11 @@ a:focus-visible, button:focus-visible {
 }
 .lead { font-size: 1.25rem; line-height: 1.5; max-width: 34em; margin: 0 0 20px; }
 .note { color: var(--muted); max-width: 38em; margin: 0 0 32px; }
+.badges { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 8px; margin: 24px 0; }
+.badges a { display: inline-flex; max-width: 100%; }
+.badges img { display: block; max-width: 100%; height: 20px; }
+.community-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; }
+
 .actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .btn {
   display: inline-block;
@@ -290,8 +295,8 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
         <span lang="fr">Le support Linux libre du Corsair Galleon 100 SD : les touches, l'écran et les molettes de son Stream Deck, son éclairage RVB, et des widgets affichés à la fois sur le clavier et sur ton bureau KDE.</span>
       </p>
       <p class="note">
-        <span lang="en">Early stage. The project structure, build and test tooling are in place; nothing talks to the hardware yet.</span>
-        <span lang="fr">Projet à ses débuts. La structure, la compilation et l'outillage de tests sont en place ; rien ne communique encore avec le matériel.</span>
+        <span lang="en">Active development. The Stream Deck module works on Linux, with Galleon Bosun for settings. Plasma widgets and Windows support remain planned.</span>
+        <span lang="fr">En développement actif. Le module Stream Deck fonctionne sous Linux, avec Galleon Bosun pour les réglages. Les widgets Plasma et Windows restent prévus.</span>
       </p>
       <div class="actions">
         <a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore"><span lang="en">View the source</span><span lang="fr">Voir le code</span></a>
@@ -325,8 +330,36 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
     </nav>
   </div>
 
+  <section class="wrap" id="downloads">
+    <h2><span lang="en">Downloads and project links</span><span lang="fr">Téléchargements et liens du projet</span></h2>
+    <div class="badges">
+      <a href="https://paullux.github.io/GalleonCore/"><img src="https://img.shields.io/badge/website-GalleonCore-46505E" alt="Website" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml"><img src="https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml"><img src="https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml/badge.svg?branch=main" alt="Linux packages" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/releases"><img src="https://img.shields.io/github/v/release/Paullux/GalleonCore" alt="Release" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/releases"><img src="https://img.shields.io/github/downloads/Paullux/GalleonCore/total?label=GitHub%20downloads" alt="GitHub downloads" height="20" loading="lazy"></a>
+      <a href="https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore"><img src="https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&amp;logoColor=white" alt="Ubuntu PPA" height="20" loading="lazy"></a>
+      <a href="https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/"><img src="https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&amp;logoColor=white" alt="Fedora COPR" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/blob/main/tools/packaging/README.md"><img src="https://img.shields.io/badge/AUR-recipe-1793D1?logo=archlinux&amp;logoColor=white" alt="AUR recipe" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml"><img src="https://img.shields.io/badge/AppImage-CI%20builds-8E6BBF?logo=linux&amp;logoColor=white" alt="AppImage builds" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/blob/main/LICENSE.md"><img src="https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue" alt="Licenses" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/blob/main/SECURITY.md"><img src="https://img.shields.io/badge/security-report%20privately-46505E" alt="Security policy" height="20" loading="lazy"></a>
+    </div>
+    <div class="prose">
+      <p><span lang="en">Ubuntu 24.04 or later, Qt 6.4 or newer. Native packages include the daemon, Bosun, libgalleon, widgets, wallpapers, udev rules and an opt-in user service. The AppImage has separate host integration helpers.</span><span lang="fr">Ubuntu 24.04 ou plus récent, Qt 6.4 minimum. Les paquets natifs contiennent le démon, Bosun, libgalleon, les widgets, les fonds d’écran, les règles udev et un service utilisateur à activer au choix. L’AppImage dispose de scripts d’intégration séparés.</span></p>
+      <p><span lang="en">Follow the release and build links above for available artifacts. PPA and COPR repositories may be empty before the first successful publication; the AUR link currently leads to the recipe. GitHub downloads count release assets, not installations from other repositories.</span><span lang="fr">Les liens de release et de compilation ci-dessus donnent accès aux fichiers disponibles. Les dépôts PPA et COPR peuvent être vides avant la première publication réussie ; le lien AUR mène actuellement à la recette. Le compteur GitHub mesure les téléchargements des assets de release, pas les installations depuis les autres dépôts.</span></p>
+      <p><a href="https://github.com/Paullux/GalleonCore/blob/main/tools/packaging/README.md"><span lang="en">Installation and packaging guide</span><span lang="fr">Guide d’installation et de distribution</span></a></p>
+    </div>
+    <nav class="community-links" aria-label="Community resources">
+      <a href="https://github.com/Paullux/GalleonCore/blob/main/CONTRIBUTING.md"><span lang="en">Contributing</span><span lang="fr">Contribuer</span></a>
+      <a href="https://github.com/Paullux/GalleonCore/blob/main/CODE_OF_CONDUCT.md"><span lang="en">Code of conduct</span><span lang="fr">Code de conduite</span></a>
+      <a href="https://github.com/Paullux/GalleonCore/blob/main/SECURITY.md"><span lang="en">Security policy</span><span lang="fr">Politique de sécurité</span></a>
+      <a href="https://github.com/Paullux/GalleonCore/blob/main/LICENSE.md"><span lang="en">Licenses</span><span lang="fr">Licences</span></a>
+    </nav>
+  </section>
+
   <section class="wrap" id="goals">
-    <h2><span lang="en">What it will do</span><span lang="fr">Ce que le projet fera</span></h2>
+    <h2><span lang="en">Project scope</span><span lang="fr">Périmètre du projet</span></h2>
     <div class="goals">
       <div id="deck">
         <h3>Stream Deck</h3>
@@ -355,12 +388,12 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
   <section class="wrap" id="status">
     <h2><span lang="en">Status</span><span lang="fr">Avancement</span></h2>
     <ul class="status">
-      <li><span><span lang="en">Stream Deck protocol: keys, screen, dials</span><span lang="fr">Protocole Stream Deck : touches, écran, molettes</span></span><span class="state state-active"><span lang="en">In progress</span><span lang="fr">En cours</span></span></li>
-      <li><span><span lang="en">Rendering QML widgets to the keyboard screen</span><span lang="fr">Rendu des widgets QML sur l'écran du clavier</span></span><span class="state state-planned"><span lang="en">Planned</span><span lang="fr">Prévu</span></span></li>
-      <li><span><span lang="en">galleond daemon and D-Bus interface</span><span lang="fr">Démon galleond et interface D-Bus</span></span><span class="state state-skeleton"><span lang="en">Skeleton</span><span lang="fr">Squelette</span></span></li>
+      <li><span><span lang="en">Stream Deck protocol: keys, screen, dials</span><span lang="fr">Protocole Stream Deck : touches, écran, molettes</span></span><span class="state state-active"><span lang="en">Hardware confirmed</span><span lang="fr">Confirmé sur le module</span></span></li>
+      <li><span><span lang="en">Rendering QML widgets to the keyboard screen</span><span lang="fr">Rendu des widgets QML sur l'écran du clavier</span></span><span class="state state-active"><span lang="en">Implemented</span><span lang="fr">Implémenté</span></span></li>
+      <li><span><span lang="en">galleond daemon and D-Bus interface</span><span lang="fr">Démon galleond et interface D-Bus</span></span><span class="state state-active"><span lang="en">Implemented</span><span lang="fr">Implémenté</span></span></li>
       <li><span><span lang="en">KDE Plasma widgets</span><span lang="fr">Widgets KDE Plasma</span></span><span class="state state-skeleton"><span lang="en">Skeleton</span><span lang="fr">Squelette</span></span></li>
       <li><span><span lang="en">RGB lighting in OpenRGB</span><span lang="fr">Éclairage RVB dans OpenRGB</span></span><span class="state state-research"><span lang="en">Investigating</span><span lang="fr">En investigation</span></span></li>
-      <li><span><span lang="en">OpenRGB plugin</span><span lang="fr">Plugin OpenRGB</span></span><span class="state state-planned"><span lang="en">Planned</span><span lang="fr">Prévu</span></span></li>
+      <li><span><span lang="en">OpenRGB plugin</span><span lang="fr">Plugin OpenRGB</span></span><span class="state state-active"><span lang="en">Dial rings</span><span lang="fr">Anneaux des molettes</span></span></li>
       <li><span>Windows</span><span class="state state-planned"><span lang="en">Planned, last</span><span lang="fr">Prévu, en dernier</span></span></li>
     </ul>
     <p class="status-legend">
@@ -456,8 +489,10 @@ sudo udevadm control --reload &amp;&amp; sudo udevadm trigger</code></pre>
         <h2><span lang="en">License</span><span lang="fr">Licence</span></h2>
         <ul>
           <li><span lang="en">The library, libgalleon: LGPL-3.0-or-later.</span><span lang="fr">La bibliothèque libgalleon : LGPL-3.0-or-later.</span></li>
-          <li><span lang="en">Everything else: GPL-3.0-or-later.</span><span lang="fr">Tout le reste : GPL-3.0-or-later.</span></li>
+          <li><span lang="en">Application, widgets, tools and documentation: GPL-3.0-or-later.</span><span lang="fr">Application, widgets, outils et documentation : GPL-3.0-or-later.</span></li>
         </ul>
+          <p><span lang="en">Repository wallpapers and videos: CC-BY-SA-4.0, with provenance.</span><span lang="fr">Fonds d’écran et vidéos du dépôt : CC-BY-SA-4.0, avec provenance.</span></p>
+          <p><a href="https://github.com/Paullux/GalleonCore/blob/main/LICENSE.md"><span lang="en">Full licensing overview</span><span lang="fr">Détail des licences</span></a></p>
       </div>
     </div>
   </section>
