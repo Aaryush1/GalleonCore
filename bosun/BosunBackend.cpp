@@ -389,9 +389,10 @@ void BosunBackend::setConversion(const QString &state, double fraction, const QS
 
 QString BosunBackend::startConversion(int x, int y, int width, int height, const QString &title)
 {
-    if (m_candidatePath.isEmpty() || !m_candidate.value(QStringLiteral("canAdd")).toBool())
-        return m_candidate.value(QStringLiteral("why")).toString().isEmpty() ? tr("No video can be converted now.")
-                                                                             : m_candidate.value(QStringLiteral("why")).toString();
+    if (m_candidatePath.isEmpty() || !m_candidate.value(QStringLiteral("canCut")).toBool()) {
+        const QString why = m_candidate.value(QStringLiteral("cutWhy")).toString();
+        return why.isEmpty() ? m_candidate.value(QStringLiteral("why")).toString().isEmpty() ? tr("No video can be converted now.") : m_candidate.value(QStringLiteral("why")).toString() : why;
+    }
     const galleond::VideoInfo info = m_videoInfo.value(m_candidatePath);
     const galleond::ScreensaverConfig saver = m_config ? m_config->screensaver : galleond::ScreensaverConfig{};
     const QSize canvas = galleond::ScreensaverSplitter(saver).canvasSize();
@@ -433,6 +434,57 @@ void BosunBackend::conversionDone(const QString &outputFile)
     setConversion(QStringLiteral("done"), 1, outputFile);
 }
 
+QSize BosunBackend::canvas() const
+{
+    const galleond::ScreensaverConfig saver = m_config ? m_config->screensaver : galleond::ScreensaverConfig{};
+    return galleond::ScreensaverSplitter(saver).canvasSize();
+}
+
+QSize BosunBackend::candidateSource() const
+{
+    const galleond::VideoInfo info = m_videoInfo.value(m_candidatePath);
+    return info.valid ? QSize(info.width, info.height) : QSize();
+}
+
+namespace {
+
+QVariantMap rectMap(const QRect &rect)
+{
+    return QVariantMap{{QStringLiteral("x"), rect.x()}, {QStringLiteral("y"), rect.y()},
+                       {QStringLiteral("width"), rect.width()}, {QStringLiteral("height"), rect.height()}};
+}
+
+QRect rectOf(const QVariantMap &map)
+{
+    return {map.value(QStringLiteral("x")).toInt(), map.value(QStringLiteral("y")).toInt(), map.value(QStringLiteral("width")).toInt(),
+            map.value(QStringLiteral("height")).toInt()};
+}
+
+QVariantMap rectMapF(const QRectF &rect)
+{
+    return QVariantMap{{QStringLiteral("x"), rect.x()}, {QStringLiteral("y"), rect.y()},
+                       {QStringLiteral("width"), rect.width()}, {QStringLiteral("height"), rect.height()}};
+}
+
+} // namespace
+
+QVariantMap BosunBackend::cropCentered() const
+{
+    return rectMap(crop::centered(candidateSource(), canvas()));
+}
+
+QVariantMap BosunBackend::cropMoved(const QVariantMap &crop, int dx, int dy) const
+{
+    const QRect moved = crop::moved(rectOf(crop), QPoint(dx, dy), candidateSource(), canvas());
+    return moved.isEmpty() ? crop : rectMap(moved);
+}
+
+QVariantMap BosunBackend::cropZoomed(const QVariantMap &crop, double factor, double anchorX, double anchorY) const
+{
+    const QRect zoomed = crop::zoomed(rectOf(crop), factor, QPointF(anchorX, anchorY), candidateSource(), canvas());
+    return zoomed.isEmpty() ? crop : rectMap(zoomed);
+}
+
 void BosunBackend::buildCandidate()
 {
     m_candidate.clear();
@@ -463,6 +515,34 @@ void BosunBackend::buildCandidate()
             why = tr("This video is already in the list.");
     }
     const QString picture = m_videoPictures.value(m_candidatePath);
+    // What the crop window draws: the video, the picture of the module and where its screen and keys fall.
+    const QSize source = candidateSource();
+    const QSize frame = canvas();
+    QVariantMap cut{{QStringLiteral("canCut"), false}};
+    if (state == QStringLiteral("ready") && !source.isEmpty() && !frame.isEmpty()) {
+        const galleond::ScreensaverConfig saver = m_config ? m_config->screensaver : galleond::ScreensaverConfig{};
+        // Cutting makes a new file, so a video that is already in the list can be cut again; a full list cannot take it.
+        const bool roomLeft = saver.videos.size() < galleond::MaxScreensaverVideos;
+        const bool tool = m_converter.isAvailable();
+        const auto regions = galleond::ScreensaverSplitter(saver).regions();
+        QVariantList keys;
+        for (const QRectF &key : regions.keys)
+            keys.append(rectMapF(key));
+        QString cutWhy;
+        if (!tool)
+            cutWhy = tr("FFmpeg was not found, or it has no H.264 or MPEG-4 encoder.");
+        else if (!roomLeft)
+            cutWhy = tr("The list is full (%1 videos): remove one first.").arg(galleond::MaxScreensaverVideos);
+        cut = QVariantMap{{QStringLiteral("canCut"), tool && roomLeft},
+                          {QStringLiteral("cutWhy"), cutWhy},
+                          {QStringLiteral("width"), source.width()},
+                          {QStringLiteral("height"), source.height()},
+                          {QStringLiteral("canvasWidth"), frame.width()},
+                          {QStringLiteral("canvasHeight"), frame.height()},
+                          {QStringLiteral("screen"), rectMapF(regions.screen)},
+                          {QStringLiteral("keyRegions"), keys},
+                          {QStringLiteral("crop"), cropCentered()}};
+    }
     m_candidate = QVariantMap{{QStringLiteral("path"), m_candidatePath},
                               {QStringLiteral("name"), QFileInfo(m_candidatePath.isEmpty() ? m_candidateChosen : m_candidatePath).fileName()},
                               {QStringLiteral("state"), state},
@@ -472,6 +552,7 @@ void BosunBackend::buildCandidate()
                               {QStringLiteral("canAdd"), state == QStringLiteral("ready") && why.isEmpty()},
                               {QStringLiteral("why"), why},
                               {QStringLiteral("suggestedTitle"), QFileInfo(m_candidatePath).completeBaseName()}};
+    m_candidate.insert(cut);
 }
 
 const galleond::Page *BosunBackend::pageNamed(const QString &page) const

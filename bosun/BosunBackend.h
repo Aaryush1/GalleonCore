@@ -125,6 +125,13 @@ public:
     Q_INVOKABLE [[nodiscard]] QString addCandidate(const QString &title);
     Q_INVOKABLE void clearCandidate();
 
+    // The crop rectangle of the video being looked at ({x, y, width, height}, in its pixels): the
+    // largest centred one, then moved, zoomed (`factor` above 1: closer, around the point
+    // (anchorX, anchorY) of the video) or made valid. Without a video they give the rectangle back.
+    Q_INVOKABLE [[nodiscard]] QVariantMap cropCentered() const;
+    Q_INVOKABLE [[nodiscard]] QVariantMap cropMoved(const QVariantMap &crop, int dx, int dy) const;
+    Q_INVOKABLE [[nodiscard]] QVariantMap cropZoomed(const QVariantMap &crop, double factor, double anchorX, double anchorY) const;
+
     // Cuts the video being looked at to the picture of the module, keeping the part
     // (x, y, width, height) of it (in the pixels of the video; made valid first), writes the
     // result in the user's screensaver folder and adds it to the list when FFmpeg is done.
@@ -145,6 +152,9 @@ private:
     [[nodiscard]] QString applied(const galleond::EditResult &result);
     void buildScreensaver();
     void buildCandidate();
+    // The sizes the crop works with: the video being looked at and the picture of the module (empty when unknown).
+    [[nodiscard]] QSize candidateSource() const;
+    [[nodiscard]] QSize canvas() const;
     void setConversion(const QString &state, double fraction = 0, const QString &message = {});
     void conversionDone(const QString &outputFile);
     void askAboutVideos();

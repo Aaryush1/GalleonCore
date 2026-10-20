@@ -604,6 +604,84 @@ private Q_SLOTS:
         QVERIFY(provider.requestPixmap("music/0?r=7&theme=main", &size, {}).toImage() == backend.tile("music", 0, "main").toImage());
     }
 
+    void aVideoThatCanBeCutShowsWhereTheModuleFallsAndASensibleCrop()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("v.mp4")"))); // the video is in the list already: it can still be cut
+        bosun::BosunBackend backend(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = fakeFfmpeg(dir.path(), "exit 0"),
+                                           .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        backend.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        const QVariantMap candidate = backend.candidate();
+        QVERIFY(!candidate.value("canAdd").toBool());  // already there
+        QVERIFY(candidate.value("canCut").toBool());   // but a cut is a new file
+        QCOMPARE(candidate.value("width").toInt(), 1920);
+        QCOMPARE(candidate.value("height").toInt(), 1080);
+        QCOMPARE(candidate.value("canvasWidth").toInt(), 720);
+        QCOMPARE(candidate.value("canvasHeight").toInt(), 1258);
+        QCOMPARE(candidate.value("keyRegions").toList().size(), 12);
+        QCOMPARE(candidate.value("screen").toMap().value("width").toDouble(), 720.0);
+        const QVariantMap crop = candidate.value("crop").toMap();
+        QCOMPARE(crop.value("x").toInt(), 651);
+        QCOMPARE(crop.value("width").toInt(), 618);
+        QCOMPARE(crop.value("height").toInt(), 1080);
+    }
+
+    void theCropIsMovedAndZoomedWithinTheVideo()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = fakeFfmpeg(dir.path(), "exit 0"),
+                                           .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        // Nothing chosen: what is given comes back.
+        const QVariantMap given{{"x", 5}, {"y", 6}, {"width", 7}, {"height", 8}};
+        QCOMPARE(backend.cropMoved(given, 10, 10), given);
+        QCOMPARE(backend.cropZoomed(given, 2, 0, 0), given);
+        QVERIFY(backend.cropCentered().value("width").toInt() == 0);
+
+        backend.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        const QVariantMap crop = backend.candidate().value("crop").toMap();
+        QCOMPARE(backend.cropMoved(crop, 100, 0).value("x").toInt(), 751);
+        QCOMPARE(backend.cropMoved(crop, 99999, 0).value("x").toInt(), 1302); // kept inside the video
+        QCOMPARE(backend.cropMoved(crop, -99999, 0).value("x").toInt(), 0);
+        const QVariantMap closer = backend.cropZoomed(crop, 2, 960, 540); // around the middle of the video
+        QCOMPARE(closer.value("width").toInt(), 309);
+        QCOMPARE(closer.value("height").toInt(), 540);
+        QCOMPARE(backend.cropZoomed(crop, 0.1, 960, 540).value("width").toInt(), 618); // cannot go wider than the video allows
+    }
+
+    void aFullListOrNoFfmpegMeansNoCut()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend noFfmpeg(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = "/nonexistent/none",
+                                            .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        noFfmpeg.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(noFfmpeg.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        QVERIFY(!noFfmpeg.candidate().value("canCut").toBool());
+        QVERIFY(!noFfmpeg.candidate().value("cutWhy").toString().isEmpty());
+        QVERIFY(noFfmpeg.candidate().value("canAdd").toBool()); // as it is still works
+        QVERIFY(!noFfmpeg.startConversion(651, 0, 618, 1080, "x").isEmpty());
+
+        QStringList names;
+        for (int i = 0; i < galleond::MaxScreensaverVideos; ++i)
+            names << QStringLiteral(R"("v%1.mp4")").arg(i);
+        QVERIFY(writeFile(file, saverPages(names.join(','))));
+        bosun::BosunBackend full(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = fakeFfmpeg(dir.path(), "exit 0"),
+                                        .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        full.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(full.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        QVERIFY(!full.candidate().value("canCut").toBool());
+        QVERIFY(full.candidate().value("cutWhy").toString().contains("full"));
+    }
+
     void theWindowHasATabPerThemeAndTheFixedOnes()
     {
         const QTemporaryDir dir;

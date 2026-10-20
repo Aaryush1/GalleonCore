@@ -46,7 +46,9 @@ int main(int argc, char *argv[])
                                            QStringLiteral("Open the Screensavers tab with this video file chosen (to be added)."),
                                            QStringLiteral("file"));
     const QCommandLineOption heightOption(QStringLiteral("height"), QStringLiteral("Open with a window this high, in pixels."), QStringLiteral("n"));
+    const QCommandLineOption cropOption(QStringLiteral("crop"), QStringLiteral("With --inspect: open the crop window on the video."));
     parser.addOption(pagesOption);
+    parser.addOption(cropOption);
     parser.addOption(heightOption);
     parser.addOption(inspectOption);
     parser.addOption(tabOption);
@@ -86,6 +88,7 @@ int main(int argc, char *argv[])
     if (parser.isSet(inspectOption)) {
         backend.inspect(QDir::current().absoluteFilePath(parser.value(inspectOption)));
         root->setProperty("currentTab", root->property("tabs").toList().size() - 1);
+        root->setProperty("cropOpen", parser.isSet(cropOption));
     }
 
     if (parser.isSet(shotOption)) {
