@@ -121,6 +121,74 @@ class Report(unittest.TestCase):
         self.assertEqual(check.label("full", steps, []), "FAILED: clang-tidy")
 
 
+class CiFile(unittest.TestCase):
+    sample = """jobs:
+  lint:
+    steps:
+      - name: Install
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y a b
+      - name: qmllint
+        run: /usr/lib/qt6/bin/qmllint widgets/*.qml
+      - name: REUSE licensing
+        run: pipx run reuse lint
+      - uses: actions/checkout@v4
+      - name: Without a command
+"""
+
+    def test_the_commands_of_the_named_steps_are_read(self) -> None:
+        steps = check.parse_steps(self.sample)
+        self.assertEqual(steps["qmllint"], "/usr/lib/qt6/bin/qmllint widgets/*.qml")
+        self.assertEqual(steps["REUSE licensing"], "pipx run reuse lint")
+        self.assertEqual(steps["Install"], "sudo apt-get update\nsudo apt-get install -y a b")
+        self.assertNotIn("Without a command", steps)
+
+    def test_reuse_runs_from_the_container_not_through_pipx(self) -> None:
+        self.assertEqual(check.ci_command("pipx run reuse lint"), "reuse lint")
+        self.assertEqual(check.ci_command("qmllint x.qml"), "qmllint x.qml")
+
+    def test_the_folders_of_the_lint_pattern_are_read(self) -> None:
+        command = "run-clang-tidy -quiet -p build '(lib/src|daemon|bosun|tests)/[^/]+\\.cpp$'"
+        self.assertEqual(check.tidy_folders(command), ("lib/src/", "daemon/", "bosun/", "tests/"))
+        self.assertEqual(check.tidy_folders("echo nothing"), ())
+
+    def test_the_replayed_steps_and_the_lint_folders_still_exist_in_the_ci_file(self) -> None:
+        """The CI file is the one source: if a step is renamed or the folders change, this fails
+        and says so, rather than the checks quietly drifting from the CI."""
+        root = Path(__file__).resolve().parent.parent
+        steps = check.parse_steps((root / check.CI_FILE).read_text())
+        for name in check.CI_STEPS_REPLAYED:
+            self.assertIn(name, steps)
+        self.assertEqual(check.tidy_folders(steps["clang-tidy"]), check.TIDY_DIRS)
+
+
+class CleanCopy(unittest.TestCase):
+    def test_the_copy_has_what_would_be_committed_and_not_what_is_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "repo"
+            root.mkdir()
+            for command in (["init", "-q"], ["config", "user.email", "t@example.org"], ["config", "user.name", "t"]):
+                subprocess.run(["git", "-C", str(root), *command], check=True)
+            (root / ".gitignore").write_text("build/\n__pycache__/\n")
+            (root / "tracked.txt").write_text("a")
+            (root / "gone.txt").write_text("b")
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-qm", "x"], check=True)
+            (root / "gone.txt").unlink()                      # tracked, deleted
+            (root / "new.txt").write_text("n")                # new
+            (root / "build").mkdir()
+            (root / "build" / "junk.o").write_text("o")       # ignored
+            (root / "sub").mkdir()
+            (root / "sub" / "deep.txt").write_text("d")
+            checks = check.Checks(root, root / "b", root / "c", [], True)
+            copy = Path(folder) / "copy"
+            copy.mkdir()
+            checks.clean_copy(copy)
+            found = sorted(str(path.relative_to(copy)) for path in copy.rglob("*") if path.is_file())
+            self.assertEqual(found, [".gitignore", "new.txt", "sub/deep.txt", "tracked.txt"])
+
+
 class Git(unittest.TestCase):
     def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()

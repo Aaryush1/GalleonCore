@@ -279,6 +279,39 @@ void BosunBackend::nextThumbnail()
     }
 }
 
+QString BosunBackend::applied(const galleond::EditResult &result)
+{
+    if (!result.ok)
+        return result.errors.join(QLatin1Char('\n'));
+    reload();
+    return {};
+}
+
+QString BosunBackend::setIdleMinutes(int minutes)
+{
+    return applied(galleond::PagesEditor::setScreensaverIdleMinutes(m_file, minutes));
+}
+
+QString BosunBackend::setFps(int fps)
+{
+    return applied(galleond::PagesEditor::setScreensaverFps(m_file, fps));
+}
+
+QString BosunBackend::setWhilePlaying(bool whilePlaying)
+{
+    return applied(galleond::PagesEditor::setScreensaverWhilePlaying(m_file, whilePlaying));
+}
+
+QString BosunBackend::setVideoTitle(int index, const QString &title)
+{
+    return applied(galleond::PagesEditor::setScreensaverVideoTitle(m_file, index, title));
+}
+
+QString BosunBackend::removeVideo(int index)
+{
+    return applied(galleond::PagesEditor::removeScreensaverVideo(m_file, index));
+}
+
 const galleond::Page *BosunBackend::pageNamed(const QString &page) const
 {
     if (!m_config)

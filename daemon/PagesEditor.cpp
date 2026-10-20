@@ -86,6 +86,67 @@ void storeKeys(QJsonObject &root, const QString &page, QJsonArray keys)
     root.insert(QStringLiteral("pages"), pages);
 }
 
+EditResult write(const QString &file, const QJsonObject &root, bool original);
+
+// The videos of a "screensaver" object as a list of {file, title}, whichever way the
+// file wrote them: one path, one object, or a list of either.
+QJsonArray videoEntries(const QJsonObject &saver)
+{
+    const QJsonValue value = saver.value(QStringLiteral("video"));
+    QJsonArray listed;
+    if (value.isArray())
+        listed = value.toArray();
+    else if (!value.isUndefined())
+        listed.append(value);
+    QJsonArray entries;
+    for (const auto &entry : std::as_const(listed)) {
+        const QJsonValue shape = entry;
+        entries.append(shape.isObject() ? shape.toObject() : QJsonObject{{QStringLiteral("file"), shape.toString()}});
+    }
+    return entries;
+}
+
+// Puts the videos back: nothing when there are none (the key is not written as an empty
+// list, which the file format refuses), a plain path when a video has no title.
+void storeVideos(QJsonObject &saver, const QJsonArray &entries)
+{
+    if (entries.isEmpty()) {
+        saver.remove(QStringLiteral("video"));
+        return;
+    }
+    QJsonArray written;
+    for (const auto &entry : entries) {
+        const QJsonObject item = entry.toObject();
+        written.append(item.contains(QStringLiteral("title")) ? QJsonValue(item) : item.value(QStringLiteral("file")));
+    }
+    saver.insert(QStringLiteral("video"), written);
+}
+
+bool validIndex(const QJsonArray &entries, int index, EditResult &error)
+{
+    if (index >= 0 && index < entries.size())
+        return true;
+    error = failure(QStringLiteral("there is no video number %1").arg(index));
+    return false;
+}
+
+// Reads the file, lets `change` modify its "screensaver" object (made when there is none),
+// and writes the result. `change` returns an error to refuse the edit.
+template <typename Change>
+EditResult editScreensaver(const QString &file, Change change)
+{
+    QJsonObject root;
+    bool original = false;
+    EditResult error;
+    if (!load(file, root, original, error))
+        return error;
+    QJsonObject saver = root.value(QStringLiteral("screensaver")).toObject();
+    if (const EditResult refused = change(saver); !refused.ok)
+        return refused;
+    root.insert(QStringLiteral("screensaver"), saver);
+    return write(file, root, original);
+}
+
 EditResult write(const QString &file, const QJsonObject &root, bool original)
 {
     const QByteArray bytes = QJsonDocument(root).toJson(QJsonDocument::Indented);
@@ -116,6 +177,65 @@ EditResult write(const QString &file, const QJsonObject &root, bool original)
 }
 
 } // namespace
+
+EditResult PagesEditor::setScreensaverIdleMinutes(const QString &file, int minutes)
+{
+    if (minutes < 1 || minutes > 720)
+        return failure(QStringLiteral("the screensaver starts after 1 to 720 minutes"));
+    return editScreensaver(file, [minutes](QJsonObject &saver) {
+        saver.insert(QStringLiteral("idle_minutes"), minutes);
+        return EditResult{.ok = true, .errors = {}};
+    });
+}
+
+EditResult PagesEditor::setScreensaverFps(const QString &file, int fps)
+{
+    if (fps < 1 || fps > 20)
+        return failure(QStringLiteral("the module shows 1 to 20 images per second"));
+    return editScreensaver(file, [fps](QJsonObject &saver) {
+        saver.insert(QStringLiteral("fps"), fps);
+        return EditResult{.ok = true, .errors = {}};
+    });
+}
+
+EditResult PagesEditor::setScreensaverWhilePlaying(const QString &file, bool whilePlaying)
+{
+    return editScreensaver(file, [whilePlaying](QJsonObject &saver) {
+        saver.insert(QStringLiteral("while_playing"), whilePlaying);
+        return EditResult{.ok = true, .errors = {}};
+    });
+}
+
+EditResult PagesEditor::setScreensaverVideoTitle(const QString &file, int index, const QString &title)
+{
+    return editScreensaver(file, [index, title](QJsonObject &saver) {
+        QJsonArray entries = videoEntries(saver);
+        EditResult error;
+        if (!validIndex(entries, index, error))
+            return error;
+        QJsonObject item = entries.at(index).toObject();
+        if (title.trimmed().isEmpty())
+            item.remove(QStringLiteral("title"));
+        else
+            item.insert(QStringLiteral("title"), title.trimmed());
+        entries.replace(index, item);
+        storeVideos(saver, entries);
+        return EditResult{.ok = true, .errors = {}};
+    });
+}
+
+EditResult PagesEditor::removeScreensaverVideo(const QString &file, int index)
+{
+    return editScreensaver(file, [index](QJsonObject &saver) {
+        QJsonArray entries = videoEntries(saver);
+        EditResult error;
+        if (!validIndex(entries, index, error))
+            return error;
+        entries.removeAt(index);
+        storeVideos(saver, entries);
+        return EditResult{.ok = true, .errors = {}};
+    });
+}
 
 EditResult PagesEditor::assignApp(const QString &file, const QString &page, int key, const QString &desktop)
 {

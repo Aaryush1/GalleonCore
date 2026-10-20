@@ -33,6 +33,16 @@ public:
 
     // Empties key `key` of page `page`.
     static EditResult clearKey(const QString &file, const QString &page, int key);
+
+    // The screensaver. Each change is validated like any pages file before it is written,
+    // and leaves the rest of the file (the geometry, the other videos) as it was.
+    static EditResult setScreensaverIdleMinutes(const QString &file, int minutes);
+    static EditResult setScreensaverFps(const QString &file, int fps);
+    static EditResult setScreensaverWhilePlaying(const QString &file, bool whilePlaying);
+    // The title of video `index` (its place in the list); an empty title takes the title away.
+    static EditResult setScreensaverVideoTitle(const QString &file, int index, const QString &title);
+    // Takes video `index` out of the list. The last one gone, the screensaver is off.
+    static EditResult removeScreensaverVideo(const QString &file, int index);
 };
 
 } // namespace galleond

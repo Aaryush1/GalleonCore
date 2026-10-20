@@ -65,6 +65,16 @@ PagesConfig configOf(const QString &file)
     return *result.config;
 }
 
+
+// A pages file with a screensaver: geometry, two videos (one with a title) and settings.
+QByteArray saverFile(const QString &video = QStringLiteral(R"([{"file": "a.mp4", "title": "First"}, "b.mp4", "c.mp4"])"))
+{
+    return (QStringLiteral(R"({"version": 1, "home": "main", "pages": {"main": {"keys": []}}, "screensaver": {
+        "idle_minutes": 5, "fps": 15, "while_playing": false, "video": )") + video
+            + QStringLiteral(R"(, "geometry": {"screen_mm": [62.6, 33.0], "key_mm": [13.7, 13.7], "gap_mm": [5.4, 5.4], "screen_to_keys_mm": 5.4}}})"))
+        .toUtf8();
+}
+
 } // namespace
 
 class TestPagesEditor : public QObject
@@ -216,6 +226,141 @@ private Q_SLOTS:
         QCOMPARE(int(config.dials[1].press.command), int(MediaCommand::Next));
         QCOMPARE(int(config.screen.nowPlaying), int(NowPlayingMode::PlayingOrPaused));
         QVERIFY(!config.screen.videoThumbnails);
+    }
+
+    void theScreensaverSettingsAreChangedAndTheRestStays()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        QVERIFY(PagesEditor::setScreensaverIdleMinutes(env.pages(), 20).ok);
+        QVERIFY(PagesEditor::setScreensaverFps(env.pages(), 12).ok);
+        QVERIFY(PagesEditor::setScreensaverWhilePlaying(env.pages(), true).ok);
+        const ScreensaverConfig saver = configOf(env.pages()).screensaver;
+        QCOMPARE(saver.idleMinutes, 20);
+        QCOMPARE(saver.fps, 12);
+        QVERIFY(saver.whilePlaying);
+        QCOMPARE(saver.videos, (QStringList{"a.mp4", "b.mp4", "c.mp4"}));
+        QCOMPARE(saver.titles, (QStringList{"First", "", ""}));
+        QVERIFY(saver.hasGeometry);
+        QCOMPARE(saver.screenWidthMm, 62.6);
+        QVERIFY(QFileInfo::exists(env.pages() + ".bak")); // the file as it was before the last edit
+    }
+
+    void aSettingOutOfRangeIsRefusedAndNothingIsWritten()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        const QByteArray before = readFile(env.pages());
+        for (const int minutes : {0, -3, 721})
+            QVERIFY2(!PagesEditor::setScreensaverIdleMinutes(env.pages(), minutes).ok, qPrintable(QString::number(minutes)));
+        for (const int fps : {0, 21, 100})
+            QVERIFY2(!PagesEditor::setScreensaverFps(env.pages(), fps).ok, qPrintable(QString::number(fps)));
+        QCOMPARE(readFile(env.pages()), before);
+        QVERIFY(!QFileInfo::exists(env.pages() + ".bak"));
+    }
+
+    void theBoundsOfTheSettingsAreAccepted()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        QVERIFY(PagesEditor::setScreensaverIdleMinutes(env.pages(), 1).ok);
+        QVERIFY(PagesEditor::setScreensaverIdleMinutes(env.pages(), 720).ok);
+        QVERIFY(PagesEditor::setScreensaverFps(env.pages(), 1).ok);
+        QVERIFY(PagesEditor::setScreensaverFps(env.pages(), 20).ok);
+    }
+
+    void aTitleIsSetTrimmedAndTakenAway()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        QVERIFY(PagesEditor::setScreensaverVideoTitle(env.pages(), 1, "  Second  ").ok); // was a plain path
+        QCOMPARE(configOf(env.pages()).screensaver.titles, (QStringList{"First", "Second", ""}));
+        QVERIFY(PagesEditor::setScreensaverVideoTitle(env.pages(), 0, "   ").ok); // blank: no title any more
+        QCOMPARE(configOf(env.pages()).screensaver.titles, (QStringList{"", "Second", ""}));
+        QCOMPARE(configOf(env.pages()).screensaver.videos, (QStringList{"a.mp4", "b.mp4", "c.mp4"}));
+    }
+
+    void aTitleThatIsTooLongIsRefusedAndNothingIsWritten()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        const QByteArray before = readFile(env.pages());
+        const auto result = PagesEditor::setScreensaverVideoTitle(env.pages(), 0, QString(MaxVideoTitleLength + 1, 'x'));
+        QVERIFY(!result.ok);
+        QVERIFY(!result.errors.isEmpty());
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
+    void aVideoIsRemovedAndTheOthersKeepTheirOrderAndTitles()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        QVERIFY(PagesEditor::removeScreensaverVideo(env.pages(), 1).ok);
+        const ScreensaverConfig saver = configOf(env.pages()).screensaver;
+        QCOMPARE(saver.videos, (QStringList{"a.mp4", "c.mp4"}));
+        QCOMPARE(saver.titles, (QStringList{"First", ""}));
+        QVERIFY(saver.enabled());
+        QVERIFY(PagesEditor::removeScreensaverVideo(env.pages(), 0).ok);
+        QCOMPARE(configOf(env.pages()).screensaver.videos, (QStringList{"c.mp4"}));
+    }
+
+    void theLastVideoGoneTheScreensaverIsOffButItsSettingsStay()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile(R"("only.mp4")")));
+        QVERIFY(PagesEditor::removeScreensaverVideo(env.pages(), 0).ok);
+        const QJsonObject saverObject = QJsonDocument::fromJson(readFile(env.pages())).object().value("screensaver").toObject();
+        QVERIFY(!saverObject.contains("video")); // not an empty list, which the format refuses
+        const ScreensaverConfig saver = configOf(env.pages()).screensaver;
+        QVERIFY(saver.videos.isEmpty());
+        QVERIFY(!saver.enabled());
+        QVERIFY(saver.hasGeometry);
+        QCOMPARE(saver.idleMinutes, 5);
+    }
+
+    void everyWayToWriteTheVideosIsUnderstood()
+    {
+        Environment const env;
+        // One path, one object, a list: all can be edited.
+        for (const QString &video : {QStringLiteral(R"("one.mp4")"), QStringLiteral(R"({"file": "one.mp4", "title": "One"})"),
+                                     QStringLiteral(R"(["one.mp4"])")}) {
+            QVERIFY(writeFile(env.pages(), saverFile(video)));
+            QVERIFY2(PagesEditor::setScreensaverVideoTitle(env.pages(), 0, "Renamed").ok, qPrintable(video));
+            QCOMPARE(configOf(env.pages()).screensaver.titles, (QStringList{"Renamed"}));
+            QCOMPARE(configOf(env.pages()).screensaver.videos, (QStringList{"one.mp4"}));
+        }
+    }
+
+    void aVideoThatIsNotThereIsRefusedAndNothingIsWritten()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        const QByteArray before = readFile(env.pages());
+        for (const int index : {-1, 3, 99}) {
+            QVERIFY2(!PagesEditor::removeScreensaverVideo(env.pages(), index).ok, qPrintable(QString::number(index)));
+            QVERIFY2(!PagesEditor::setScreensaverVideoTitle(env.pages(), index, "x").ok, qPrintable(QString::number(index)));
+        }
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
+    void aFileWithoutScreensaverGetsOneForASetting()
+    {
+        Environment const env;
+        QVERIFY(PagesEditor::setScreensaverIdleMinutes(env.pages(), 8).ok); // no file at all: the built-in pages
+        const ScreensaverConfig saver = configOf(env.pages()).screensaver;
+        QCOMPARE(saver.idleMinutes, 8);
+        QVERIFY(saver.videos.isEmpty());
+        QVERIFY(!PagesEditor::removeScreensaverVideo(env.pages(), 0).ok); // nothing to remove
+    }
+
+    void aFileThatIsAlreadyInvalidIsLeftAlone()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), R"({"version": 1, "pages": {"main": {"keys": [{"key": 99}]}}})"));
+        const QByteArray before = readFile(env.pages());
+        const auto result = PagesEditor::setScreensaverFps(env.pages(), 10);
+        QVERIFY(!result.ok);
+        QCOMPARE(readFile(env.pages()), before);
     }
 };
 

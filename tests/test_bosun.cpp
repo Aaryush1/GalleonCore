@@ -277,6 +277,48 @@ private Q_SLOTS:
         QVERIFY(backend.screensaver().value("videos").toList().at(0).toMap().value("notes").toStringList().at(0).contains("ffprobe"));
     }
 
+    void theScreensaverTabEditsTheFileAndShowsTheResult()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("a.mp4"), "x"));
+        QVERIFY(writeFile(dir.filePath("b.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4", {"file": "b.mp4", "title": "Second"})")));
+        bosun::BosunBackend backend(file, {.ffprobe = "/nonexistent/none", .ffmpeg = "/nonexistent/none", .thumbnailFolder = dir.filePath("thumbs")});
+
+        QVERIFY(backend.setIdleMinutes(30).isEmpty());
+        QVERIFY(backend.setFps(10).isEmpty());
+        QVERIFY(backend.setWhilePlaying(false).isEmpty());
+        QCOMPARE(backend.screensaver().value("idleMinutes").toInt(), 30); // read again at once, not after the file watch
+        QCOMPARE(backend.screensaver().value("fps").toInt(), 10);
+        QVERIFY(!backend.screensaver().value("whilePlaying").toBool());
+
+        QVERIFY(backend.setVideoTitle(0, "First").isEmpty());
+        QCOMPARE(backend.screensaver().value("videos").toList().at(0).toMap().value("title").toString(), QStringLiteral("First"));
+
+        QVERIFY(backend.removeVideo(0).isEmpty());
+        const QVariantList left = backend.screensaver().value("videos").toList();
+        QCOMPARE(left.size(), 1);
+        QCOMPARE(left.at(0).toMap().value("title").toString(), QStringLiteral("Second"));
+        QVERIFY(QFile::exists(dir.filePath("a.mp4"))); // the video file itself is never touched
+        QVERIFY(backend.removeVideo(0).isEmpty());
+        QVERIFY(!backend.screensaver().value("enabled").toBool());
+    }
+
+    void aRefusedEditSaysWhyAndChangesNothing()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = "/nonexistent/none", .ffmpeg = "/nonexistent/none", .thumbnailFolder = dir.filePath("thumbs")});
+        const int before = backend.revision();
+        QVERIFY(!backend.setFps(99).isEmpty());
+        QVERIFY(!backend.setIdleMinutes(0).isEmpty());
+        QVERIFY(!backend.removeVideo(7).isEmpty());
+        QCOMPARE(backend.screensaver().value("fps").toInt(), 12);
+        QCOMPARE(backend.revision(), before); // not even read again
+    }
+
     void theWindowHasATabPerThemeAndTheFixedOnes()
     {
         const QTemporaryDir dir;
