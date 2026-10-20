@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QGuiApplication>
+#include <QIcon>
 #include <QImage>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
@@ -21,6 +22,10 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationName(QStringLiteral("galleon-bosun"));
     QGuiApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION_STRING));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Galleon Bosun"));
+    // The desktop file name is what Wayland shows the window under (icon and name); the
+    // built-in icon is for a run from the build tree, before anything is installed.
+    QGuiApplication::setDesktopFileName(QStringLiteral("galleon-bosun"));
+    QGuiApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("galleon-bosun"), QIcon(QStringLiteral(":/bosun/icons/galleon-bosun.svg"))));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Galleon Bosun: settings for the Corsair Galleon 100 SD"));

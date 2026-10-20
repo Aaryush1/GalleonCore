@@ -8,7 +8,7 @@ Rules for every image, video and animation stored in this repository: logos, wal
 - Work under a free license compatible with the project, with its source.
 - Images or videos generated with AI tools, under the conditions below.
 
-The default license for images and videos is **CC-BY-SA-4.0**. Declare it in `REUSE.toml` (or in a `.license` file next to the asset), together with the author. The project logo, `site/logo.svg`, is an exception: it is GPL-3.0-or-later, like the website.
+The default license for images and videos is **CC-BY-SA-4.0**. Declare it in `REUSE.toml` (or in a `.license` file next to the asset), together with the author. The project logo, `site/logo.svg`, and the icon of the settings application, `bosun/icons/galleon-bosun.svg` (a ship's wheel around the 12 keys, drawn by hand for the project), are exceptions: they are GPL-3.0-or-later, like the website and the code, with the SPDX header inside the file.
 
 ## What may not be added
 
