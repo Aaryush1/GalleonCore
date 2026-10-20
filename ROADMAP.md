@@ -107,6 +107,7 @@ Décisions à ne pas perdre :
 - **Modes de molette** : un appui sur une molette configurée `theme` ou `wallpaper-mode` bascule cette molette entre contrôle multimédia et choix (thème / fond) ; sortie par second appui ou après 30 s sans rotation.
 - Fonctionnalités gardées volontairement : système de profils et configuration JSON (demande explicite de l'utilisateur).
 - **CI** (GitHub Actions, Ubuntu 24.04) : Qt **6.4**, plus ancien que celui du poste de développement (6.10) ; GCC, Clang + ASan/UBSan + fuzz, lint (clang-tidy 18, qmllint, reuse). Pièges rencontrés : `Locale.toString` n'existe pas en 6.4 (le widget utilise `Date.toLocaleTimeString`), un `QLocale` C++ n'y est pas enveloppé en `Locale` (la langue est passée par son nom), `QTimeZone::UTC` demande Qt 6.5, Qt Quick 6.4 laisse un cycle d'images à la sortie (suppression ciblée dans `tests/lsan.supp`). Pour reproduire : un conteneur `ubuntu:24.04` avec `qt6-base-dev qt6-declarative-dev` et les modules `qml6-module-*`. `main` est protégée : tout passe par une pull request aux trois vérifications vertes.
+- **Validation** : `tools/check.py quick|batch|full|status` (voir CLAUDE.md, « Validation method »). Ciblé pendant le développement, complet (conteneur Ubuntu 24.04 de `tools/ci/`, comme la CI) à la fin d'un lot et avant toute fusion ; le rapport dit `TARGETED` ou `FULL VALIDATION PASSED`, lié à l'arbre exact (`status`).
 - Build : `cmake -B build -DGALLEON_WERROR=ON && cmake --build build && ctest --test-dir build` ; aussi `-DGALLEON_SANITIZE=ON`, clang-tidy, `qmllint widgets/*.qml`, `reuse lint` (non installé sur cette machine : à lancer ailleurs avant une publication).
 
 ## 6. Prochaines étapes prioritaires
@@ -119,4 +120,4 @@ Décisions à ne pas perdre :
 
 ## Règle de mise à jour
 
-Après chaque fonctionnalité terminée et testée : la déplacer vers « Implémenté et testé » (avec ses tests et, si confirmé, « sur le module »), retirer ses lignes de « En cours » ou « À développer », et mettre à jour « Prochaines étapes » et la date. Ne pas marquer « sur le module » sans retour de l'utilisateur. Garder ce fichier court : le détail de conception va dans `docs/ROADMAP.md`.
+Avant de la déplacer, les tests ciblés suffisent pour avancer, mais la case « Tests : oui » ne vaut qu'avec une validation complète (`tools/check.py full`) de l'arbre fusionné. Après chaque fonctionnalité terminée et testée : la déplacer vers « Implémenté et testé » (avec ses tests et, si confirmé, « sur le module »), retirer ses lignes de « En cours » ou « À développer », et mettre à jour « Prochaines étapes » et la date. Ne pas marquer « sur le module » sans retour de l'utilisateur. Garder ce fichier court : le détail de conception va dans `docs/ROADMAP.md`.

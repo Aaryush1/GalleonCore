@@ -148,10 +148,10 @@ Le calcul des zones de découpe de la grille de touches est une fonction pure de
 
 ## 10. Application de réglages
 
-Nom de travail : **Galleon-Discover**. Attention, *Discover* est aussi la logithèque de KDE : le nom est à confirmer avant la première publication. Alternatives : Galleon Studio, Galleon Settings, ou un module des Paramètres système (KCM).
+Nom : **Galleon Bosun** (choisi le 19 octobre 2026 ; *Discover* est aussi la logithèque de KDE). Elle vit dans le dossier `bosun/` du même dépôt, pas dans une branche séparée ; les décisions et le plan des onglets sont dans [ROADMAP.md](../ROADMAP.md) (§4).
 
-- Vit dans un dossier `settings/` du même dépôt, pas dans une branche séparée.
-- **Ne lie pas `libgalleon` directement** : elle parle à `galleond` par D-Bus, car un seul processus peut tenir le clavier (keep-alive).
+- **Elle n'ouvre jamais le périphérique** : un seul processus peut tenir le clavier (keep-alive), c'est `galleond`. Bosun lit et modifie `pages.json` (validé par le même analyseur, écrit de façon atomique), dessine les touches avec le même code que le démon et se contente de lier `galleond_core` (donc `libgalleon` pour les constantes du protocole) ; elle n'utilise ni `Transport`, ni `HidTransport`, ni `StreamDeck`. Ce qui doit agir sur le matériel passe par D-Bus (`org.galleoncore.Deck`).
+- Technologie : QML (Qt Quick) avec un petit module C++ (`bosun_core`), testé hors écran (`tests/test_bosun.cpp`).
 
 ### Import et recadrage d'images
 1. Import par glisser-déposer ou sélecteur de fichiers KDE (PNG, JPEG, WebP), décodage avec une limite mémoire (`QImageReader::setAllocationLimit`), puisque le fichier est une donnée externe.
