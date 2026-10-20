@@ -170,3 +170,17 @@ running, starts them again and uninstalls. It checks orderly exits, removal of
 application binaries, and preservation of a personal-file and registry-setting
 sentinel. This runs only on isolated GitHub runners, without a physical Galleon.
 A successful setup test does not replace the owner's hardware validation.
+
+## Initial pages and bundled screensavers
+
+A fresh Windows configuration includes Contrôle, Multimédia, Jeu Vidéo, Système
+and Pavé Numérique. Multimedia discovers common browsers and players from Start
+Menu shortcuts. Games include installed Steam titles and shortcuts in Games/Jeux
+folders; this does not enumerate every third-party store. System keys target
+Windows utilities actually present in System32. The two videos in
+`public/Screensavers` are installed under `share/galleoncore/screensavers` and
+selected by default with the owner's Linux geometry. FFmpeg remains required for
+video decoding, probing and conversion, as described above.
+
+Existing customized pages are preserved. Initial contents apply only when there
+is no pages.json; copying the user's Linux configuration is not required.

@@ -80,3 +80,12 @@ reuse lint
   Keep native CI's running-app upgrade/uninstall and personal-data preservation
   tests. The Windows pipe suffix derives from the current user's SID; the
   PowerShell helper must use the same UTF-8 SHA-256/24-hex contract.
+
+## Windows initial content
+
+`InitialPages` supplies Windows-only initial themes and bundled screensaver paths
+when no user pages file exists. Keep `defaultPagesJson()` as the minimal portable
+fixture and Linux fallback. Never overwrite customized pages to deliver new
+Windows defaults. Start Menu classification is a heuristic; Steam discovery uses
+its installed library metadata. No arbitrary shell commands or URI schemes are
+accepted as Windows app references.

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <InitialPages.h>
+
 #include "BosunBackend.h"
 
 #include "CropMath.h"
@@ -201,7 +203,7 @@ void BosunBackend::reload()
     m_screensaver.clear();
     m_videoFiles.clear();
 
-    QByteArray json = galleond::defaultPagesJson();
+    QByteArray json = galleond::initialPagesJson();
     if (QFileInfo::exists(m_file)) {
         QFile file(m_file);
         if (!file.open(QIODevice::ReadOnly)) {

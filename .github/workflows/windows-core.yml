@@ -83,6 +83,8 @@ jobs:
           $root = (Resolve-Path staging/share/galleoncore/wallpaper).Path
           $picture = Get-ChildItem $root -Recurse -Filter *.jpg | Select-Object -First 1
           if (-not $picture) { throw "No packaged wallpaper" }
+          $savers = @(Get-ChildItem staging/share/galleoncore/screensavers -Filter *.mp4)
+          if ($savers.Count -ne 2) { throw "Missing bundled screensavers" }
           $name = $picture.FullName.Substring($root.Length + 1).Replace('\', '/')
           $env:QT_FORCE_STDERR_LOGGING = "1"
           function Invoke-Preview([string]$Program, [string]$Arguments) {

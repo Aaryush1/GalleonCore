@@ -161,3 +161,8 @@ and `Windows-Setup-SHA256SUMS`. NSIS receives the same staged payload as the ZIP
 CI tests installation, upgrade and uninstall with both native apps running.
 The future exact-version tag uploads the tested Setup alongside the ZIP and
 Linux packages. See `docs/WINDOWS.md` for lifecycle and personal-data handling.
+
+Windows NSIS sources and generated manifests use UTF-8 with BOM. The builder
+also passes `/INPUTCHARSET UTF8` so French installer strings are independent
+of the build runner ANSI code page. Keep this separate from `Unicode true`,
+which selects the installer runtime encoding.

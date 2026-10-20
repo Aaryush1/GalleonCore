@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <InitialPages.h>
+
 #include "PagesController.h"
 
 #include "PageOrder.h"
@@ -13,6 +15,10 @@
 #include <galleon/StreamDeck.h>
 
 #include <QDebug>
+#ifdef Q_OS_WIN
+#include <QDesktopServices>
+#include <QUrl>
+#endif
 #include <QDir>
 #include <QFileDevice>
 #include <QFile>
@@ -49,9 +55,13 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     , m_mediaPresent(isMediaPresent(m_media->state())), m_launcher([](const DesktopApp &app) { return DesktopEntries::launch(app); })
     , m_steamLauncher([](int appid) {
         // A fixed program and one argument made of a whole number: nothing from outside goes in.
+#ifdef Q_OS_WIN
+        return QDesktopServices::openUrl(QUrl(QStringLiteral("steam://rungameid/%1").arg(appid)));
+#else
         const QString steam = QStandardPaths::findExecutable(QStringLiteral("steam"));
         return !steam.isEmpty()
                && QProcess::startDetached(steam, {QStringLiteral("steam://rungameid/%1").arg(appid)});
+#endif
     })
     , m_sourceProvider([](const QString &menuCategory) {
         ArrangeSources sources;
@@ -72,7 +82,7 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     m_lastPressAt.fill(-static_cast<qint64>(ClickAfterMs) * 4);
     
     // The built-in pages: always valid, so there is always something to show.
-    if (const auto fallback = parsePagesConfig(defaultPagesJson()); fallback.config)
+    if (const auto fallback = parsePagesConfig(initialPagesJson()); fallback.config)
         setConfig(*fallback.config);
 
     connect(m_deck, &galleon::StreamDeck::keyPressed, this, &PagesController::onKeyPressed);

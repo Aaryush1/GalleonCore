@@ -64,6 +64,8 @@ function(galleond_add_test name)
     )
 endfunction()
 
+galleond_add_test(test_initialpages)
+
 if(WIN32)
     # Native desktop smoke rendering; Linux service/launcher tests stay on Linux.
     galleond_add_test(test_screenrenderer)

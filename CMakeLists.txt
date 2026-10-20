@@ -31,7 +31,7 @@ endif()
 # Strict warnings, applied to our own targets only (Qt headers are SYSTEM).
 add_library(galleon_warnings INTERFACE)
 if(MSVC)
-    target_compile_options(galleon_warnings INTERFACE /W4 /permissive- $<$<BOOL:${GALLEON_WERROR}>:/WX>)
+    target_compile_options(galleon_warnings INTERFACE /utf-8 /W4 /permissive- $<$<BOOL:${GALLEON_WERROR}>:/WX>)
 else()
     target_compile_options(galleon_warnings INTERFACE
         -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion
@@ -82,6 +82,9 @@ endif()
 if(GALLEON_BUILD_DESKTOP)
 install(DIRECTORY widgets/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/widgets)
 install(DIRECTORY public/wallpaper/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/wallpaper)
+if(WIN32)
+    install(DIRECTORY public/Screensavers/ DESTINATION ${CMAKE_INSTALL_DATADIR}/galleoncore/screensavers FILES_MATCHING PATTERN "*.mp4")
+endif()
 if(NOT WIN32)
 install(FILES tools/udev/70-galleon.rules tools/udev/71-galleon-uinput.rules DESTINATION lib/udev/rules.d)
 install(FILES tools/systemd/galleond.service DESTINATION lib/systemd/user)

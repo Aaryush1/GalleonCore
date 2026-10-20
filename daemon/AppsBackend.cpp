@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <InitialPages.h>
+
 #include "AppsBackend.h"
 
 #include "PagesConfig.h"
@@ -66,7 +68,7 @@ void AppsBackend::setPage(const QString &page)
 
 void AppsBackend::reload()
 {
-    QByteArray json = defaultPagesJson();
+    QByteArray json = initialPagesJson();
     if (QFileInfo::exists(m_file)) {
         QFile file(m_file);
         if (!file.open(QIODevice::ReadOnly)) {
