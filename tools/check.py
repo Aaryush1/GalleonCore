@@ -44,7 +44,7 @@ import tempfile
 from pathlib import Path
 
 IMAGE = "galleoncore-ci:24.04"
-TIDY_DIRS = ("lib/src/", "daemon/", "bosun/", "tests/")
+TIDY_DIRS = ("lib/src/", "daemon/", "bosun/", "tests/", "media/")
 LONG_FUZZ_SECONDS = 60
 CI_FILE = ".github/workflows/ci.yml"
 # The steps of the CI lint job that need no build: replayed as the CI writes them, in a clean

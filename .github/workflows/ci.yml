@@ -54,7 +54,7 @@ jobs:
       - name: Build (generates moc files)
         run: cmake --build build -j
       - name: clang-tidy
-        run: run-clang-tidy -quiet -p build '(lib/src|daemon|bosun|tests)/[^/]+\.cpp$'
+        run: run-clang-tidy -quiet -p build '(lib/src|daemon|bosun|tests|media)/[^/]+\.cpp$'
       - name: qmllint
         run: /usr/lib/qt6/bin/qmllint widgets/*.qml bosun/qml/*.qml daemon/qml/*.qml
       - name: Decisions of tools/check.py

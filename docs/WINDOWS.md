@@ -36,8 +36,7 @@ DLLs must be on PATH when running tests.
 
 ## Remaining desktop work
 
-- Implement `MediaController` through C++/WinRT SMTC, including session changes,
-  bounded thumbnails, capability checks and safe asynchronous lifetime handling.
+- Validate the C++/WinRT SMTC backend with real interactive players.
   The Python backend in [MusicLocal-Discord-Presence](https://github.com/Bit-Scripts/MusicLocal-Discord-Presence/blob/HEAD/backends/smtc.py)
   is a reference; no code from it has been copied in this stage.
 - Replace uinput with a Windows keyboard backend and make key identifiers
@@ -48,3 +47,37 @@ DLLs must be on PATH when running tests.
   hardware, then add Windows deployment and packaging.
 
 These features are not implemented by the portable-library build.
+
+## SMTC backend
+
+`media/SmtcController` implements `MediaController` over a replaceable session
+interface. Its worker owns the native apartment and serializes reads and commands;
+Qt only receives snapshots. The input queue holds at most 16 commands and output
+coalesces into one pending snapshot. Destruction joins the worker before releasing
+state. Native asynchronous operations have a 500 ms wait limit.
+
+`WindowsSmtcSession` uses C++/WinRT and `Windows.Media.Control`. It polls the current
+session once per second (also after commands), which tracks player changes and
+playback/timeline updates without event subscriptions. Session generation and
+identity checks reject commands for a player which has since disappeared or been
+replaced. Metadata text, timelines and thumbnail allocations are bounded. Artwork
+uses one private temporary file replaced atomically, with content hashes in the
+URL to invalidate caches; the existing CoverLoader remains responsible for image
+format and pixel validation.
+
+Implemented commands: play/pause, next, previous, stop, relative seek, restart,
+shuffle and repeat. Each native command checks the player's advertised capability.
+Volume/mute require Core Audio; raising a window and fullscreen are not provided
+by this backend. The Windows media factory exists, but the Linux-only desktop
+build is still gated: this does not enable galleond or Bosun on Windows yet.
+
+The design references MusicLocal-Discord-Presence's SMTC metadata flow and
+[Microsoft's session API](https://learn.microsoft.com/en-us/uwp/api/windows.media.control.globalsystemmediatransportcontrolssession).
+No Python, HTTP VLC fallback or external source code is incorporated. Players
+which do not expose a Windows media session are not discovered.
+
+Tests inject a fake session to cover changes/disappearance, commands, metadata
+sanitization, timeline bounds, failure/recovery and worker shutdown on both Linux
+and Windows. Windows also links and starts the native adapter in headless CI;
+actual control of Spotify/VLC/browser sessions still needs interactive validation
+on Windows, followed by testing with the physical keyboard.
