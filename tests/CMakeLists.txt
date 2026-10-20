@@ -6,9 +6,11 @@ find_package(Qt6 REQUIRED COMPONENTS Test)
 # The tests put fake music players and services on the D-Bus session bus. Run on
 # the user's own bus, they would be seen by a galleond that is running (it took
 # them for real players and changed theme). A private bus keeps them apart.
+if(GALLEON_BUILD_DESKTOP)
 find_program(GALLEON_DBUS_RUN_SESSION dbus-run-session)
 if(NOT GALLEON_DBUS_RUN_SESSION)
     message(WARNING "dbus-run-session not found: the tests will use the session bus of the user running them")
+endif()
 endif()
 
 function(galleon_add_test name)
@@ -27,6 +29,10 @@ endfunction()
 galleon_add_test(test_layout)
 galleon_add_test(test_protocol)
 galleon_add_test(test_streamdeck FakeTransport.h)
+
+if(NOT GALLEON_BUILD_DESKTOP)
+    return()
+endif()
 
 # Daemon logic. The source folders let the tests use the real widget and the
 # project's wallpapers.

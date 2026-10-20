@@ -3,7 +3,7 @@
 
 #include "AppsBackend.h"
 #include "DesktopEntries.h"
-#include "MprisController.h"
+#include "PlatformBackends.h"
 #include "PagesConfig.h"
 #include "PagesController.h"
 #include "KeyInjector.h"
@@ -678,10 +678,10 @@ int main(int argc, char *argv[])
         return 1;
     // The track screen sits next to the wallpaper widget (same folder).
     galleond::ScreenRenderer nowPlayingRenderer(QFileInfo(widgetFile).absolutePath() + QStringLiteral("/NowPlaying.qml"));
-    std::unique_ptr<galleond::MprisController> media;
+    std::unique_ptr<galleond::MediaController> media;
     const bool usePages = !parser.isSet(noPagesOption) && !parser.isSet(testKeysOption);
     if (usePages)
-        media = std::make_unique<galleond::MprisController>();
+        media = galleond::createMediaController();
     // Pictures of local videos (FFmpeg), kept in the user's cache folder.
     std::unique_ptr<galleond::VideoThumbnails> thumbnails;
     if (usePages)
@@ -696,15 +696,15 @@ int main(int argc, char *argv[])
     else if (!nowPlayingRenderer.isValid())
         qWarning() << "galleond: NowPlaying.qml could not be loaded: the screen keeps the wallpaper";
 
-    // The button pages: keys and dials drive the music player (MPRIS).
+    // The button pages: keys and dials drive the platform media controller.
     // The virtual keypad for `key` actions: created only when a pages file uses one.
-    galleond::UinputKeyboard keypad;
+    auto keypad = galleond::createKeyInjector();
     std::unique_ptr<galleond::PagesController> pages;
     if (usePages) {
         const QString pagesFile = defaultPagesFile(parser.value(pagesOption));
         pages = std::make_unique<galleond::PagesController>(&deck, media.get(),
                                                             galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
-        pages->setKeyInjector(&keypad);
+        pages->setKeyInjector(keypad.get());
         // The use of applications, for the pages that put the most used first.
         pages->setUsageFile(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
                             + QStringLiteral("/galleoncore/usage.json"));
