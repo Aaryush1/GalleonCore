@@ -264,11 +264,74 @@ Window {
         }
     }
 
+    // A small button for the controls of the settings.
+    component Pill: Rectangle {
+        id: pill
+        property alias text: label.text
+        property bool danger: false
+        property bool selected: false // the value now in force, among several
+        property bool enabledLook: true
+        signal clicked
+        width: Math.max(34, label.implicitWidth + 24)
+        height: 32
+        radius: 6
+        color: pill.selected ? "#2e7d32" : !pill.enabledLook ? "#2a2c30" : (area.containsMouse ? (pill.danger ? "#7a3b3b" : "#3a3f47") : (pill.danger ? "#5b3a3a" : "#2e3238"))
+        Text {
+            id: label
+            anchors.centerIn: parent
+            color: pill.enabledLook ? "white" : "#6d737c"
+            font.pixelSize: 14
+        }
+        MouseArea {
+            id: area
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: pill.enabledLook
+            onClicked: pill.clicked()
+        }
+        Accessible.role: Accessible.Button
+        Accessible.name: label.text
+    }
+
+    // A value changed by two buttons, in steps, between two limits.
+    component Stepper: Row {
+        id: stepper
+        property int value: 0
+        property int from: 0
+        property int to: 10
+        property int step: 1
+        property string unit: ""
+        signal picked(int value)
+        spacing: 8
+        Pill {
+            text: "−"
+            enabledLook: stepper.value > stepper.from
+            onClicked: stepper.picked(Math.max(stepper.from, stepper.value - stepper.step))
+        }
+        Text {
+            width: 90
+            height: 32
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: "white"
+            font.pixelSize: 16
+            font.bold: true
+            text: stepper.value + (stepper.unit !== "" ? " " + stepper.unit : "")
+        }
+        Pill {
+            text: "+"
+            enabledLook: stepper.value < stepper.to
+            onClicked: stepper.picked(Math.min(stepper.to, stepper.value + stepper.step))
+        }
+    }
+
     // ---- the screensavers: the settings, then the videos with what is known of each
     Flickable {
         id: saverPage
         visible: win.tab.kind === "screensavers" && win.backend.problem === ""
         readonly property var saver: win.backend.screensaver
+        property string message: ""
+        property bool messageIsError: false
         x: 30
         y: 84
         width: win.width - 60
@@ -277,6 +340,12 @@ Window {
         contentHeight: saverColumn.height
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+
+        // What an edit answered: nothing when it was done, else why not.
+        function answered(error, done) {
+            message = error === "" ? done : error
+            messageIsError = error !== ""
+        }
 
         Column {
             id: saverColumn
@@ -299,10 +368,91 @@ Window {
                         return qsTr("Off: the measures of the module (screen, keys, gaps) are missing from the pages file, so a video cannot be spread over it.")
                     if (saverPage.saver.videos.length === 0)
                         return qsTr("Off: no video.")
-                    return qsTr("On: starts after %1 minute(s) without use, at %2 images per second%3.")
-                        .arg(saverPage.saver.idleMinutes).arg(saverPage.saver.fps)
-                        .arg(saverPage.saver.whilePlaying ? qsTr(", even while a track plays") : qsTr(", never while a track plays"))
+                    return qsTr("On.")
                 }
+            }
+
+            // The settings.
+            Grid {
+                columns: 2
+                columnSpacing: 20
+                rowSpacing: 12
+                verticalItemAlignment: Grid.AlignVCenter
+
+                Text {
+                    color: "#c9ced6"
+                    font.pixelSize: 14
+                    text: qsTr("Starts after")
+                }
+                Row {
+                    spacing: 14
+                    Stepper {
+                        value: saverPage.saver.idleMinutes
+                        from: 1
+                        to: 720
+                        unit: qsTr("min")
+                        onPicked: v => saverPage.answered(win.backend.setIdleMinutes(v), qsTr("Saved."))
+                    }
+                    Repeater {
+                        model: [1, 2, 5, 10, 30, 60]
+                        delegate: Pill {
+                            required property int modelData
+                            text: modelData
+                            selected: saverPage.saver.idleMinutes === modelData
+                            onClicked: saverPage.answered(win.backend.setIdleMinutes(modelData), qsTr("Saved."))
+                        }
+                    }
+                }
+
+                Text {
+                    color: "#c9ced6"
+                    font.pixelSize: 14
+                    text: qsTr("Images per second")
+                }
+                Row {
+                    spacing: 14
+                    Stepper {
+                        value: saverPage.saver.fps
+                        from: 1
+                        to: 20
+                        onPicked: v => saverPage.answered(win.backend.setFps(v), qsTr("Saved."))
+                    }
+                    Text {
+                        height: 32
+                        verticalAlignment: Text.AlignVCenter
+                        color: "#7d8591"
+                        font.pixelSize: 12
+                        text: qsTr("The module shows about 20 at most, screen and keys together.")
+                    }
+                }
+
+                Text {
+                    color: "#c9ced6"
+                    font.pixelSize: 14
+                    text: qsTr("While a track plays")
+                }
+                Row {
+                    spacing: 8
+                    Pill {
+                        text: qsTr("Never")
+                        selected: !saverPage.saver.whilePlaying
+                        onClicked: saverPage.answered(win.backend.setWhilePlaying(false), qsTr("Saved."))
+                    }
+                    Pill {
+                        text: qsTr("Allowed")
+                        selected: saverPage.saver.whilePlaying
+                        onClicked: saverPage.answered(win.backend.setWhilePlaying(true), qsTr("Saved."))
+                    }
+                }
+            }
+
+            Text {
+                width: parent.width
+                visible: saverPage.message !== ""
+                color: saverPage.messageIsError ? "#ff8a80" : "#9be7a0"
+                font.pixelSize: 13
+                wrapMode: Text.Wrap
+                text: saverPage.message
             }
             Text {
                 visible: saverPage.saver.probeMissing
@@ -318,7 +468,7 @@ Window {
                 color: "#9aa0a6"
                 font.pixelSize: 13
                 wrapMode: Text.Wrap
-                text: qsTr("A video is cut to %1 pixels: the screen and the 12 keys seen as one picture. The module shows about 20 images per second at most.").arg(saverPage.saver.canvas)
+                text: qsTr("A video is cut to %1 pixels: the screen and the 12 keys seen as one picture.").arg(saverPage.saver.canvas)
             }
 
             Repeater {
@@ -326,10 +476,17 @@ Window {
                 delegate: Rectangle {
                     id: videoRow
                     required property var modelData
+                    property bool confirming: false
                     width: saverColumn.width
                     height: Math.max(150, info.height + 28)
                     radius: 10
                     color: "#23252a"
+
+                    Timer {
+                        id: forget
+                        interval: 4000
+                        onTriggered: videoRow.confirming = false
+                    }
 
                     Rectangle {
                         id: pictureFrame
@@ -359,15 +516,39 @@ Window {
                         id: info
                         x: 114
                         y: 14
-                        width: parent.width - 130
+                        width: parent.width - 130 - removeButton.width
                         spacing: 6
-                        Text {
+
+                        // The title shown while the screensaver runs; empty: the name of the file.
+                        Rectangle {
                             width: parent.width
-                            elide: Text.ElideRight
-                            color: "white"
-                            font.pixelSize: 16
-                            font.bold: true
-                            text: videoRow.modelData.title !== "" ? videoRow.modelData.title : videoRow.modelData.name
+                            height: 34
+                            radius: 6
+                            color: "#16181b"
+                            border.width: 1
+                            border.color: title.activeFocus ? "#4caf50" : "#44ffffff"
+                            TextInput {
+                                id: title
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                color: "white"
+                                font.pixelSize: 15
+                                font.bold: true
+                                clip: true
+                                maximumLength: 60
+                                text: videoRow.modelData.title
+                                onEditingFinished: {
+                                    if (text.trim() !== videoRow.modelData.title)
+                                        saverPage.answered(win.backend.setVideoTitle(videoRow.modelData.index, text), qsTr("Title saved."))
+                                }
+                                Accessible.name: qsTr("Title of the video")
+                                Text {
+                                    visible: title.text === "" && !title.activeFocus
+                                    color: "#7d8591"
+                                    font.pixelSize: 15
+                                    text: videoRow.modelData.name
+                                }
+                            }
                         }
                         Text {
                             width: parent.width
@@ -395,6 +576,23 @@ Window {
                             }
                         }
                     }
+                    Pill {
+                        id: removeButton
+                        anchors.right: parent.right
+                        anchors.rightMargin: 14
+                        y: 14
+                        danger: true
+                        text: videoRow.confirming ? qsTr("Click again to remove") : qsTr("Remove")
+                        onClicked: {
+                            if (!videoRow.confirming) {
+                                videoRow.confirming = true
+                                forget.restart()
+                                return
+                            }
+                            saverPage.answered(win.backend.removeVideo(videoRow.modelData.index),
+                                               saverPage.saver.videos.length <= 1 ? qsTr("Removed: no video is left, the screensaver is off.") : qsTr("Removed from the list (the file is kept)."))
+                        }
+                    }
                 }
             }
 
@@ -403,7 +601,7 @@ Window {
                 color: "#7d8591"
                 font.pixelSize: 13
                 wrapMode: Text.Wrap
-                text: qsTr("Reading only for now: changing the settings and adding a video come next. The videos are listed in the “screensaver” part of %1.").arg(win.backend.file)
+                text: qsTr("Adding a video comes next. Every change is saved at once in %1 (the previous version is kept as .bak) and galleond reads it by itself.").arg(win.backend.file)
             }
         }
     }

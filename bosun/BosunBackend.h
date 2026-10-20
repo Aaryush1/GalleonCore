@@ -4,6 +4,7 @@
 #pragma once
 
 #include <PagesConfig.h>
+#include <PagesEditor.h>
 #include <TileRenderer.h>
 #include <VideoProbe.h>
 #include <VideoThumbnails.h>
@@ -71,6 +72,14 @@ public:
     Q_INVOKABLE [[nodiscard]] QString autoFill(const QString &page) const;
     Q_INVOKABLE void reload();
 
+    // The edits of the screensaver tab. Each returns "" when it is done (the file is written
+    // with a backup and read again at once), else why it was refused; nothing is written then.
+    Q_INVOKABLE [[nodiscard]] QString setIdleMinutes(int minutes);
+    Q_INVOKABLE [[nodiscard]] QString setFps(int fps);
+    Q_INVOKABLE [[nodiscard]] QString setWhilePlaying(bool whilePlaying);
+    Q_INVOKABLE [[nodiscard]] QString setVideoTitle(int index, const QString &title);
+    Q_INVOKABLE [[nodiscard]] QString removeVideo(int index);
+
     // The 160 x 160 picture of key `key` of `page`; a blank key when there is none.
     [[nodiscard]] QPixmap tile(const QString &page, int key) const;
 
@@ -79,6 +88,7 @@ Q_SIGNALS:
 
 private:
     void watchFile();
+    [[nodiscard]] QString applied(const galleond::EditResult &result);
     void buildScreensaver();
     void askAboutVideos();
     void nextThumbnail();
