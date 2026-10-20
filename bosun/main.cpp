@@ -39,7 +39,13 @@ int main(int argc, char *argv[])
     const QCommandLineOption tabOption(QStringLiteral("tab"), QStringLiteral("Open on this tab (0 is the first)."), QStringLiteral("n"));
     const QCommandLineOption keyOption(QStringLiteral("key"), QStringLiteral("Open with this key of the page selected (0 is the first)."),
                                        QStringLiteral("n"));
+    const QCommandLineOption inspectOption(QStringLiteral("inspect"),
+                                           QStringLiteral("Open the Screensavers tab with this video file chosen (to be added)."),
+                                           QStringLiteral("file"));
+    const QCommandLineOption heightOption(QStringLiteral("height"), QStringLiteral("Open with a window this high, in pixels."), QStringLiteral("n"));
     parser.addOption(pagesOption);
+    parser.addOption(heightOption);
+    parser.addOption(inspectOption);
     parser.addOption(tabOption);
     parser.addOption(keyOption);
     parser.addOption(shotOption);
@@ -49,7 +55,7 @@ int main(int argc, char *argv[])
                                   ? QDir::current().absoluteFilePath(parser.value(pagesOption))
                                   : QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
                                         + QStringLiteral("/galleoncore/pages.json");
-    const bosun::BosunBackend backend(pagesFile);
+    bosun::BosunBackend backend(pagesFile);
 
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
@@ -65,10 +71,17 @@ int main(int argc, char *argv[])
         const int value = parser.value(option).toInt(&ok);
         return parser.isSet(option) && ok && value >= 0 ? std::optional<int>(value) : std::nullopt;
     };
+    if (const auto height = number(heightOption))
+        root->setProperty("height", *height);
     if (const auto tab = number(tabOption))
         root->setProperty("currentTab", *tab);
     if (const auto key = number(keyOption))
         root->setProperty("selectedKey", *key);
+
+    if (parser.isSet(inspectOption)) {
+        backend.inspect(QDir::current().absoluteFilePath(parser.value(inspectOption)));
+        root->setProperty("currentTab", root->property("tabs").toList().size() - 1);
+    }
 
     if (parser.isSet(shotOption)) {
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());

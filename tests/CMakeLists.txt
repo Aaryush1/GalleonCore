@@ -61,3 +61,5 @@ galleond_add_test(test_pageorder)
 # Galleon Bosun, the settings window.
 galleon_add_test(test_bosun)
 target_link_libraries(test_bosun PRIVATE bosun_core)
+galleon_add_test(test_videoadvice)
+target_link_libraries(test_videoadvice PRIVATE bosun_core)

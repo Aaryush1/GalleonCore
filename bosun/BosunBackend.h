@@ -38,6 +38,8 @@ class BosunBackend : public QObject
     Q_PROPERTY(int revision READ revision NOTIFY changed)
     // The screensaver of the file, with what is known of each video (see screensaver()).
     Q_PROPERTY(QVariantMap screensaver READ screensaver NOTIFY changed)
+    // The video being looked at before it is added (see inspect()); empty map when none.
+    Q_PROPERTY(QVariantMap candidate READ candidate NOTIFY changed)
 
 public:
     // The programs and the folder the screensaver tab uses; the defaults are the ones of galleond.
@@ -64,6 +66,11 @@ public:
     // `notes` the words of what will not be quite right (cut, enlarged, no file).
     [[nodiscard]] QVariantMap screensaver() const { return m_screensaver; }
 
+    // {path, name, state, details, notes, thumbnail, canAdd, why, suggestedTitle}. `state` is
+    // "checking" (ffprobe has not answered), "ready" or "unusable"; `why` says why it cannot be
+    // added (not a video, list full, already in the list); `notes` as for a video of the list.
+    [[nodiscard]] QVariantMap candidate() const { return m_candidate; }
+
     // The 12 keys of `page`, as written in the file: [{index, label, kind, detail, empty}].
     // Empty list for a page that does not exist.
     Q_INVOKABLE [[nodiscard]] QVariantList keys(const QString &page) const;
@@ -80,6 +87,12 @@ public:
     Q_INVOKABLE [[nodiscard]] QString setVideoTitle(int index, const QString &title);
     Q_INVOKABLE [[nodiscard]] QString removeVideo(int index);
 
+    // Looks at a video the user chose (a path or a file:// address) without changing anything.
+    Q_INVOKABLE void inspect(const QString &pathOrUrl);
+    // Adds the video being looked at to the list, as it is; "" when done, else why not.
+    Q_INVOKABLE [[nodiscard]] QString addCandidate(const QString &title);
+    Q_INVOKABLE void clearCandidate();
+
     // The 160 x 160 picture of key `key` of `page`; a blank key when there is none.
     [[nodiscard]] QPixmap tile(const QString &page, int key) const;
 
@@ -90,6 +103,7 @@ private:
     void watchFile();
     [[nodiscard]] QString applied(const galleond::EditResult &result);
     void buildScreensaver();
+    void buildCandidate();
     void askAboutVideos();
     void nextThumbnail();
     [[nodiscard]] const galleond::Page *pageNamed(const QString &page) const;
@@ -105,6 +119,10 @@ private:
     galleond::VideoProbe m_probe;
     galleond::VideoThumbnails m_thumbnails;
     QVariantMap m_screensaver;
+    QString m_candidatePath; // resolved; empty when nothing is being looked at
+    QString m_candidateProblem; // why what was chosen is not a usable file, when it is not
+    QString m_candidateChosen;  // what was chosen, as the user wrote it
+    QVariantMap m_candidate;
     QStringList m_videoFiles;                         // the resolved path of each video, "" when it is not readable
     QHash<QString, galleond::VideoInfo> m_videoInfo;   // by path
     QHash<QString, QString> m_videoPictures;           // by path

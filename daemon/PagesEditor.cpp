@@ -122,6 +122,15 @@ void storeVideos(QJsonObject &saver, const QJsonArray &entries)
     saver.insert(QStringLiteral("video"), written);
 }
 
+// The place a path in the pages file points at, to tell that two spellings are one file.
+QString placeOf(const QString &path, const QString &pagesFile)
+{
+    QString text = path;
+    if (text.startsWith(QLatin1String("~/")))
+        text = QDir::homePath() + text.mid(1);
+    return QDir::cleanPath(QDir::isRelativePath(text) ? QFileInfo(pagesFile).absolutePath() + QLatin1Char('/') + text : text);
+}
+
 bool validIndex(const QJsonArray &entries, int index, EditResult &error)
 {
     if (index >= 0 && index < entries.size())
@@ -219,6 +228,28 @@ EditResult PagesEditor::setScreensaverVideoTitle(const QString &file, int index,
         else
             item.insert(QStringLiteral("title"), title.trimmed());
         entries.replace(index, item);
+        storeVideos(saver, entries);
+        return EditResult{.ok = true, .errors = {}};
+    });
+}
+
+EditResult PagesEditor::addScreensaverVideo(const QString &file, const QString &video, const QString &title)
+{
+    if (video.trimmed().isEmpty())
+        return failure(QStringLiteral("no video file was given"));
+    return editScreensaver(file, [&](QJsonObject &saver) {
+        QJsonArray entries = videoEntries(saver);
+        if (entries.size() >= MaxScreensaverVideos)
+            return failure(QStringLiteral("the screensaver can show %1 videos at most: remove one first").arg(MaxScreensaverVideos));
+        const QString place = placeOf(video, file);
+        for (const auto &entry : std::as_const(entries)) {
+            if (placeOf(entry.toObject().value(QStringLiteral("file")).toString(), file) == place)
+                return failure(QStringLiteral("this video is already in the list"));
+        }
+        QJsonObject item{{QStringLiteral("file"), video}};
+        if (!title.trimmed().isEmpty())
+            item.insert(QStringLiteral("title"), title.trimmed());
+        entries.append(item);
         storeVideos(saver, entries);
         return EditResult{.ok = true, .errors = {}};
     });
