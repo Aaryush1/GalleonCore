@@ -18,6 +18,8 @@ Window {
 
     property int currentTab: 0
     property int selectedKey: -1
+    // The last theme looked at: its colour is the keyboard tab's (the left dial of the module shows it).
+    property int lastTheme: 0
 
     title: qsTr("Galleon Bosun")
     width: 1240
@@ -29,15 +31,19 @@ Window {
 
     // One tab per theme, then the fixed ones.
     readonly property var tabs: backend.themes.map(t => ({title: t.name, kind: "theme", page: t.page, color: t.color})).concat([
-        {title: qsTr("Keyboard"), kind: "keyboard", page: "", color: "#9aa0a6"},
+        {title: qsTr("Keyboard"), kind: "keyboard", page: "", color: lastTheme < backend.themes.length ? backend.themes[lastTheme].color : "#9aa0a6"},
         {title: qsTr("Wallpapers"), kind: "wallpapers", page: "", color: "#ff00ff"},
-        {title: qsTr("Screensavers"), kind: "screensavers", page: "", color: "#9aa0a6"}
+        {title: qsTr("Screensavers"), kind: "screensavers", page: "", color: "#b388ff"}
     ])
     readonly property var tab: tabs[Math.min(currentTab, tabs.length - 1)]
     readonly property var keys: tab.kind === "theme" ? backend.keys(tab.page) : []
     readonly property var selected: selectedKey >= 0 && selectedKey < keys.length ? keys[selectedKey] : null
 
     onTabChanged: selectedKey = -1
+    onCurrentTabChanged: {
+        if (currentTab < backend.themes.length)
+            lastTheme = currentTab
+    }
 
     // ---- the tab bar
     Row {
