@@ -7,6 +7,8 @@
 #include <QTest>
 
 #include <atomic>
+#include <chrono>
+#include <thread>
 #include <limits>
 #include <mutex>
 #include <stdexcept>
@@ -21,6 +23,8 @@ struct SessionState
     SmtcSnapshot snapshot;
     std::vector<SmtcCommand> commands;
     bool fail = false;
+    std::atomic<bool> blockCommand = false;
+    std::atomic<bool> enteredCommand = false;
     std::atomic<bool> started = false;
     std::atomic<bool> stopped = false;
 };
@@ -29,7 +33,7 @@ class FakeSession final : public SmtcSession
 public:
     explicit FakeSession(std::shared_ptr<SessionState> state) : m_state(std::move(state)) {}
     void start() override { m_state->started = true; }
-    void stop() override { m_state->stopped = true; }
+    void stop() noexcept override { m_state->stopped = true; }
     SmtcSnapshot read() override
     {
         const std::lock_guard lock(m_state->mutex);
@@ -38,6 +42,9 @@ public:
     }
     void command(const SmtcCommand &command) override
     {
+        m_state->enteredCommand = true;
+        while (m_state->blockCommand.load())
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         const std::lock_guard lock(m_state->mutex);
         m_state->commands.push_back(command);
     }
@@ -170,6 +177,32 @@ private Q_SLOTS:
             state->fail = false;
         }
         QTRY_COMPARE(controller.state(), MediaController::State::Playing);
+    }
+
+    void aSlowNativeCommandDoesNotBlockQtOrGrowTheQueue()
+    {
+        auto state = std::make_shared<SessionState>();
+        state->snapshot = playing();
+        SmtcController controller(std::make_unique<FakeSession>(state));
+        struct Unblock
+        {
+            std::shared_ptr<SessionState> state;
+            ~Unblock() { state->blockCommand = false; }
+        } unblock{state}; // releases the worker even if a Qt assertion returns early
+        QTRY_COMPARE(controller.state(), MediaController::State::Playing);
+        state->blockCommand = true;
+        controller.next();
+        QTRY_VERIFY(state->enteredCommand.load());
+        for (int i = 0; i < 100; ++i) controller.next();
+        bool eventDelivered = false;
+        QMetaObject::invokeMethod(&controller, [&] { eventDelivered = true; }, Qt::QueuedConnection);
+        QTRY_VERIFY(eventDelivered);
+        state->blockCommand = false;
+        auto count = [&] {
+            const std::lock_guard lock(state->mutex);
+            return state->commands.size();
+        };
+        QTRY_COMPARE(count(), std::size_t{17}); // one executing, at most sixteen waiting
     }
 
     void shutdownJoinsTheWorkerAndStopsTheSession()

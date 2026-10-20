@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Paul Woisard
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-name: Windows portable core
+name: Windows core and SMTC
 on:
   push:
     branches: [main, codex/windows-port, codex/windows-smtc]

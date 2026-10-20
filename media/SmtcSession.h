@@ -34,7 +34,7 @@ class SmtcSession
 public:
     virtual ~SmtcSession() = default;
     virtual void start() {}
-    virtual void stop() {}
+    virtual void stop() noexcept {}
     [[nodiscard]] virtual SmtcSnapshot read() = 0;
     virtual void command(const SmtcCommand &command) = 0;
 };

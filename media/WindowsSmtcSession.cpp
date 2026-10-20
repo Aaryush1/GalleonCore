@@ -55,7 +55,7 @@ public:
             throw std::runtime_error("SMTC apartment initialization failed");
         }
     }
-    void stop() override
+    void stop() noexcept override
     {
         m_current = nullptr;
         m_manager = nullptr;
@@ -190,7 +190,7 @@ private:
             const auto size = stream.Size();
             constexpr std::uint32_t MaxBytes = 2 * 1024 * 1024;
             if (size == 0 || size > MaxBytes) return {};
-            winrt::Windows::Storage::Streams::DataReader reader(stream);
+            winrt::Windows::Storage::Streams::DataReader reader(stream.GetInputStreamAt(0));
             const auto count = static_cast<std::uint32_t>(size);
             if (awaitResult(reader.LoadAsync(count)) != count) return {};
             QByteArray bytes(static_cast<qsizetype>(count), Qt::Uninitialized);
