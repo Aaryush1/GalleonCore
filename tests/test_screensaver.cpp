@@ -20,7 +20,6 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
-#include <QProcess>
 
 #include <memory>
 
