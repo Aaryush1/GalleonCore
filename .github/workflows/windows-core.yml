@@ -66,6 +66,8 @@ jobs:
           windeployqt --release --no-translations --qmldir daemon/qml staging/bin/galleond.exe
           if ($LASTEXITCODE -ne 0) { throw "Daemon deployment failed" }
           Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/hidapi.dll" staging/bin/
+          # windeployqt selects qwindows; the isolated smoke tests also need qoffscreen.
+          Copy-Item "$env:QT_ROOT_DIR/plugins/platforms/qoffscreen.dll" staging/bin/platforms/
           "[Paths]`nPrefix=.`nPlugins=.`nQmlImports=qml" | Set-Content staging/bin/qt.conf
       - name: Smoke test installed desktop without hardware
         shell: pwsh
