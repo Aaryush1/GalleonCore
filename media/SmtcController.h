@@ -31,11 +31,12 @@ public:
     void toggleShuffle() override;
     void cycleRepeat() override;
     void restartTrack() override;
-    // SMTC has no volume API. Core Audio is a separate future backend.
+    // System output volume/mute use Core Audio, independently of the player.
     void changeVolume(int percent) override;
+    void toggleMute() override;
 
 private:
-    void enqueue(SmtcAction action, int seconds = 0);
+    void enqueue(SmtcAction action, int value = 0);
     void run(std::stop_token stop);
     void publish(SmtcSnapshot snapshot);
     void deliver();

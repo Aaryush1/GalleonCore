@@ -19,11 +19,11 @@ struct SmtcSnapshot
     std::uint64_t session = 0;
 };
 
-enum class SmtcAction { PlayPause, Next, Previous, Stop, Seek, Shuffle, Repeat, Restart };
+enum class SmtcAction { PlayPause, Next, Previous, Stop, Seek, Shuffle, Repeat, Restart, Volume, Mute };
 struct SmtcCommand
 {
     SmtcAction action;
-    int seconds = 0;
+    int value = 0; // signed seconds for Seek, percentage points for Volume
     std::uint64_t session = 0;
 };
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "SmtcSession.h"
+#include "AudioEndpoint.h"
 #include "SmtcController.h"
 #include "PlatformBackends.h"
 
@@ -127,12 +128,23 @@ public:
     void command(const SmtcCommand &command) override
     {
         try {
+            if (command.action == SmtcAction::Volume || command.action == SmtcAction::Mute) {
+                auto endpoint = createDefaultAudioEndpoint();
+                if (command.action == SmtcAction::Volume)
+                    changeEndpointVolume(*endpoint, command.value);
+                else
+                    toggleEndpointMute(*endpoint);
+                return;
+            }
             if (!m_manager || !m_current || command.session != m_generation
                 || m_manager.GetCurrentSession() != m_current)
                 return;
             const auto info = m_current.GetPlaybackInfo();
             const auto controls = info.Controls();
             switch (command.action) {
+            case SmtcAction::Volume:
+            case SmtcAction::Mute:
+                break; // handled before the player/session guard
             case SmtcAction::PlayPause:
                 if (controls.IsPlayPauseToggleEnabled())
                     (void)awaitResult(m_current.TryTogglePlayPauseAsync());
@@ -158,7 +170,7 @@ public:
                         position = low;
                     } else {
                         long double target = static_cast<long double>(position)
-                                           + static_cast<long double>(command.seconds) * 10000000.0L;
+                                           + static_cast<long double>(command.value) * 10000000.0L;
                         const auto updated = timeline.LastUpdatedTime();
                         const auto now = winrt::clock::now();
                         if (info.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing
