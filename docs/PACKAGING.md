@@ -133,8 +133,8 @@ is implied by container checks.
 
 The complete recipes, CI matrix, release gates, account setup and secret names are
 in [the distribution guide](../tools/packaging/README.md). Builds run on Ubuntu
-24.04/26.04, Fedora 43/44 and Arch Linux; the AppImage uses the Ubuntu 24.04 / Qt
+24.04/26.04, Fedora 43/44/45/rawhide and Arch Linux; the AppImage uses the Ubuntu 24.04 / Qt
 6.4 baseline. Publication targets are `ppa:paulwoisard/galleoncore`,
-`paulwoisard/galleoncore` on COPR and `galleoncore` on AUR. Native source builds
+`paullux/GalleonCore` on COPR and `galleoncore` on AUR. Native source builds
 run ctest before packaging; no development/test files are installed. Account
 creation and publication credentials are separate from recipe validation.

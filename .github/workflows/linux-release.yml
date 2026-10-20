@@ -50,7 +50,7 @@ jobs:
           gh release upload "$TAG" artifacts/linux-sources/*.tar.gz artifacts/linux-sources/SHA256SUMS \
             artifacts/aur/PKGBUILD artifacts/aur/.SRCINFO artifacts/aur/*.pkg.tar.zst \
             artifacts/debian-noble/*.deb artifacts/debian-resolute/*.deb \
-            artifacts/rpm-fedora43/*.rpm artifacts/rpm-fedora44/*.rpm \
+            artifacts/rpm-fedora*/*.rpm \
             artifacts/appimage/*.AppImage artifacts/appimage/AppImage-SHA256SUMS \
             artifacts/appimage/GalleonCore-host-integration.tar.gz --clobber
   ppa:
@@ -74,7 +74,8 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$PPA_GPG_PRIVATE_KEY" && test -n "$PPA_SSH_PRIVATE_KEY"
-          export GNUPGHOME=$(mktemp -d)
+          GNUPGHOME=$(mktemp -d)
+          export GNUPGHOME
           trap 'gpgconf --kill gpg-agent || true; rm -rf "$GNUPGHOME"; ssh-agent -k || true' EXIT
           printf '%s\n' "$PPA_GPG_PRIVATE_KEY" | gpg --batch --import
           fingerprint=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
@@ -112,7 +113,7 @@ jobs:
           COPR_LOGIN: ${{ secrets.COPR_LOGIN }}
           COPR_USERNAME: ${{ secrets.COPR_USERNAME }}
           COPR_TOKEN: ${{ secrets.COPR_TOKEN }}
-          COPR_PROJECT: ${{ vars.COPR_PROJECT || 'paulwoisard/galleoncore' }}
+          COPR_PROJECT: ${{ vars.COPR_PROJECT || 'paullux/GalleonCore' }}
         run: |
           set -eu
           test -n "$COPR_LOGIN" && test -n "$COPR_USERNAME" && test -n "$COPR_TOKEN"

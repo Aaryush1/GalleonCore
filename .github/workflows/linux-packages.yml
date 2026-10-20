@@ -87,7 +87,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fedora: ['43', '44']
+        fedora: ['43', '44', '45', 'rawhide']
     container: fedora:${{ matrix.fedora }}
     steps:
       - name: Install tools
@@ -143,6 +143,8 @@ jobs:
           # Keep the publishable recipe; check the exact source bytes using a local mirror.
           cp PKGBUILD PKGBUILD.release
           cp "$GITHUB_WORKSPACE"/build-deb/dist/*.tar.gz .
+          # These variables must be expanded by makepkg, not by this preparation step.
+          # shellcheck disable=SC2016
           printf '\nsource=("$pkgname-$pkgver.tar.gz")\n' >> PKGBUILD
           chown -R builder:builder /tmp/aur
           su builder -c 'cd /tmp/aur && makepkg --noconfirm'
@@ -175,7 +177,8 @@ jobs:
         run: |
           mkdir build-deb/extracted
           cd build-deb/extracted
-          ../appimage/*.AppImage --appimage-extract >/dev/null
+          images=(../appimage/*.AppImage)
+          "${images[0]}" --appimage-extract >/dev/null
           QT_QPA_PLATFORM=offscreen squashfs-root/AppRun --screenshot "$PWD/bosun.png"
           test -s bosun.png
       - name: Bundle host integration scripts and rules

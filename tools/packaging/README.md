@@ -19,7 +19,7 @@ runs, and is reusable by the release workflow:
 | Target | Build and verification |
 | --- | --- |
 | PPA/Debian | Ubuntu 24.04 noble and 26.04 resolute: debhelper build, all ctest tests, install, both `--help`, remove; unsigned source package retained |
-| COPR/RPM | Fedora 43 and 44: rpmbuild including all ctest tests, binary RPM and SRPM, install, both `--help`, remove |
+| COPR/RPM | Fedora 43, 44, 45 and rawhide: rpmbuild including all ctest tests, binary RPM and SRPM, install, both `--help`, remove |
 | AUR | Arch Linux: unprivileged makepkg with check(), install and both `--help`; PKGBUILD and generated .SRCINFO retained |
 | AppImage | Ubuntu 24.04 / Qt 6.4 baseline: bundle Qt/QML and both programs, both `--help`, extracted offscreen Bosun rendering |
 
@@ -47,24 +47,30 @@ warning suppression is applied by the package recipes.
 ## First-time publication setup
 
 Agreed destinations: `ppa:paulwoisard/galleoncore`,
-`paulwoisard/galleoncore` on COPR, and `galleoncore` on AUR.
+`paullux/GalleonCore` on COPR, and `galleoncore` on AUR.
 They must exist and the CI account must have upload rights before enabling uploads.
 
 1. Create the PPA under the existing [Launchpad account](https://launchpad.net/~paulwoisard/+activate-ppa).
-   Name: `galleoncore`; display name: `GalleonCore`. Register the public GPG signing
+   Name: `galleoncore`; display name: `GalleonCore` (already created). Register the public GPG signing
    key and public SSH upload key on that account. With `ppa-dev-tools` installed
    and Launchpad authentication completed, the CLI equivalent is
    `ppa create --owner-name paulwoisard --displayname GalleonCore galleoncore`. Launchpad builds uploaded signed
    **source** packages; a binary .deb is not a PPA upload.
 2. Obtain COPR credentials from [the COPR API page](https://copr.fedorainfracloud.org/api/)
    and save the provided configuration locally to `~/.config/copr` with mode 600.
-   With `copr-cli` installed, project creation is a CLI operation:
+   The project has been created as `paullux/GalleonCore`. To recreate this setup
+   with `copr-cli` on the same account:
 
    ```sh
    copr-cli create --chroot fedora-43-x86_64 --chroot fedora-44-x86_64 \
+     --chroot fedora-45-x86_64 --chroot fedora-rawhide-x86_64 \
      --description 'Corsair Galleon Stream Deck support and Bosun settings' \
-     --enable-net off galleoncore
+     --enable-net off GalleonCore
    ```
+
+   The COPR **External Repositories** field must be empty unless a real RPM
+   dependency repository is needed. The GitHub project URL belongs in Homepage;
+   it is not a yum/dnf repository. The workflow uploads a complete SRPM.
 
 3. Add the CI public SSH key to the [AUR account](https://aur.archlinux.org/account/).
    The first push of the validated recipe to
