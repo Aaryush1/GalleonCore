@@ -111,6 +111,9 @@ public:
     Q_INVOKABLE [[nodiscard]] QString setKey(const QString &page, int key, const QVariantMap &spec);
     Q_INVOKABLE [[nodiscard]] QString clearKey(const QString &page, int key);
     Q_INVOKABLE [[nodiscard]] QString addTheme(const QString &name, const QString &color);
+    // A "plus" page for `page` ("music" -> "music-plus"): a key of `page` leads to it and a key of
+    // it goes back. "" when done.
+    Q_INVOKABLE [[nodiscard]] QString addSubPage(const QString &page);
     Q_INVOKABLE [[nodiscard]] QString setTheme(int index, const QString &name, const QString &color);
     Q_INVOKABLE [[nodiscard]] QString removeTheme(int index);
     Q_INVOKABLE [[nodiscard]] QString moveTheme(int index, int delta);

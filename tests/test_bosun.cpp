@@ -591,6 +591,23 @@ private Q_SLOTS:
         QVERIFY(!backend.addTheme("", "#ab47bc").isEmpty());
     }
 
+    void aTabGetsItsPlusPageThroughTheBackend()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        bosun::BosunBackend backend(file);
+        QVERIFY(backend.subPagesOf("music").isEmpty());
+        QVERIFY(backend.addSubPage("music").isEmpty());
+        QCOMPARE(backend.subPagesOf("music"), (QStringList{"music-plus"})); // listed with its tab, and only there
+        QVERIFY(backend.subPagesOf("main").isEmpty() || !backend.subPagesOf("main").contains("music-plus"));
+        // The 12th key of this fixture's "music" is taken (a Back key): the link takes the last free one, the 11th.
+        QCOMPARE(backend.keys("music").at(10).toMap().value("pageTarget").toString(), QStringLiteral("music-plus"));
+        QCOMPARE(backend.keys("music-plus").at(11).toMap().value("type").toString(), QStringLiteral("back"));
+        QCOMPARE(backend.themes().size(), 2); // not a new tab
+        QVERIFY(backend.addSubPage("no-such-page").size() > 0);
+    }
+
     void aSubPageTakesTheColourOfTheTabItIsShownIn()
     {
         const QTemporaryDir dir;

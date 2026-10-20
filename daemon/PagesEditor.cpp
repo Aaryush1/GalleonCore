@@ -235,6 +235,31 @@ bool pageIsLinkedTo(const QJsonObject &root, const QString &page, const QString 
     return false;
 }
 
+// Removes `page`, then the pages that only it led to (its "plus" pages), and so on: a page is kept
+// when a theme has it, it is the home page, or a key of a page that stays still leads to it.
+void removePageAndItsOrphans(QJsonObject &root, const QString &page)
+{
+    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    QStringList led;
+    for (const auto &key : pages.value(page).toObject().value(QStringLiteral("keys")).toArray()) {
+        const QJsonObject action = key.toObject().value(QStringLiteral("action")).toObject();
+        if (action.value(QStringLiteral("type")).toString() == QLatin1String("page"))
+            led << action.value(QStringLiteral("page")).toString();
+    }
+    pages.remove(page);
+    root.insert(QStringLiteral("pages"), pages);
+    const QJsonArray themes = root.value(QStringLiteral("themes")).toArray();
+    for (const QString &next : std::as_const(led)) {
+        bool isThemePage = false;
+        for (const auto &theme : themes)
+            isThemePage = isThemePage || theme.toObject().value(QStringLiteral("page")).toString() == next;
+        if (!pages.contains(next) || isThemePage || next == root.value(QStringLiteral("home")).toString())
+            continue;
+        if (!pageIsLinkedTo(root, next, next))
+            removePageAndItsOrphans(root, next);
+    }
+}
+
 bool validThemeIndex(const QJsonArray &themes, int index, EditResult &error)
 {
     if (index >= 0 && index < themes.size())
@@ -244,6 +269,44 @@ bool validThemeIndex(const QJsonArray &themes, int index, EditResult &error)
 }
 
 } // namespace
+
+EditResult PagesEditor::addSubPage(const QString &file, const QString &parent, const QString &name, const QString &moreLabel,
+                                   const QString &backLabel)
+{
+    QJsonObject root;
+    bool original = false;
+    EditResult error;
+    if (!load(file, root, original, error))
+        return error;
+    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    if (!pages.contains(parent))
+        return failure(QStringLiteral("no page named '%1'").arg(parent));
+    if (pages.contains(name))
+        return failure(QStringLiteral("there is already a page named '%1'").arg(name));
+    QJsonArray keys = pages.value(parent).toObject().value(QStringLiteral("keys")).toArray();
+    // The last free key: the one that a "More" key usually takes.
+    QList<bool> used(galleon::protocol::KeyCount, false);
+    for (const auto &entry : std::as_const(keys)) {
+        const int index = entry.toObject().value(QStringLiteral("key")).toInt(-1);
+        if (index >= 0 && index < galleon::protocol::KeyCount)
+            used[index] = true;
+    }
+    int free = -1;
+    for (int index = galleon::protocol::KeyCount - 1; index >= 0 && free < 0; --index)
+        free = used.at(index) ? -1 : index;
+    if (free < 0)
+        return failure(QStringLiteral("every key of this page is used: empty one first"));
+    keys.append(QJsonObject{{QStringLiteral("key"), free},
+                            {QStringLiteral("label"), moreLabel},
+                            {QStringLiteral("action"), QJsonObject{{QStringLiteral("type"), QStringLiteral("page")}, {QStringLiteral("page"), name}}}});
+    pages.insert(name, QJsonObject{{QStringLiteral("keys"),
+                                    QJsonArray{QJsonObject{{QStringLiteral("key"), galleon::protocol::KeyCount - 1},
+                                                           {QStringLiteral("label"), backLabel},
+                                                           {QStringLiteral("action"), QJsonObject{{QStringLiteral("type"), QStringLiteral("back")}}}}}}});
+    root.insert(QStringLiteral("pages"), pages);
+    storeKeys(root, parent, keys);
+    return write(file, root, original);
+}
 
 EditResult PagesEditor::addTheme(const QString &file, const QString &name, const QString &color, const QString &page)
 {
@@ -302,11 +365,8 @@ EditResult PagesEditor::removeTheme(const QString &file, int index)
     bool otherTheme = false;
     for (const auto &theme : std::as_const(themes))
         otherTheme = otherTheme || theme.toObject().value(QStringLiteral("page")).toString() == page;
-    if (!otherTheme && !pageIsLinkedTo(root, page, page)) {
-        QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
-        pages.remove(page);
-        root.insert(QStringLiteral("pages"), pages);
-    }
+    if (!otherTheme && !pageIsLinkedTo(root, page, page))
+        removePageAndItsOrphans(root, page);
     return write(file, root, original);
 }
 
