@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     }
     if (width <= 0 || height <= 0 || width > 2048 || height > 4096)
         return 1;
-    const QByteArray frame(width * height * 3, '\0');
+    const QByteArray frame(static_cast<qsizetype>(width) * height * 3, '\0');
     QFile output;
     if (!output.open(stdout, QIODevice::WriteOnly))
         return 1;
