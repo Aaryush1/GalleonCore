@@ -155,3 +155,9 @@ After the owner approves Windows testing and creates the exact version tag, the
 release workflow requires the Windows desktop workflow as well as Linux checks
 and packages. It attaches the tested Windows ZIP and its SHA-256 checksum to the
 same GitHub release before publishing the enabled Linux repositories.
+
+The Windows artifact also includes `GalleonCore-<version>-Windows-x86_64-Setup.exe`
+and `Windows-Setup-SHA256SUMS`. NSIS receives the same staged payload as the ZIP;
+CI tests installation, upgrade and uninstall with both native apps running.
+The future exact-version tag uploads the tested Setup alongside the ZIP and
+Linux packages. See `docs/WINDOWS.md` for lifecycle and personal-data handling.

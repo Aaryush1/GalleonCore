@@ -1,0 +1,3 @@
+// SPDX-FileCopyrightText: 2026 Paul Woisard
+// SPDX-License-Identifier: GPL-3.0-or-later
+1 ICON "@PROJECT_SOURCE_DIR@/tools/packaging/windows/assets/galleon-bosun.ico"

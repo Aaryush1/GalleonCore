@@ -43,3 +43,10 @@ if(NOT WIN32)
 install(FILES galleon-bosun.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 
 endif()
+
+if(WIN32)
+    set_target_properties(galleon-bosun PROPERTIES WIN32_EXECUTABLE TRUE)
+    configure_file(${PROJECT_SOURCE_DIR}/tools/packaging/windows/bosun-icon.rc.in ${CMAKE_CURRENT_BINARY_DIR}/bosun-icon.rc @ONLY)
+    target_sources(galleon-bosun PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bosun-icon.rc)
+    target_link_libraries(galleon-bosun PRIVATE Qt6::EntryPoint)
+endif()

@@ -57,7 +57,9 @@ jobs:
             artifacts/appimage/*.AppImage artifacts/appimage/AppImage-SHA256SUMS \
             artifacts/appimage/GalleonCore-host-integration.tar.gz \
             artifacts/windows-desktop-x86_64/GalleonCore-Windows-x86_64.zip \
-            artifacts/windows-desktop-x86_64/Windows-SHA256SUMS --clobber
+            artifacts/windows-desktop-x86_64/Windows-SHA256SUMS \
+            artifacts/windows-desktop-x86_64/setup/*-Setup.exe \
+            artifacts/windows-desktop-x86_64/setup/Windows-Setup-SHA256SUMS --clobber
   ppa:
     needs: release
     if: vars.ENABLE_LINUX_PUBLISH == 'true'

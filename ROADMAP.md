@@ -141,3 +141,12 @@ par utilisateur, verrou avant accès HID, lancement des raccourcis Windows,
 contrôle des ACL du fichier de pages et archive déployée en CI. Ces nouveaux
 éléments restent à valider avant fusion. Les essais interactifs Windows sont
 réservés au propriétaire ; aucun premier tag n'est autorisé avant son retour.
+
+La PR #26 inclut désormais la préparation d'un Setup NSIS Windows : identité
+visuelle et icône Bosun, raccourcis, démarrage optionnel du démon à l'ouverture de
+session et désinstallation par utilisateur. Les mises à niveau et la
+désinstallation demandent l'arrêt explicite de Bosun **et** de galleond et
+attendent leur sortie ; les essais automatisés de ce cycle et de la conservation
+des données restent obligatoires avant fusion. Le mode capture de Bosun capture
+maintenant ses valeurs par copie, pour éviter des références détruites au
+moment où le minuteur s'exécute.

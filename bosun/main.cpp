@@ -14,6 +14,10 @@
 #include <QDir>
 
 #include <QApplication>
+#include <QPointer>
+#ifdef Q_OS_WIN
+#include "LocalControl.h"
+#endif
 #include <QIcon>
 #include <QImage>
 #include <QQmlApplicationEngine>
@@ -63,6 +67,20 @@ int main(int argc, char *argv[])
     parser.addOption(keyOption);
     parser.addOption(shotOption);
     parser.process(app);
+
+#ifdef Q_OS_WIN
+    std::unique_ptr<galleond::LocalControl> applicationControl;
+    if (!parser.isSet(shotOption)) {
+        applicationControl = std::make_unique<galleond::LocalControl>();
+        const QString endpoint = galleond::localControlName();
+        if (endpoint.isEmpty() || !applicationControl->listen(endpoint + QStringLiteral("-bosun"))) {
+            qCritical() << "galleon-bosun: another instance is running, or local control is unavailable";
+            return 1;
+        }
+        QObject::connect(applicationControl.get(), &galleond::LocalControl::stopRequested,
+                         &app, [] { QCoreApplication::quit(); });
+    }
+#endif
 
     const QString pagesFile = parser.isSet(pagesOption)
                                   ? QDir::current().absoluteFilePath(parser.value(pagesOption))
@@ -154,13 +172,12 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(shotOption)) {
         const QString png = parser.value(shotOption);
-        int result = 0;
-        QTimer::singleShot(700, &app, [&] {
-            if (!window || !window->grabWindow().save(png)) {
+        const QPointer<QQuickWindow> previewWindow = window;
+        QTimer::singleShot(700, &app, [previewWindow, png] {
+            const bool saved = previewWindow && previewWindow->grabWindow().save(png);
+            if (!saved)
                 qCritical().noquote() << "galleon-bosun: cannot save" << png;
-                result = 1;
-            }
-            QGuiApplication::exit(result);
+            QGuiApplication::exit(saved ? 0 : 1);
         });
     }
     return QGuiApplication::exec();

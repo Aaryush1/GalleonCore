@@ -23,7 +23,7 @@
 
 Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique est remplacé par un module Elgato Stream Deck : 12 touches LCD, un écran et deux molettes. Corsair et Elgato ne supportent la partie Stream Deck que sous Windows et macOS. GalleonCore vise à rendre chaque partie du clavier utilisable sous Linux, et à l'intégrer au bureau.
 
-> **En développement actif.** Les touches, l’écran et les molettes du Stream Deck fonctionnent sous Linux. Galleon Bosun permet de configurer le module. Les widgets Plasma restent prévus. Une préversion Windows se prépare pour les essais interactifs ([détails](docs/WINDOWS.md)) ; consulte la [feuille de route](ROADMAP.md) pour les validations détaillées.
+> **En développement actif.** Les touches, l’écran et les molettes du Stream Deck fonctionnent sous Linux. Galleon Bosun permet de configurer le module. Les widgets Plasma restent prévus. Une préversion Windows avec Setup NSIS aux couleurs de Bosun et archive ZIP se prépare pour les essais interactifs ([détails](docs/WINDOWS.md)) ; consulte la [feuille de route](ROADMAP.md) pour les validations détaillées.
 
 > GalleonCore n'est affilié ni à Corsair ni à Elgato.
 

@@ -148,3 +148,25 @@ and mute, Num Lock on/off and key releases, start/stop from Bosun, application
 launches, personal wallpaper imports and animated screensavers. Windows startup
 registration is manual in this stage. A first release tag still requires the
 owner's explicit confirmation after those interactive tests.
+
+## NSIS Setup
+
+The Windows artifact contains both the portable ZIP and a versioned NSIS Setup,
+with SHA-256 checksums. Setup uses Bosun's own icon and charcoal/amber graphics,
+includes English and French UI resources, and installs for the current user under
+`LocalAppData/Programs/GalleonCore`. Shortcuts and starting galleond at sign-in
+are selectable; no system-wide Windows service is installed.
+
+Before an upgrade or uninstall, Setup sends an explicit shutdown request to both
+Bosun and galleond through SID-derived per-user pipes. It waits for the installed
+processes to exit before touching their files. Closing Bosun's window is not used
+as a substitute: the tray mode can keep it running. If shutdown fails, Setup
+aborts rather than replacing locked binaries. It does not forcibly terminate a
+user process. A validated manifest removes only the previous installed payload
+on upgrade; personal files and settings are outside the installation and remain.
+
+Native CI installs silently, starts both applications, upgrades while they are
+running, starts them again and uninstalls. It checks orderly exits, removal of
+application binaries, and preservation of a personal-file and registry-setting
+sentinel. This runs only on isolated GitHub runners, without a physical Galleon.
+A successful setup test does not replace the owner's hardware validation.

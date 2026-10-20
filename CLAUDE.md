@@ -73,3 +73,10 @@ reuse lint
   per-user local IPC and instance locks, native launcher/file ACL checks, and
   deployed ZIP smoke tests. Keep Linux D-Bus/systemd behavior covered by tests.
   Do not confuse a successful Windows build with physical-device validation.
+- Windows NSIS Setup uses the staged ZIP payload and Bosun artwork. Both upgrade
+  and uninstall must request explicit per-user IPC shutdown of Bosun and galleond
+  and wait for exit before changing files. Never replace this with window-close
+  alone (tray mode keeps Bosun alive), or force-kill user processes on timeout.
+  Keep native CI's running-app upgrade/uninstall and personal-data preservation
+  tests. The Windows pipe suffix derives from the current user's SID; the
+  PowerShell helper must use the same UTF-8 SHA-256/24-hex contract.

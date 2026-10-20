@@ -11,6 +11,13 @@
 #include <QTimer>
 #include <QStandardPaths>
 #include <QVariant>
+#ifdef Q_OS_WIN
+#include <Windows.h>
+#include <sddl.h>
+#include <QScopeGuard>
+#include <vector>
+#include <cstddef>
+#endif
 
 namespace galleond {
 namespace {
@@ -61,7 +68,27 @@ QByteArray encodeLocalCommand(const LocalCommand &command)
 
 QString localControlName()
 {
+#ifdef Q_OS_WIN
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+        return {};
+    const auto closeToken = qScopeGuard([token] { CloseHandle(token); });
+    DWORD size = 0;
+    GetTokenInformation(token, TokenUser, nullptr, 0, &size);
+    if (size == 0 || size > 65536)
+        return {};
+    std::vector<std::byte> storage(size);
+    if (!GetTokenInformation(token, TokenUser, storage.data(), size, &size))
+        return {};
+    const auto *user = reinterpret_cast<const TOKEN_USER *>(storage.data());
+    LPWSTR sid = nullptr;
+    if (!ConvertSidToStringSidW(user->User.Sid, &sid))
+        return {};
+    const auto freeSid = qScopeGuard([sid] { LocalFree(sid); });
+    const QByteArray identity = QString::fromWCharArray(sid).toUtf8();
+#else
     const QByteArray identity = QDir::homePath().toUtf8();
+#endif
     const QByteArray digest = QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex().left(24);
     return QStringLiteral("galleoncore-") + QString::fromLatin1(digest);
 }
@@ -75,8 +102,10 @@ LocalControl::LocalControl(QObject *parent) : QObject(parent)
 
 bool LocalControl::listen(const QString &name)
 {
-    if (m_server.isListening())
+    if (name.isEmpty() || m_server.isListening()) {
+        m_error = QStringLiteral("Invalid endpoint or server already listening");
         return false;
+    }
     const QString folder = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
         + QStringLiteral("/galleoncore");
     if (!QDir().mkpath(folder)) {

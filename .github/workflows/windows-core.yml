@@ -12,6 +12,7 @@ permissions:
 jobs:
   core:
     runs-on: windows-2022
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: jurplel/install-qt-action@v4
@@ -76,10 +77,13 @@ jobs:
           $picture = Get-ChildItem $root -Recurse -Filter *.jpg | Select-Object -First 1
           if (-not $picture) { throw "No packaged wallpaper" }
           $name = $picture.FullName.Substring($root.Length + 1).Replace('\', '/')
-          staging/bin/galleond.exe --render-to daemon-preview.png --wallpaper $name
-          if ($LASTEXITCODE -ne 0) { throw "Installed daemon rendering failed" }
-          staging/bin/galleon-bosun.exe --pages "$env:RUNNER_TEMP/galleon-smoke-pages.json" --screenshot bosun-preview.png
-          if ($LASTEXITCODE -ne 0) { throw "Installed Bosun rendering failed" }
+          function Invoke-Preview([string]$Program, [string]$Arguments) {
+            $child = Start-Process -FilePath $Program -ArgumentList $Arguments -PassThru
+            if (-not $child.WaitForExit(30000)) { $child.Kill(); throw "Preview exceeded its deadline" }
+            if ($child.ExitCode -ne 0) { throw "Installed preview failed: $($child.ExitCode)" }
+          }
+          Invoke-Preview "$pwd/staging/bin/galleond.exe" "--render-to `"$pwd/daemon-preview.png`" --wallpaper `"$name`""
+          Invoke-Preview "$pwd/staging/bin/galleon-bosun.exe" "--pages `"$env:RUNNER_TEMP/galleon-smoke-pages.json`" --screenshot `"$pwd/bosun-preview.png`""
           if (-not (Test-Path daemon-preview.png) -or -not (Test-Path bosun-preview.png)) { throw "Missing previews" }
       - name: Include licenses and test instructions
         shell: pwsh
@@ -89,6 +93,23 @@ jobs:
           Copy-Item LICENSES/* staging/licenses/
           Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/share/hidapi/copyright" staging/licenses/hidapi.txt
           Copy-Item docs/WINDOWS.md staging/WINDOWS.md
+      - name: Build NSIS Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}/NSIS/makensis.exe")) {
+            choco install nsis --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "NSIS installation failed" }
+          }
+          $version = [regex]::Match((Get-Content CMakeLists.txt -Raw), 'project\(GalleonCore VERSION ([0-9.]+)').Groups[1].Value
+          ./tools/packaging/windows/build-setup.ps1 -StagingDir staging -Version $version -OutputDir setup
+      - name: Install, upgrade and uninstall with both apps running
+        shell: pwsh
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:QT_QUICK_BACKEND = "software"
+          $env:QT_QPA_FONTDIR = "$env:SystemRoot/Fonts"
+          $setup = (Get-ChildItem setup/*-Setup.exe | Select-Object -First 1).FullName
+          ./tools/packaging/windows/test-setup.ps1 -Setup $setup
       - name: Archive desktop for interactive testing
         shell: pwsh
         run: |
@@ -101,5 +122,7 @@ jobs:
           path: |
             GalleonCore-Windows-x86_64.zip
             Windows-SHA256SUMS
+            setup/*-Setup.exe
+            setup/Windows-Setup-SHA256SUMS
             daemon-preview.png
             bosun-preview.png
