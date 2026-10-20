@@ -471,20 +471,20 @@ QVariantMap rectMapF(const QRectF &rect)
 
 } // namespace
 
-QVariantMap BosunBackend::cropCenteredFor(int sourceWidth, int sourceHeight, int canvasWidth, int canvasHeight) const
+QVariantMap BosunBackend::cropCenteredFor(int sourceWidth, int sourceHeight, int canvasWidth, int canvasHeight)
 {
     return rectMap(crop::centered(QSize(sourceWidth, sourceHeight), QSize(canvasWidth, canvasHeight)));
 }
 
 QVariantMap BosunBackend::cropMovedFor(const QVariantMap &crop, int dx, int dy, int sourceWidth, int sourceHeight, int canvasWidth,
-                                       int canvasHeight) const
+                                       int canvasHeight)
 {
     const QRect moved = crop::moved(rectOf(crop), QPoint(dx, dy), QSize(sourceWidth, sourceHeight), QSize(canvasWidth, canvasHeight));
     return moved.isEmpty() ? crop : rectMap(moved);
 }
 
 QVariantMap BosunBackend::cropZoomedFor(const QVariantMap &crop, double factor, double anchorX, double anchorY, int sourceWidth, int sourceHeight,
-                                        int canvasWidth, int canvasHeight) const
+                                        int canvasWidth, int canvasHeight)
 {
     const QRect zoomed = crop::zoomed(rectOf(crop), factor, QPointF(anchorX, anchorY), QSize(sourceWidth, sourceHeight), QSize(canvasWidth, canvasHeight));
     return zoomed.isEmpty() ? crop : rectMap(zoomed);

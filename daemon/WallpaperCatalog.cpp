@@ -117,8 +117,8 @@ WallpaperCatalog::WallpaperCatalog(const QString &root)
 {
 }
 
-WallpaperCatalog::WallpaperCatalog(const QStringList &roots)
-    : m_roots(roots)
+WallpaperCatalog::WallpaperCatalog(QStringList roots)
+    : m_roots(std::move(roots))
 {
     rescan();
 }

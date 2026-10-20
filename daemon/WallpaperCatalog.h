@@ -31,7 +31,7 @@ public:
     explicit WallpaperCatalog(const QString &root = {});
     // Several folders laid out the same way: a name that two of them have is listed once, from
     // the first. The order is the same whichever folder a file is in.
-    explicit WallpaperCatalog(const QStringList &roots);
+    explicit WallpaperCatalog(QStringList roots);
 
     // Reads the folders again (a file was added or removed while the program runs).
     void rescan();

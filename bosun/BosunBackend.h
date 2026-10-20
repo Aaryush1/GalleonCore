@@ -133,11 +133,11 @@ public:
     Q_INVOKABLE [[nodiscard]] QVariantMap cropZoomed(const QVariantMap &crop, double factor, double anchorX, double anchorY) const;
 
     // The same for any picture: `source` is its size and `canvas` the size of what the crop is for.
-    Q_INVOKABLE [[nodiscard]] QVariantMap cropCenteredFor(int sourceWidth, int sourceHeight, int canvasWidth, int canvasHeight) const;
-    Q_INVOKABLE [[nodiscard]] QVariantMap cropMovedFor(const QVariantMap &crop, int dx, int dy, int sourceWidth, int sourceHeight, int canvasWidth,
-                                                       int canvasHeight) const;
-    Q_INVOKABLE [[nodiscard]] QVariantMap cropZoomedFor(const QVariantMap &crop, double factor, double anchorX, double anchorY, int sourceWidth,
-                                                        int sourceHeight, int canvasWidth, int canvasHeight) const;
+    Q_INVOKABLE [[nodiscard]] static QVariantMap cropCenteredFor(int sourceWidth, int sourceHeight, int canvasWidth, int canvasHeight);
+    Q_INVOKABLE [[nodiscard]] static QVariantMap cropMovedFor(const QVariantMap &crop, int dx, int dy, int sourceWidth, int sourceHeight,
+                                                              int canvasWidth, int canvasHeight);
+    Q_INVOKABLE [[nodiscard]] static QVariantMap cropZoomedFor(const QVariantMap &crop, double factor, double anchorX, double anchorY,
+                                                               int sourceWidth, int sourceHeight, int canvasWidth, int canvasHeight);
 
     // Cuts the video being looked at to the picture of the module, keeping the part
     // (x, y, width, height) of it (in the pixels of the video; made valid first), writes the

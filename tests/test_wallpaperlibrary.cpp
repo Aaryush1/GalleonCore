@@ -68,7 +68,7 @@ class TestWallpaperLibrary : public QObject
 private Q_SLOTS:
     void theWallpapersAreListedWithTheirThumbnailsAndWhoseTheyAre()
     {
-        Setup s;
+        const Setup s;
         QVERIFY(writeImage(s.dir.filePath("user/wallpaper/mine/own.png"), 64, 36, Qt::red));
         const WallpaperLibrary library(s.places);
         QCOMPARE(namesOf(library.wallpapers()), (QStringList{"mine/own.png", "style/a-01.png", "style/a-02.jpg"}));
@@ -84,7 +84,7 @@ private Q_SLOTS:
 
     void aThumbnailIsSmall()
     {
-        Setup s;
+        const Setup s;
         QVERIFY(writeImage(s.dir.filePath("project/big/b-01.png"), 3000, 1700, Qt::darkMagenta));
         const WallpaperLibrary library(s.places);
         const QImage thumb = library.thumbnail("big/b-01.png");
@@ -94,15 +94,15 @@ private Q_SLOTS:
 
     void usingAWallpaperKeepsItForTheNextStart()
     {
-        Setup s;
+        const Setup s;
         WallpaperLibrary library(s.places);
         QVERIFY(library.current().isEmpty());
-        QSignalSpy changed(&library, &WallpaperLibrary::changed);
+        const QSignalSpy changed(&library, &WallpaperLibrary::changed);
         QVERIFY(library.apply("style/a-02.jpg").isEmpty());
         QCOMPARE(library.current(), QStringLiteral("style/a-02.jpg"));
-        QVERIFY(changed.size() >= 1);
+        QVERIFY(!changed.isEmpty());
         // Where galleond reads it.
-        QSettings galleond(s.places.settingsFile, QSettings::IniFormat);
+        const QSettings galleond(s.places.settingsFile, QSettings::IniFormat);
         QCOMPARE(galleond.value("wallpaper").toString(), QStringLiteral("style/a-02.jpg"));
         QVERIFY(!library.apply("style/none.png").isEmpty());
         QVERIFY(!library.apply("../../etc/passwd").isEmpty());
@@ -111,7 +111,7 @@ private Q_SLOTS:
 
     void aPictureThatCannotBeUsedIsSaidAndNotAdded()
     {
-        Setup s;
+        const Setup s;
         QVERIFY(QFile(s.dir.filePath("notes.txt")).open(QIODevice::WriteOnly));
         WallpaperLibrary library(s.places);
         for (const QString &chosen : {s.dir.filePath("notes.txt"), s.dir.filePath("missing.png"), s.dir.path(), QStringLiteral("file://") + s.dir.filePath("missing.png")}) {
@@ -125,7 +125,7 @@ private Q_SLOTS:
 
     void aPictureThatIsTooLargeInPixelsIsRefused()
     {
-        Setup s;
+        const Setup s;
         // A valid PNG header can claim any size: 9000 x 9000 is over the limit.
         QVERIFY(writeImage(s.dir.filePath("wide.png"), 9000, 4, Qt::white)); // small in bytes, wide in pixels
         WallpaperLibrary library(s.places);
@@ -135,7 +135,7 @@ private Q_SLOTS:
 
     void aPictureIsLookedAtThenCutAndSavedAmongTheUsersOwn()
     {
-        Setup s;
+        const Setup s;
         QVERIFY(writeTwoColours(s.dir.filePath("Holiday photo.png"), 2000, 1000)); // red left, blue right
         WallpaperLibrary library(s.places);
         library.inspect(QUrl::fromLocalFile(s.dir.filePath("Holiday photo.png")).toString()); // as a file dialog gives it
@@ -170,7 +170,7 @@ private Q_SLOTS:
 
     void aCutThatIsAskedForBadlyIsMadeValid()
     {
-        Setup s;
+        const Setup s;
         QVERIFY(writeTwoColours(s.dir.filePath("p.png"), 800, 800));
         WallpaperLibrary library(s.places);
         library.inspect(s.dir.filePath("p.png"));
@@ -185,7 +185,7 @@ private Q_SLOTS:
 
     void onlyTheUsersOwnPicturesCanBeDeletedAndNotTheOneInUse()
     {
-        Setup s;
+        const Setup s;
         QVERIFY(writeImage(s.dir.filePath("user/wallpaper/mine/own.png"), 64, 36, Qt::red));
         QVERIFY(writeImage(s.dir.filePath("user/wallpaper/mine/other.png"), 64, 36, Qt::blue));
         WallpaperLibrary library(s.places);
@@ -203,7 +203,7 @@ private Q_SLOTS:
 
     void aLinkedFileIsNeverTakenForTheUsersOwn()
     {
-        Setup s;
+        const Setup s;
         QDir().mkpath(s.dir.filePath("user/wallpaper/mine"));
         QVERIFY(QFile::link(s.dir.filePath("project/style/a-01.png"), s.dir.filePath("user/wallpaper/mine/link.png")));
         const WallpaperLibrary library(s.places);
@@ -213,7 +213,7 @@ private Q_SLOTS:
 
     void thePicturesAddedByAnotherProgramAreSeenAfterAReload()
     {
-        Setup s;
+        const Setup s;
         WallpaperLibrary library(s.places);
         QCOMPARE(library.wallpapers().size(), 2);
         QVERIFY(writeImage(s.dir.filePath("user/wallpaper/mine/new.png"), 64, 36, Qt::red));

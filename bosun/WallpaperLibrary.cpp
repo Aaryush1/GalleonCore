@@ -65,6 +65,8 @@ WallpaperLibrary::WallpaperLibrary(Places places, QObject *parent)
     , m_places(std::move(places))
     , m_catalog(QStringList())
 {
+    // Pictures are decoded in memory: no more than this for one (the limit is the program's, set once).
+    QImageReader::setAllocationLimit(AllocationLimitMegabytes);
     // The user's own folder is read too, even before it exists: a picture added later shows.
     if (!m_places.userRoot.isEmpty() && !m_places.roots.contains(m_places.userRoot))
         m_places.roots.prepend(m_places.userRoot);
@@ -146,7 +148,6 @@ QImage WallpaperLibrary::readChecked(const QString &path, int side)
     QImageReader reader(QFileInfo(path).absoluteFilePath());
     reader.setDecideFormatFromContent(true);
     reader.setAutoTransform(true);
-    reader.setAllocationLimit(AllocationLimitMegabytes);
     if (side > 0 && (size.width() > side || size.height() > side))
         reader.setScaledSize(size.scaled(side, side, Qt::KeepAspectRatio)); // decoders that can, decode small
     QImage image = reader.read();
