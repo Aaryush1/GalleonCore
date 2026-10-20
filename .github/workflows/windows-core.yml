@@ -4,11 +4,16 @@
 name: Windows desktop
 on:
   workflow_call:
+  workflow_dispatch:
   push:
-    branches: [main, codex/windows-port, codex/windows-smtc, codex/windows-core-audio, codex/windows-keyboard, codex/windows-desktop]
+    branches: [main]
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: windows-desktop-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   core:
     runs-on: windows-2022
