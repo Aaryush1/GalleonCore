@@ -2,9 +2,11 @@
 
 Référence pour reprendre le développement à tout moment, y compris dans une nouvelle session Claude Code. À mettre à jour après chaque fonctionnalité terminée **et** testée (voir « Règle de mise à jour » en bas). Les notes de conception détaillées (protocole, RGB, OpenRGB, Windows) sont dans [docs/ROADMAP.md](docs/ROADMAP.md) ; les règles de code dans [CLAUDE.md](CLAUDE.md).
 
-État au 20 octobre 2026 : base `main` (pull request 5 fusionnée, CI verte) ; distribution Linux préparée localement, publication des dépôts et CI de cette évolution à confirmer.
+État au 20 octobre 2026 : PR #19 à #24 fusionnées ; distribution Linux et correctif des fonds personnels validés en CI. Portage Windows en cours ; aucun premier tag avant validation interactive sous Windows par le propriétaire.
 
 ## 1. Implémenté et testé
+
+Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fonds personnels et du bouton « Parcourir » (PR #24).
 
 « Testé » = tests Qt automatiques (16 exécutables dans `tests/`, sous `-Werror`). « Sur le module » = confirmé par l'utilisateur sur le matériel (photo ou retour).
 
@@ -80,7 +82,7 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
    À trancher : aperçu en direct sur le module pendant l'édition (demande une commande de plus au démon).
 2. **Profils** : plusieurs fichiers de pages et bascule (changement de profil selon l'application active ou au choix) ; le fichier JSON unique actuel est le profil de base.
 3. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, autres raccourcis clavier (l'action `key` existe, liste de touches limitée au pavé numérique : à étendre avec validation) ; opérateurs du pavé (+ − × ÷) : pas de place sur 12 touches, à placer sur une seconde page ou les molettes.
-4. **Windows** : séparation initiale des fabriques de backends Linux et construction de `libgalleon` seule sous Windows fusionnées ; suite sur `codex/windows-core-audio` (voir `docs/WINDOWS.md`). Backend SMTC C++/WinRT derrière `MediaController` fusionné : worker, métadonnées et commandes ; tests avec faux lecteur et CI Windows, Core Audio volume/muet en cours avec tests sur faux périphérique ; validation interactive encore requise (MPRIS reste Linux seulement) ; portage hidapi déjà couvert par `Transport`.
+4. **Windows** : séparation initiale des fabriques de backends Linux et construction de `libgalleon` seule sous Windows fusionnées ; suite sur `codex/windows-keyboard` (voir `docs/WINDOWS.md`). Backend SMTC C++/WinRT derrière `MediaController` fusionné : worker, métadonnées et commandes ; tests avec faux lecteur et CI Windows, Core Audio volume/muet fusionné avec tests sur faux périphérique ; validation interactive encore requise (MPRIS reste Linux seulement) ; portage hidapi déjà couvert par `Transport`.
 5. **Plasmoids KDE** réutilisant `widgets/` (aperçu de l'écran du clavier sur le bureau).
 6. **RVB du clavier** : reste côté fork d'OpenRGB, bloqué tant que le protocole d'écriture non persistant n'est pas trouvé.
 

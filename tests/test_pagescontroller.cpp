@@ -772,7 +772,7 @@ private Q_SLOTS:
 
         f.pressKey(0, true);
         QCOMPARE(injector.events.size(), size_t(1));
-        QCOMPARE(injector.events[0].first, 71); // KEY_KP7
+        QCOMPARE(injector.events[0].first, static_cast<int>(KeyCode::Kp7));
         QVERIFY(injector.events[0].second);
         f.pressKey(0, false);
         QCOMPARE(injector.events.size(), size_t(2));

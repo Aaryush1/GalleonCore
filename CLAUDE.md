@@ -61,3 +61,11 @@ run-clang-tidy -p build '(lib/src|daemon|bosun|tests)/[^/]+\.cpp$'
 /usr/lib/qt6/bin/qmllint widgets/*.qml bosun/qml/*.qml daemon/qml/*.qml
 reuse lint
 ```
+
+## Windows release gate
+- Keep Linux and Windows backends behind shared interfaces on `main`; temporary
+  port branches are merged only after full validation and green CI.
+- Key action integers are internal `KeyCode` values, never OS key codes. Native
+  keyboard tests must inject a fake sender and must not type real input.
+- The first release tag and PPA/COPR/AUR publication wait for the owner's explicit
+  confirmation of interactive Windows testing, after all port PRs are merged.

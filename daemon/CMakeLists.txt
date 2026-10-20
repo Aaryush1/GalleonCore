@@ -26,7 +26,7 @@ add_library(galleond_core STATIC
     ScreensaverController.h ScreensaverController.cpp
 )
 target_include_directories(galleond_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(galleond_core PUBLIC galleon galleon_media Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus Qt6::Network PRIVATE galleon_warnings)
+target_link_libraries(galleond_core PUBLIC galleon galleon_media galleon_keys Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus Qt6::Network PRIVATE galleon_warnings)
 set_target_properties(galleond_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 qt_add_resources(galleond_core "galleond_ui"
