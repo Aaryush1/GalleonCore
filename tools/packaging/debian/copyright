@@ -1,0 +1,28 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: GalleonCore
+Upstream-Contact: Paul Woisard <paulwoisard@gmail.com>
+Source: https://github.com/Paullux/GalleonCore
+
+Files: *
+Copyright: 2026 Paul Woisard
+License: GPL-3.0-or-later
+
+Files: lib/*
+Copyright: 2026 Paul Woisard
+License: LGPL-3.0-or-later
+
+Files: public/wallpaper/* public/Screensavers/*
+Copyright: 2026 Paul Woisard
+License: CC-BY-SA-4.0
+Comment: Provenance is recorded in the corresponding PROVENANCE.md files.
+
+License: GPL-3.0-or-later
+ See /usr/share/common-licenses/GPL-3 and LICENSES/GPL-3.0-or-later.txt
+ in /usr/share/doc/galleoncore.
+
+License: LGPL-3.0-or-later
+ See /usr/share/common-licenses/LGPL-3 and LICENSES/LGPL-3.0-or-later.txt
+ in /usr/share/doc/galleoncore.
+
+License: CC-BY-SA-4.0
+ See LICENSES/CC-BY-SA-4.0.txt in /usr/share/doc/galleoncore.

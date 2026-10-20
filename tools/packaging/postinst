@@ -1,0 +1,13 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -e
+if [ "$1" = configure ] && command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules || true
+    udevadm trigger --subsystem-match=hidraw || true
+    udevadm trigger --subsystem-match=usb --attr-match=idVendor=1b1c || true
+    udevadm trigger --subsystem-match=misc --sysname-match=uinput || true
+fi
+if [ "$1" = configure ] && command -v modprobe >/dev/null 2>&1; then
+    modprobe uinput || true
+fi

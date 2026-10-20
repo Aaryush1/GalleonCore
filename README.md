@@ -2,6 +2,18 @@
 
 # GalleonCore
 
+[![Website](https://img.shields.io/badge/website-GalleonCore-46505E)](https://paullux.github.io/GalleonCore/)
+[![CI](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml)
+[![Linux packages](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
+[![Release](https://img.shields.io/github/v/release/Paullux/GalleonCore)](https://github.com/Paullux/GalleonCore/releases)
+[![GitHub downloads](https://img.shields.io/github/downloads/Paullux/GalleonCore/total?label=GitHub%20downloads)](https://github.com/Paullux/GalleonCore/releases)
+[![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
+[![Fedora COPR](https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/)
+[![AUR recipe](https://img.shields.io/badge/AUR-recipe-1793D1?logo=archlinux&logoColor=white)](tools/packaging/README.md)
+[![AppImage builds](https://img.shields.io/badge/AppImage-CI%20builds-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
+[![Licenses](https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue)](LICENSE.md)
+[![Security policy](https://img.shields.io/badge/security-report%20privately-46505E)](SECURITY.md)
+
 🇫🇷 [Lire en français](README.fr.md)
 
 🌐 [Website](https://paullux.github.io/GalleonCore/)
@@ -10,7 +22,7 @@
 
 The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced by an Elgato Stream Deck module: 12 LCD keys, a screen and two dials. Corsair and Elgato only support the Stream Deck part on Windows and macOS. GalleonCore aims to make every part of the keyboard usable on Linux, and to integrate it with the desktop.
 
-> ⚠️ **Early stage.** The repository holds the project structure, the build skeleton and the test tooling. Nothing talks to the hardware yet.
+> **Active development.** The Stream Deck keys, screen and dials work on Linux, with Galleon Bosun for module settings. Plasma widgets and Windows support remain planned; see the [roadmap](ROADMAP.md) for detailed validation status.
 
 > GalleonCore is not affiliated with Corsair or Elgato.
 
@@ -32,7 +44,7 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 | Button pages (JSON) and music player (MPRIS) | Implemented, tests green; **keys, dials, the now-playing screen (real cover, title, artist, timeline) and an application key with its icon confirmed on the module** (hot reload, double press, video thumbnails and the apps window not reported yet) |
 | KDE Plasma widgets | Skeleton |
 | RGB lighting | **Under investigation.** The protocol (Corsair "V2"/Bragi) is not supported anywhere yet. Support is meant to land upstream in OpenRGB. |
-| OpenRGB plugin | Planned |
+| OpenRGB plugin | Dial rings implemented in the separate plugin; keyboard RGB remains under investigation |
 | Windows | Planned, last |
 
 ## Architecture
@@ -47,7 +59,7 @@ widgets/           Shared QML widgets, free of any Plasma dependency
 plasmoid/          KDE Plasma widgets reusing widgets/
 tests/             Qt Test unit tests
 fuzz/              libFuzzer targets for the protocol parsers
-openrgb-plugin/    (planned) OpenRGB plugin
+openrgb-plugin/    OpenRGB plugin for the dial rings
 ```
 
 Keeping the protocol free of I/O means every byte format can be unit-tested and fuzzed without the keyboard.
@@ -273,6 +285,18 @@ GalleonCore builds on the reverse engineering done by:
 ## License
 
 - `lib/` (libgalleon): **LGPL-3.0-or-later**, so other projects can reuse the protocol library.
-- Everything else: **GPL-3.0-or-later**.
+- Application, widgets, tools and documentation: **GPL-3.0-or-later**.
+- Repository wallpapers and videos: **CC-BY-SA-4.0**, with provenance (see [ASSETS.md](ASSETS.md)).
 
 Full texts are in [`LICENSES/`](LICENSES/). Files carry SPDX headers, following the [REUSE](https://reuse.software) convention.
+
+## Packages and community
+
+PPA, COPR, AUR and AppImage recipes and their CI are documented in the
+[distribution guide](tools/packaging/README.md). The PPA/COPR repositories may
+remain empty until a release is published; the AUR badge links to the recipe
+until publication. The GitHub download counter counts GitHub release assets,
+not PPA/COPR/AUR installations.
+
+[Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
+[Security](SECURITY.md) · [Licenses](LICENSE.md).
