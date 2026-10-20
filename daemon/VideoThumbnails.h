@@ -52,6 +52,8 @@ public:
 
 Q_SIGNALS:
     void thumbnailReady(const QString &videoPath, const QString &pictureFile);
+    // No picture could be made (the file is not a video FFmpeg reads, or it took too long).
+    void thumbnailFailed(const QString &videoPath);
 
 private:
     struct Job

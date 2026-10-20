@@ -104,13 +104,13 @@ void ScreensaverController::onIdle()
     start();
 }
 
-QString ScreensaverController::resolveVideo(const QString &configured) const
+QString ScreensaverController::resolveVideoPath(const QString &configured, const QString &baseFolder)
 {
     QString path = configured;
     if (path.startsWith(QLatin1String("~/")))
         path = QDir::homePath() + path.mid(1);
     if (QDir::isRelativePath(path))
-        path = QDir(m_baseFolder).absoluteFilePath(path);
+        path = QDir(baseFolder).absoluteFilePath(path);
     const QFileInfo info(path);
     if (!info.isFile() || info.size() <= 0 || info.size() > MaxVideoBytes || !VideoThumbnails::isVideoFile(path))
         return {};

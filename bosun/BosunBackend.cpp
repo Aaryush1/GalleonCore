@@ -4,15 +4,20 @@
 #include "BosunBackend.h"
 
 #include <DesktopEntries.h>
+#include <ScreensaverController.h>
+#include <ScreensaverSplitter.h>
 #include <SteamLibrary.h>
 
 #include <QColor>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
+#include <QUrl>
 #include <QVariantMap>
 
 #include <array>
+#include <cmath>
 
 namespace bosun {
 
@@ -69,10 +74,38 @@ Described describe(const galleond::KeyConfig &key)
 } // namespace
 
 BosunBackend::BosunBackend(QString pagesFile, QObject *parent)
+    : BosunBackend(std::move(pagesFile), Tools{}, parent)
+{
+}
+
+BosunBackend::BosunBackend(QString pagesFile, const Tools &tools, QObject *parent)
     : QObject(parent)
     , m_file(std::move(pagesFile))
     , m_tiles(QFileInfo(m_file).absolutePath())
+    , m_probe(tools.ffprobe)
+    , m_thumbnails(tools.thumbnailFolder.isEmpty()
+                       ? QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + QStringLiteral("/galleoncore/thumbnails")
+                       : tools.thumbnailFolder,
+                   tools.ffmpeg)
 {
+    qRegisterMetaType<galleond::VideoInfo>();
+    connect(&m_probe, &galleond::VideoProbe::probed, this, [this](const QString &path, const galleond::VideoInfo &info) {
+        m_videoInfo.insert(path, info);
+        buildScreensaver();
+        Q_EMIT changed();
+        nextThumbnail(); // the length picks the moment of the picture
+    });
+    connect(&m_thumbnails, &galleond::VideoThumbnails::thumbnailReady, this, [this](const QString &path, const QString &picture) {
+        m_videoPictures.insert(path, picture);
+        m_pictureBusy = false;
+        buildScreensaver();
+        Q_EMIT changed();
+        nextThumbnail();
+    });
+    connect(&m_thumbnails, &galleond::VideoThumbnails::thumbnailFailed, this, [this] {
+        m_pictureBusy = false;
+        nextThumbnail();
+    });
     m_reloadSoon.setSingleShot(true);
     m_reloadSoon.setInterval(200);
     connect(&m_reloadSoon, &QTimer::timeout, this, &BosunBackend::reload);
@@ -98,6 +131,8 @@ void BosunBackend::reload()
     m_themes.clear();
     m_config.reset();
     m_problem.clear();
+    m_screensaver.clear();
+    m_videoFiles.clear();
 
     QByteArray json = galleond::defaultPagesJson();
     if (QFileInfo::exists(m_file)) {
@@ -116,12 +151,131 @@ void BosunBackend::reload()
         return;
     }
     m_config = parsed.config;
-    for (const galleond::Theme &theme : m_config->themes) {
+    buildScreensaver();
+    askAboutVideos();
+    for (const galleond::Theme &theme : parsed.config->themes) {
         m_themes.append(QVariantMap{{QStringLiteral("name"), theme.name},
                                     {QStringLiteral("page"), theme.page},
                                     {QStringLiteral("color"), QColor::fromRgb(theme.rgb).name()}});
     }
     Q_EMIT changed();
+}
+
+namespace {
+
+QString durationText(double seconds)
+{
+    if (seconds <= 0)
+        return {};
+    const int whole = static_cast<int>(std::lround(seconds));
+    return whole >= 60 ? QStringLiteral("%1:%2").arg(whole / 60).arg(whole % 60, 2, 10, QLatin1Char('0'))
+                       : QStringLiteral("%1 s").arg(whole);
+}
+
+} // namespace
+
+void BosunBackend::buildScreensaver()
+{
+    m_screensaver.clear();
+    if (!m_config)
+        return;
+    const galleond::ScreensaverConfig &config = m_config->screensaver;
+    const galleond::ScreensaverSplitter splitter(config);
+    const QSize canvas = splitter.isValid() ? splitter.canvasSize() : QSize();
+
+    // The video list is resolved once per reading of the file (askAboutVideos); the rest is words.
+    if (m_videoFiles.size() != config.videos.size()) {
+        m_videoFiles.clear();
+        const QString base = QFileInfo(m_file).absolutePath();
+        for (const QString &configured : config.videos)
+            m_videoFiles.append(galleond::ScreensaverController::resolveVideoPath(configured, base));
+    }
+
+    QVariantList videos;
+    for (qsizetype index = 0; index < config.videos.size(); ++index) {
+        const QString &configured = config.videos.at(index);
+        const QString &path = m_videoFiles.at(index);
+        QStringList notes;
+        QString details;
+        if (path.isEmpty()) {
+            notes << tr("The file is missing, or is not a video that galleond can read.");
+        } else if (m_videoInfo.contains(path)) {
+            const galleond::VideoInfo info = m_videoInfo.value(path);
+            if (!info.valid) {
+                notes << tr("ffprobe could not read this video.");
+            } else {
+                QStringList parts{QStringLiteral("%1 × %2").arg(info.width).arg(info.height)};
+                if (info.fps > 0)
+                    parts << tr("%1 fps").arg(info.fps, 0, 'f', 1);
+                if (info.seconds > 0)
+                    parts << durationText(info.seconds);
+                if (!info.codec.isEmpty())
+                    parts << info.codec;
+                details = parts.join(QStringLiteral(" · "));
+                if (!canvas.isEmpty()) {
+                    // The module scales the video to cover the picture and cuts the middle.
+                    const double videoRatio = static_cast<double>(info.width) / info.height;
+                    const double canvasRatio = static_cast<double>(canvas.width()) / canvas.height();
+                    const double cut = videoRatio > canvasRatio ? 1 - (canvasRatio / videoRatio) : 1 - (videoRatio / canvasRatio);
+                    if (cut >= 0.05) {
+                        const QString where = videoRatio > canvasRatio ? tr("at the sides") : tr("at the top and bottom");
+                        notes << tr("About %1% of the picture is cut off %2 (the module needs the proportions of %3 × %4).")
+                                     .arg(std::lround(cut * 100))
+                                     .arg(where)
+                                     .arg(canvas.width())
+                                     .arg(canvas.height());
+                    }
+                    if (info.width < (canvas.width() * 9) / 10)
+                        notes << tr("Smaller than the screen (%1 px wide): it will be enlarged.").arg(canvas.width());
+                }
+                if (info.fps > 0 && info.fps < config.fps - 0.5)
+                    notes << tr("The video has fewer images per second than the setting (%1): none are made up.").arg(config.fps);
+            }
+        }
+        const QString picture = m_videoPictures.value(path);
+        videos.append(QVariantMap{{QStringLiteral("index"), static_cast<int>(index)},
+                                  {QStringLiteral("title"), index < config.titles.size() ? config.titles.at(index) : QString()},
+                                  {QStringLiteral("file"), configured},
+                                  {QStringLiteral("name"), QFileInfo(configured).fileName()},
+                                  {QStringLiteral("found"), !path.isEmpty()},
+                                  {QStringLiteral("details"), details},
+                                  {QStringLiteral("thumbnail"), picture.isEmpty() ? QString() : QUrl::fromLocalFile(picture).toString()},
+                                  {QStringLiteral("notes"), notes}});
+    }
+    m_screensaver = QVariantMap{{QStringLiteral("enabled"), config.enabled()},
+                                {QStringLiteral("hasGeometry"), config.hasGeometry},
+                                {QStringLiteral("idleMinutes"), config.idleMinutes},
+                                {QStringLiteral("fps"), config.fps},
+                                {QStringLiteral("whilePlaying"), config.whilePlaying},
+                                {QStringLiteral("canvas"), canvas.isEmpty() ? QString() : QStringLiteral("%1 × %2").arg(canvas.width()).arg(canvas.height())},
+                                {QStringLiteral("videos"), videos}};
+}
+
+void BosunBackend::askAboutVideos()
+{
+    m_pictureTried.clear();
+    for (const QString &path : std::as_const(m_videoFiles)) {
+        if (!path.isEmpty() && !m_videoInfo.contains(path))
+            m_probe.request(path);
+    }
+    nextThumbnail(); // those whose length is known already; the others follow their answer
+}
+
+void BosunBackend::nextThumbnail()
+{
+    if (!m_thumbnails.isAvailable() || m_pictureBusy)
+        return;
+    for (const QString &path : std::as_const(m_videoFiles)) {
+        if (path.isEmpty() || m_videoPictures.contains(path) || m_pictureTried.contains(path))
+            continue;
+        // Wait for the length of the first ones so that the picture is taken a tenth of the way in.
+        if (m_probe.isAvailable() && !m_videoInfo.contains(path))
+            return;
+        m_pictureTried.append(path);
+        m_pictureBusy = true;
+        m_thumbnails.request(path, m_videoInfo.value(path).seconds);
+        return;
+    }
 }
 
 const galleond::Page *BosunBackend::pageNamed(const QString &page) const

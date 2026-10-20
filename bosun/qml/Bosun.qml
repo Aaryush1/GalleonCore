@@ -236,7 +236,7 @@ Window {
 
     // ---- the tabs still to build
     Column {
-        visible: win.tab.kind !== "theme" && win.backend.problem === ""
+        visible: win.tab.kind !== "theme" && win.tab.kind !== "screensavers" && win.backend.problem === ""
         x: 30
         y: 90
         width: win.width - 60
@@ -257,11 +257,145 @@ Window {
                 switch (win.tab.kind) {
                 case "keyboard":
                     return qsTr("Planned: a link to the Corsair Web Hub, opened in your browser. The keyboard's own lighting is not controlled from Linux yet (see the OpenRGB plugin).")
-                case "wallpapers":
-                    return qsTr("Planned: thumbnails of the wallpapers, adding your own pictures, and cropping them to the screen (720 × 384).")
                 default:
-                    return qsTr("Planned: the screensavers, adding a video with its resolution and frame rate shown, cropping it on the module's real geometry, and converting it with FFmpeg in the background.")
+                    return qsTr("Planned: thumbnails of the wallpapers, adding your own pictures, and cropping them to the screen (720 × 384).")
                 }
+            }
+        }
+    }
+
+    // ---- the screensavers: the settings, then the videos with what is known of each
+    Flickable {
+        id: saverPage
+        visible: win.tab.kind === "screensavers" && win.backend.problem === ""
+        readonly property var saver: win.backend.screensaver
+        x: 30
+        y: 84
+        width: win.width - 60
+        height: win.height - 104
+        contentWidth: width
+        contentHeight: saverColumn.height
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+
+        Column {
+            id: saverColumn
+            width: saverPage.width
+            spacing: 14
+
+            Text {
+                color: "white"
+                font.pixelSize: 18
+                font.bold: true
+                text: qsTr("Screensavers")
+            }
+            Text {
+                width: parent.width
+                color: saverPage.saver.enabled ? "#9be7a0" : "#ffb74d"
+                font.pixelSize: 14
+                wrapMode: Text.Wrap
+                text: {
+                    if (!saverPage.saver.hasGeometry)
+                        return qsTr("Off: the measures of the module (screen, keys, gaps) are missing from the pages file, so a video cannot be spread over it.")
+                    if (saverPage.saver.videos.length === 0)
+                        return qsTr("Off: no video.")
+                    return qsTr("On: starts after %1 minute(s) without use, at %2 images per second%3.")
+                        .arg(saverPage.saver.idleMinutes).arg(saverPage.saver.fps)
+                        .arg(saverPage.saver.whilePlaying ? qsTr(", even while a track plays") : qsTr(", never while a track plays"))
+                }
+            }
+            Text {
+                visible: saverPage.saver.canvas !== ""
+                width: parent.width
+                color: "#9aa0a6"
+                font.pixelSize: 13
+                wrapMode: Text.Wrap
+                text: qsTr("A video is cut to %1 pixels: the screen and the 12 keys seen as one picture. The module shows about 20 images per second at most.").arg(saverPage.saver.canvas)
+            }
+
+            Repeater {
+                model: saverPage.saver.videos
+                delegate: Rectangle {
+                    id: videoRow
+                    required property var modelData
+                    width: saverColumn.width
+                    height: Math.max(150, info.height + 28)
+                    radius: 10
+                    color: "#23252a"
+
+                    Rectangle {
+                        id: pictureFrame
+                        x: 14
+                        y: 14
+                        width: 84
+                        height: 122
+                        radius: 6
+                        color: "#15171a"
+                        Image {
+                            anchors.fill: parent
+                            visible: videoRow.modelData.thumbnail !== ""
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            cache: false
+                            source: videoRow.modelData.thumbnail
+                        }
+                        Text {
+                            anchors.centerIn: parent
+                            visible: videoRow.modelData.thumbnail === ""
+                            color: "#5f6670"
+                            font.pixelSize: 12
+                            text: videoRow.modelData.found ? qsTr("…") : qsTr("none")
+                        }
+                    }
+                    Column {
+                        id: info
+                        x: 114
+                        y: 14
+                        width: parent.width - 130
+                        spacing: 6
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            color: "white"
+                            font.pixelSize: 16
+                            font.bold: true
+                            text: videoRow.modelData.title !== "" ? videoRow.modelData.title : videoRow.modelData.name
+                        }
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideMiddle
+                            color: "#7d8591"
+                            font.pixelSize: 12
+                            text: videoRow.modelData.file
+                        }
+                        Text {
+                            visible: videoRow.modelData.details !== ""
+                            width: parent.width
+                            color: "#c9ced6"
+                            font.pixelSize: 14
+                            text: videoRow.modelData.details
+                        }
+                        Repeater {
+                            model: videoRow.modelData.notes
+                            delegate: Text {
+                                required property string modelData
+                                width: info.width
+                                color: "#ffb74d"
+                                font.pixelSize: 13
+                                wrapMode: Text.Wrap
+                                text: "• " + modelData
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text {
+                width: parent.width
+                color: "#7d8591"
+                font.pixelSize: 13
+                wrapMode: Text.Wrap
+                text: qsTr("Reading only for now: changing the settings and adding a video come next. The videos are listed in the “screensaver” part of %1.").arg(win.backend.file)
             }
         }
     }

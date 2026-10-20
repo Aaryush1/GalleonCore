@@ -37,6 +37,10 @@ class ScreensaverController : public QObject
     Q_OBJECT
 
 public:
+    // The readable video file that `configured` names: "~/" is the home folder, a relative
+    // name is looked up in `baseFolder`; empty when it is not a plain video file of a sane size.
+    [[nodiscard]] static QString resolveVideoPath(const QString &configured, const QString &baseFolder);
+
     // `deck` and `media` are not owned and must outlive the controller.
     // `media` may be null (then nothing prevents the screensaver).
     ScreensaverController(galleon::StreamDeck *deck, MediaController *media, QObject *parent = nullptr);
@@ -69,7 +73,7 @@ private:
     void onReadyRead();
     void onFinished(int exitCode, QProcess::ExitStatus status);
     void showFrame(const QByteArray &rgb);
-    [[nodiscard]] QString resolveVideo(const QString &configured) const;
+    [[nodiscard]] QString resolveVideo(const QString &configured) const { return resolveVideoPath(configured, m_baseFolder); }
     void wake();
 
     galleon::StreamDeck *m_deck;

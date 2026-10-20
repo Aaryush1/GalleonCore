@@ -172,6 +172,7 @@ void VideoThumbnails::finished(const Job &job, double at, int exitCode, QProcess
         Q_EMIT thumbnailReady(job.video, result);
     } else {
         qInfo() << "galleond: no thumbnail made for" << QFileInfo(job.video).fileName();
+        Q_EMIT thumbnailFailed(job.video);
     }
     next();
 }
