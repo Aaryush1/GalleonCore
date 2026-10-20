@@ -30,7 +30,7 @@ Window {
     // One tab per theme, then the fixed ones.
     readonly property var tabs: backend.themes.map(t => ({title: t.name, kind: "theme", page: t.page, color: t.color})).concat([
         {title: qsTr("Keyboard"), kind: "keyboard", page: "", color: "#9aa0a6"},
-        {title: qsTr("Wallpapers"), kind: "wallpapers", page: "", color: "#9aa0a6"},
+        {title: qsTr("Wallpapers"), kind: "wallpapers", page: "", color: "#ff00ff"},
         {title: qsTr("Screensavers"), kind: "screensavers", page: "", color: "#9aa0a6"}
     ])
     readonly property var tab: tabs[Math.min(currentTab, tabs.length - 1)]
