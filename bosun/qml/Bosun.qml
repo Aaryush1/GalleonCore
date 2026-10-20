@@ -23,6 +23,8 @@ Window {
     property int currentTab: 0
     property int selectedKey: -1
     property bool cropOpen: false // only for a picture of the crop window (--crop)
+    // With the icon in the notification area, closing the window only hides it.
+    property bool hideOnClose: false
     // The page shown inside a theme's tab: its own, or one of the sub-pages it leads to.
     property string shownPage: ""
     // What the last edit said, in the status bar.
@@ -30,6 +32,13 @@ Window {
     property bool messageIsError: false
     // The last theme looked at: its colour is the keyboard tab's (the left dial of the module shows it).
     property int lastTheme: 0
+
+    onClosing: close => {
+        if (win.hideOnClose) {
+            close.accepted = false
+            win.visible = false
+        }
+    }
 
     title: qsTr("Galleon Bosun")
     width: 1240

@@ -3,6 +3,7 @@
 
 #include "BosunBackend.h"
 #include "DaemonStatus.h"
+#include "Tray.h"
 #include "WallpaperLibrary.h"
 
 #include <AppsBackend.h>
@@ -10,7 +11,7 @@
 #include <QCommandLineParser>
 #include <QDebug>
 #include <QDir>
-#include <QGuiApplication>
+#include <QApplication>
 #include <QIcon>
 #include <QImage>
 #include <QQmlApplicationEngine>
@@ -22,7 +23,7 @@
 
 int main(int argc, char *argv[])
 {
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("galleon-bosun"));
     QGuiApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION_STRING));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Galleon Bosun"));
@@ -65,7 +66,7 @@ int main(int argc, char *argv[])
                                   : QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
-    const bosun::DaemonStatus daemon;
+    bosun::DaemonStatus daemon;
 #ifdef GALLEON_SOURCE_WALLPAPERS
     bosun::WallpaperLibrary library(bosun::WallpaperLibrary::defaultPlaces(QStringLiteral(GALLEON_SOURCE_WALLPAPERS))); // and the source tree, when running from the build
 #else
@@ -109,8 +110,44 @@ int main(int argc, char *argv[])
         root->setProperty("currentTab", root->property("tabs").toList().size() - 2); // the Wallpapers tab
     }
 
+    // The icon in the notification area: closing the window hides it, a click shows it again, and
+    // the menu can quit (and stop galleond too). Without a notification area it is an ordinary window.
+    auto *window = qobject_cast<QQuickWindow *>(root);
+    bosun::Tray tray(QGuiApplication::windowIcon());
+    if (window && !parser.isSet(shotOption) && bosun::Tray::isAvailable()) {
+        QApplication::setQuitOnLastWindowClosed(false);
+        root->setProperty("hideOnClose", true);
+        const auto refresh = [&] { tray.update(window->isVisible(), daemon.running()); };
+        QObject::connect(window, &QWindow::visibleChanged, &tray, refresh);
+        QObject::connect(&daemon, &bosun::DaemonStatus::changed, &tray, refresh);
+        QObject::connect(&tray, &bosun::Tray::chosen, &app, [&](bosun::TrayEntry::Action action) {
+            switch (action) {
+            case bosun::TrayEntry::Action::ToggleWindow:
+                if (window->isVisible()) {
+                    window->hide();
+                } else {
+                    window->show();
+                    window->raise();
+                    window->requestActivate();
+                }
+                break;
+            case bosun::TrayEntry::Action::StartDaemon:
+                static_cast<void>(daemon.start());
+                break;
+            case bosun::TrayEntry::Action::QuitAndStop:
+                static_cast<void>(daemon.stop());
+                QApplication::quit();
+                break;
+            case bosun::TrayEntry::Action::Quit:
+                QApplication::quit();
+                break;
+            }
+        });
+        refresh();
+        tray.show();
+    }
+
     if (parser.isSet(shotOption)) {
-        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
         const QString png = parser.value(shotOption);
         int result = 0;
         QTimer::singleShot(700, &app, [&] {

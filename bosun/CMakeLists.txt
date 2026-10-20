@@ -8,6 +8,7 @@ add_library(bosun_core STATIC
     FileNames.h FileNames.cpp
     DaemonStatus.h DaemonStatus.cpp
     PageName.h PageName.cpp
+    TrayMenu.h TrayMenu.cpp
     VideoAdvice.h VideoAdvice.cpp
     WallpaperLibrary.h WallpaperLibrary.cpp
     VideoConverter.h VideoConverter.cpp
@@ -22,13 +23,14 @@ qt_add_resources(bosun_core "bosun_ui"
           icons/galleon-bosun.svg
 )
 
-add_executable(galleon-bosun main.cpp)
+# The icon in the notification area needs QSystemTrayIcon (Qt Widgets): only the program has it, not the library the tests use.
+add_executable(galleon-bosun main.cpp Tray.h Tray.cpp)
 target_compile_definitions(galleon-bosun PRIVATE
     PROJECT_VERSION_STRING="${PROJECT_VERSION}"
     # When run from the build tree, the project's own wallpapers; an installed one finds them in the data folders.
     GALLEON_SOURCE_WALLPAPERS="${CMAKE_SOURCE_DIR}/public/wallpaper"
 )
-target_link_libraries(galleon-bosun PRIVATE bosun_core galleon_warnings)
+target_link_libraries(galleon-bosun PRIVATE bosun_core Qt6::Widgets galleon_warnings)
 install(TARGETS galleon-bosun RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES icons/galleon-bosun.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
 install(FILES galleon-bosun.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
