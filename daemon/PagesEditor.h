@@ -41,6 +41,11 @@ public:
     static EditResult setScreensaverWhilePlaying(const QString &file, bool whilePlaying);
     // The title of video `index` (its place in the list); an empty title takes the title away.
     static EditResult setScreensaverVideoTitle(const QString &file, int index, const QString &title);
+    // Adds the video file `video` (as given: an absolute path, "~/..." or relative to the folder
+    // of the pages file) at the end of the list, with a title when it is not empty. Refused
+    // when the list is full or the file is already in it. The file is not checked here: the
+    // caller has looked at it.
+    static EditResult addScreensaverVideo(const QString &file, const QString &video, const QString &title);
     // Takes video `index` out of the list. The last one gone, the screensaver is off.
     static EditResult removeScreensaverVideo(const QString &file, int index);
 };

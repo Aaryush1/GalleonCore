@@ -275,7 +275,7 @@ Window {
         width: Math.max(34, label.implicitWidth + 24)
         height: 32
         radius: 6
-        color: pill.selected ? "#2e7d32" : !pill.enabledLook ? "#2a2c30" : (area.containsMouse ? (pill.danger ? "#7a3b3b" : "#3a3f47") : (pill.danger ? "#5b3a3a" : "#2e3238"))
+        color: !pill.enabledLook ? "#2a2c30" : pill.selected ? "#2e7d32" : (area.containsMouse ? (pill.danger ? "#7a3b3b" : "#3a3f47") : (pill.danger ? "#5b3a3a" : "#2e3238"))
         Text {
             id: label
             anchors.centerIn: parent
@@ -596,12 +596,210 @@ Window {
                 }
             }
 
+            // ---- adding a video: choose it (drop it or give its path), look at it, then add it
+            Rectangle {
+                id: addBox
+                readonly property var candidate: win.backend.candidate
+                readonly property bool chosen: candidate.path !== undefined || candidate.name !== undefined
+                width: parent.width
+                height: addColumn.height + 28
+                radius: 10
+                color: drop.containsDrag ? "#1f3a2a" : "#1f2125"
+                border.width: 1
+                border.color: drop.containsDrag ? "#4caf50" : "#33ffffff"
+
+                DropArea {
+                    id: drop
+                    anchors.fill: parent
+                    keys: ["text/uri-list"]
+                    onDropped: event => {
+                        if (event.hasUrls && event.urls.length > 0) {
+                            win.backend.inspect(event.urls[0].toString())
+                            saverPage.message = ""
+                        }
+                    }
+                }
+
+                Column {
+                    id: addColumn
+                    x: 14
+                    y: 14
+                    width: parent.width - 28
+                    spacing: 10
+
+                    Text {
+                        color: "white"
+                        font.pixelSize: 16
+                        font.bold: true
+                        text: qsTr("Add a video")
+                    }
+                    Text {
+                        width: parent.width
+                        color: "#9aa0a6"
+                        font.pixelSize: 13
+                        wrapMode: Text.Wrap
+                        text: qsTr("Drop a video file here, or write its path. It is only looked at until you add it, and added as it is, where it is: nothing is copied or converted yet.")
+                    }
+                    Row {
+                        spacing: 10
+                        Rectangle {
+                            width: addColumn.width - checkButton.width - 10
+                            height: 34
+                            radius: 6
+                            color: "#16181b"
+                            border.width: 1
+                            border.color: pathInput.activeFocus ? "#4caf50" : "#44ffffff"
+                            TextInput {
+                                id: pathInput
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                color: "white"
+                                font.pixelSize: 14
+                                clip: true
+                                selectByMouse: true
+                                onAccepted: checkButton.clicked()
+                                Accessible.name: qsTr("Path of a video file")
+                                Text {
+                                    visible: pathInput.text === "" && !pathInput.activeFocus
+                                    color: "#7d8591"
+                                    font.pixelSize: 14
+                                    text: qsTr("/path/to/video.mp4")
+                                }
+                            }
+                        }
+                        Pill {
+                            id: checkButton
+                            text: qsTr("Look at it")
+                            enabledLook: pathInput.text.trim() !== ""
+                            onClicked: {
+                                win.backend.inspect(pathInput.text)
+                                saverPage.message = ""
+                            }
+                        }
+                    }
+
+                    // The video being looked at.
+                    Rectangle {
+                        visible: addBox.chosen
+                        width: parent.width
+                        height: Math.max(150, candidateInfo.height + 28)
+                        radius: 8
+                        color: "#23252a"
+
+                        Rectangle {
+                            x: 14
+                            y: 14
+                            width: 84
+                            height: 122
+                            radius: 6
+                            color: "#15171a"
+                            Image {
+                                anchors.fill: parent
+                                visible: addBox.candidate.thumbnail !== undefined && addBox.candidate.thumbnail !== ""
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: true
+                                cache: false
+                                source: addBox.candidate.thumbnail !== undefined ? addBox.candidate.thumbnail : ""
+                            }
+                        }
+                        Column {
+                            id: candidateInfo
+                            x: 114
+                            y: 14
+                            width: parent.width - 130
+                            spacing: 6
+                            Text {
+                                width: parent.width
+                                elide: Text.ElideMiddle
+                                color: "white"
+                                font.pixelSize: 16
+                                font.bold: true
+                                text: addBox.candidate.name !== undefined ? addBox.candidate.name : ""
+                            }
+                            Text {
+                                visible: text !== ""
+                                width: parent.width
+                                color: "#c9ced6"
+                                font.pixelSize: 14
+                                text: addBox.candidate.state === "checking" ? qsTr("Reading the video…")
+                                      : (addBox.candidate.details !== undefined ? addBox.candidate.details : "")
+                            }
+                            Repeater {
+                                model: addBox.candidate.notes !== undefined ? addBox.candidate.notes : []
+                                delegate: Text {
+                                    required property string modelData
+                                    width: candidateInfo.width
+                                    color: "#ffb74d"
+                                    font.pixelSize: 13
+                                    wrapMode: Text.Wrap
+                                    text: "• " + modelData
+                                }
+                            }
+                            Text {
+                                visible: addBox.candidate.state === "ready" && !addBox.candidate.canAdd
+                                width: parent.width
+                                color: "#ff8a80"
+                                font.pixelSize: 13
+                                wrapMode: Text.Wrap
+                                text: addBox.candidate.why !== undefined ? addBox.candidate.why : ""
+                            }
+                            Rectangle {
+                                visible: addBox.candidate.state === "ready" && addBox.candidate.canAdd
+                                width: parent.width
+                                height: 34
+                                radius: 6
+                                color: "#16181b"
+                                border.width: 1
+                                border.color: newTitle.activeFocus ? "#4caf50" : "#44ffffff"
+                                TextInput {
+                                    id: newTitle
+                                    anchors.fill: parent
+                                    anchors.margins: 8
+                                    color: "white"
+                                    font.pixelSize: 15
+                                    clip: true
+                                    maximumLength: 60
+                                    Accessible.name: qsTr("Title of the new video")
+                                    Text {
+                                        visible: newTitle.text === "" && !newTitle.activeFocus
+                                        color: "#7d8591"
+                                        font.pixelSize: 15
+                                        text: addBox.candidate.suggestedTitle !== undefined ? addBox.candidate.suggestedTitle : ""
+                                    }
+                                }
+                            }
+                            Row {
+                                spacing: 10
+                                Pill {
+                                    selected: true
+                                    text: qsTr("Add to the list")
+                                    visible: addBox.candidate.state === "ready"
+                                    enabledLook: addBox.candidate.canAdd === true
+                                    onClicked: {
+                                        saverPage.answered(win.backend.addCandidate(newTitle.text), qsTr("Added. galleond reads the change by itself."))
+                                        newTitle.text = ""
+                                        pathInput.text = ""
+                                    }
+                                }
+                                Pill {
+                                    text: qsTr("Cancel")
+                                    onClicked: {
+                                        win.backend.clearCandidate()
+                                        newTitle.text = ""
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Text {
                 width: parent.width
                 color: "#7d8591"
                 font.pixelSize: 13
                 wrapMode: Text.Wrap
-                text: qsTr("Adding a video comes next. Every change is saved at once in %1 (the previous version is kept as .bak) and galleond reads it by itself.").arg(win.backend.file)
+                text: qsTr("Cropping a video to the module and converting it come next. Every change is saved at once in %1 (the previous version is kept as .bak) and galleond reads it by itself.").arg(win.backend.file)
             }
         }
     }

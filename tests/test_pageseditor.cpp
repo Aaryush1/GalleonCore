@@ -331,6 +331,69 @@ private Q_SLOTS:
         }
     }
 
+    void aVideoIsAddedAtTheEndWithItsTitle()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        QVERIFY(PagesEditor::addScreensaverVideo(env.pages(), "/videos/d.mp4", "  Fourth ").ok);
+        QVERIFY(PagesEditor::addScreensaverVideo(env.pages(), "e.mp4", "").ok); // relative, no title
+        const ScreensaverConfig saver = configOf(env.pages()).screensaver;
+        QCOMPARE(saver.videos, (QStringList{"a.mp4", "b.mp4", "c.mp4", "/videos/d.mp4", "e.mp4"}));
+        QCOMPARE(saver.titles, (QStringList{"First", "", "", "Fourth", ""}));
+        QVERIFY(saver.hasGeometry); // the rest of the section stays
+    }
+
+    void aVideoCanBeAddedWhenThereIsNoneYet()
+    {
+        Environment const env;
+        QVERIFY(PagesEditor::addScreensaverVideo(env.pages(), "/videos/one.mp4", "One").ok); // no file at all
+        const ScreensaverConfig saver = configOf(env.pages()).screensaver;
+        QCOMPARE(saver.videos, (QStringList{"/videos/one.mp4"}));
+        QVERIFY(!saver.hasGeometry); // so it is not on yet: the measures are the user's
+    }
+
+    void theSameFileInAnotherSpellingIsRefused()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile(R"(["a.mp4", "/videos/b.mp4", "~/c.mp4"])")));
+        const QByteArray before = readFile(env.pages());
+        const QString folder = QFileInfo(env.pages()).absolutePath();
+        for (const QString &again : {QStringLiteral("a.mp4"), folder + "/a.mp4", folder + "/sub/../a.mp4", QStringLiteral("/videos/b.mp4"),
+                                     QStringLiteral("/videos//b.mp4"), QDir::homePath() + "/c.mp4"}) {
+            const auto result = PagesEditor::addScreensaverVideo(env.pages(), again, "");
+            QVERIFY2(!result.ok, qPrintable(again));
+            QVERIFY2(result.errors.join(' ').contains("already"), qPrintable(again));
+        }
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
+    void aFullListRefusesAnotherVideo()
+    {
+        Environment const env;
+        QStringList names;
+        for (int i = 0; i < MaxScreensaverVideos; ++i)
+            names << QStringLiteral("\"v%1.mp4\"").arg(i);
+        QVERIFY(writeFile(env.pages(), saverFile("[" + names.join(',') + "]")));
+        const QByteArray before = readFile(env.pages());
+        const auto result = PagesEditor::addScreensaverVideo(env.pages(), "one-more.mp4", "");
+        QVERIFY(!result.ok);
+        QVERIFY(result.errors.join(' ').contains(QString::number(MaxScreensaverVideos)));
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
+    void aBadVideoPathOrTitleIsRefusedAndNothingIsWritten()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), saverFile()));
+        const QByteArray before = readFile(env.pages());
+        QVERIFY(!PagesEditor::addScreensaverVideo(env.pages(), "", "x").ok);
+        QVERIFY(!PagesEditor::addScreensaverVideo(env.pages(), "   ", "x").ok);
+        QVERIFY(!PagesEditor::addScreensaverVideo(env.pages(), "two\nlines.mp4", "").ok);
+        QVERIFY(!PagesEditor::addScreensaverVideo(env.pages(), QString(MaxVideoPathLength + 1, 'p'), "").ok);
+        QVERIFY(!PagesEditor::addScreensaverVideo(env.pages(), "ok.mp4", QString(MaxVideoTitleLength + 1, 't')).ok);
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
     void aVideoThatIsNotThereIsRefusedAndNothingIsWritten()
     {
         Environment const env;

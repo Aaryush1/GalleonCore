@@ -319,6 +319,104 @@ private Q_SLOTS:
         QCOMPARE(backend.revision(), before); // not even read again
     }
 
+    void aChosenFileThatIsNotAVideoIsSaidAndCannotBeAdded()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("notes.txt"), "text"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = "/nonexistent/none", .ffmpeg = "/nonexistent/none", .thumbnailFolder = dir.filePath("thumbs")});
+        QVERIFY(backend.candidate().isEmpty());
+        for (const QString &chosen : {dir.filePath("notes.txt"), dir.filePath("missing.mp4"), QString("file://") + dir.filePath("notes.txt")}) {
+            backend.inspect(chosen);
+            const QVariantMap candidate = backend.candidate();
+            QCOMPARE(candidate.value("state").toString(), QStringLiteral("unusable"));
+            QVERIFY(!candidate.value("canAdd").toBool());
+            QVERIFY(!candidate.value("notes").toStringList().isEmpty());
+            QVERIFY(!backend.addCandidate("x").isEmpty());
+        }
+        QCOMPARE(backend.screensaver().value("videos").toList().size(), 1); // nothing was added
+    }
+
+    void aChosenVideoIsLookedAtThenAddedAsItIs()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("Night Rain.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        // Wide (1920 x 1080), 24 fps: the sides will be cut.
+        const QString probe = fakeProbe(dir.path(),
+                                        R"({"streams": [{"codec_name": "h264", "width": 1920, "height": 1080, "avg_frame_rate": "24/1"}], "format": {"duration": "12"}})");
+        bosun::BosunBackend backend(file, {.ffprobe = probe, .ffmpeg = "/nonexistent/none", .thumbnailFolder = dir.filePath("thumbs")});
+        backend.inspect(QUrl::fromLocalFile(dir.filePath("Night Rain.mp4")).toString()); // as a file dialog gives it
+        QCOMPARE(backend.candidate().value("state").toString(), QStringLiteral("checking"));
+        QVERIFY(!backend.candidate().value("canAdd").toBool());
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        const QVariantMap candidate = backend.candidate();
+        QCOMPARE(candidate.value("details").toString(), QStringLiteral("1920 × 1080 · 24.0 fps · 12 s · h264"));
+        QVERIFY(candidate.value("notes").toStringList().join('\n').contains("at the sides"));
+        QVERIFY(candidate.value("canAdd").toBool());
+        QCOMPARE(candidate.value("suggestedTitle").toString(), QStringLiteral("Night Rain"));
+
+        QVERIFY(backend.addCandidate("").isEmpty()); // no title given: the name of the file
+        QVERIFY(backend.candidate().isEmpty());
+        const QVariantList videos = backend.screensaver().value("videos").toList();
+        QCOMPARE(videos.size(), 2);
+        QCOMPARE(videos.at(1).toMap().value("title").toString(), QStringLiteral("Night Rain"));
+        QCOMPARE(videos.at(1).toMap().value("file").toString(), dir.filePath("Night Rain.mp4")); // where it is, not a copy
+    }
+
+    void aVideoAlreadyInTheListOrAFullListCannotBeAdded()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("a.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = "/nonexistent/none", .ffmpeg = "/nonexistent/none", .thumbnailFolder = dir.filePath("thumbs")});
+        backend.inspect(dir.filePath("a.mp4"));
+        QVERIFY(!backend.candidate().value("canAdd").toBool());
+        QVERIFY(backend.candidate().value("why").toString().contains("already"));
+        QVERIFY(!backend.addCandidate("again").isEmpty());
+
+        QStringList names;
+        for (int i = 0; i < galleond::MaxScreensaverVideos; ++i)
+            names << QStringLiteral(R"("v%1.mp4")").arg(i);
+        QVERIFY(writeFile(file, saverPages(names.join(','))));
+        backend.reload();
+        QVERIFY(writeFile(dir.filePath("new.mp4"), "x"));
+        backend.inspect(dir.filePath("new.mp4"));
+        QVERIFY(!backend.candidate().value("canAdd").toBool());
+        QVERIFY(backend.candidate().value("why").toString().contains("full"));
+    }
+
+    void aVideoThatFfprobeCannotReadCannotBeAdded()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("bad.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        const QString probe = fakeProbe(dir.path(), "not what ffprobe prints");
+        bosun::BosunBackend backend(file, {.ffprobe = probe, .ffmpeg = "/nonexistent/none", .thumbnailFolder = dir.filePath("thumbs")});
+        backend.inspect(dir.filePath("bad.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("unusable"), 8000);
+        QVERIFY(!backend.candidate().value("canAdd").toBool());
+        QVERIFY(!backend.addCandidate("x").isEmpty());
+    }
+
+    void theChoiceCanBeDropped()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("a.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("b.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = "/nonexistent/none", .ffmpeg = "/nonexistent/none", .thumbnailFolder = dir.filePath("thumbs")});
+        backend.inspect(dir.filePath("a.mp4"));
+        QVERIFY(!backend.candidate().isEmpty());
+        backend.clearCandidate();
+        QVERIFY(backend.candidate().isEmpty());
+        QVERIFY(!backend.addCandidate("x").isEmpty()); // nothing chosen
+    }
+
     void theWindowHasATabPerThemeAndTheFixedOnes()
     {
         const QTemporaryDir dir;
