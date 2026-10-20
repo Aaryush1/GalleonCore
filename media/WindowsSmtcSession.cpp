@@ -95,6 +95,14 @@ public:
             const auto start = timeline.StartTime().count();
             result.track.durationSeconds = std::max(0.0, (static_cast<double>(timeline.EndTime().count()) - static_cast<double>(start)) / 10000000.0);
             result.track.positionSeconds = std::max(0.0, (static_cast<double>(timeline.Position().count()) - static_cast<double>(start)) / 10000000.0);
+            // Timeline positions are timestamped, not necessarily refreshed every second.
+            // Extrapolate only during playback; the Qt adapter clamps to the duration.
+            if (result.state == MediaController::State::Playing) {
+                const auto updated = timeline.LastUpdatedTime();
+                const auto now = winrt::clock::now();
+                if (updated.time_since_epoch().count() > 0 && now > updated)
+                    result.track.positionSeconds += std::chrono::duration<double>(now - updated).count();
+            }
             const auto shuffle = playback.IsShuffleActive();
             result.shuffle = shuffle && shuffle.Value();
             const auto repeat = playback.AutoRepeatMode();
@@ -146,13 +154,22 @@ public:
                     const auto high = timeline.MaxSeekTime().count();
                     if (high < low) break;
                     auto position = std::clamp(timeline.Position().count(), low, high);
-                    const auto delta = static_cast<std::int64_t>(command.seconds) * 10000000;
-                    if (command.action == SmtcAction::Restart)
+                    if (command.action == SmtcAction::Restart) {
                         position = low;
-                    else if (delta > 0)
-                        position += std::min(delta, high - position);
-                    else
-                        position -= std::min(-delta, position - low);
+                    } else {
+                        long double target = static_cast<long double>(position)
+                                           + static_cast<long double>(command.seconds) * 10000000.0L;
+                        const auto updated = timeline.LastUpdatedTime();
+                        const auto now = winrt::clock::now();
+                        if (info.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing
+                            && updated.time_since_epoch().count() > 0 && now > updated)
+                            target += static_cast<long double>((now - updated).count());
+                        // Return the integer bounds directly to avoid floating point
+                        // rounding beyond INT64_MAX during conversion on MSVC.
+                        if (target >= static_cast<long double>(high)) position = high;
+                        else if (target <= static_cast<long double>(low)) position = low;
+                        else position = static_cast<std::int64_t>(target);
+                    }
                     (void)awaitResult(m_current.TryChangePlaybackPositionAsync(position));
                 }
                 break;
