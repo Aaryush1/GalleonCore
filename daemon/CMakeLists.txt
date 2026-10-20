@@ -40,7 +40,7 @@ qt_add_resources(galleond_core "galleond_ui"
     FILES qml/Preview.qml qml/Apps.qml
 )
 
-add_executable(galleond main.cpp)
+qt_add_executable(galleond main.cpp)
 target_compile_definitions(galleond PRIVATE PROJECT_VERSION_STRING="${PROJECT_VERSION}")
 if(GALLEON_SOURCE_TREE_PATHS)
     # Defaults for running from the build tree; an installed galleond looks in
@@ -56,5 +56,4 @@ if(WIN32)
     set_target_properties(galleond PROPERTIES WIN32_EXECUTABLE TRUE)
     configure_file(${PROJECT_SOURCE_DIR}/tools/packaging/windows/bosun-icon.rc.in ${CMAKE_CURRENT_BINARY_DIR}/bosun-icon.rc @ONLY)
     target_sources(galleond PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bosun-icon.rc)
-    target_link_libraries(galleond PRIVATE Qt6::EntryPoint)
 endif()
