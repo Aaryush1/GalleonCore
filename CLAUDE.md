@@ -10,7 +10,7 @@ Project status and next steps: `ROADMAP.md` at the root (French). Read it at the
   - `Transport.h` (interface), `HidTransport` (hidapi). Raw I/O only.
   - `StreamDeck`: logic (keep-alive, polling, signals). Takes a `Transport`, so it is testable with `tests/FakeTransport.h`.
   - `Layout.h/.cpp`: pure geometry, splits one image over the key grid.
-- `daemon/` galleond, GPL-3.0-or-later. Drives the deck, exposes D-Bus (`org.galleoncore.Deck`).
+- `daemon/` galleond, GPL-3.0-or-later. Drives the deck; Linux exposes D-Bus (`org.galleoncore.Deck`), Windows uses per-user local IPC.
 - `widgets/` shared pure-QML widgets. **No PlasmaCore/Kirigami imports here**: they must render off-screen in galleond.
 - `plasmoid/` KDE Plasma 6 widgets reusing `widgets/`.
 - `tests/` Qt Test, `fuzz/` libFuzzer targets for the protocol layer.

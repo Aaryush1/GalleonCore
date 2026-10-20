@@ -32,6 +32,12 @@ private slots:
         QCOMPARE(GetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
                                  nullptr, nullptr, &original, nullptr, &descriptor), DWORD{ERROR_SUCCESS});
         const auto freeDescriptor = qScopeGuard([descriptor] { LocalFree(descriptor); });
+        // QFile's data handle has READ_CONTROL but not WRITE_DAC. Reopen the
+        // same temporary file with explicit ACL-editing rights for this test.
+        const HANDLE editable = ReOpenFile(handle, READ_CONTROL | WRITE_DAC,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0);
+        QVERIFY(editable != INVALID_HANDLE_VALUE);
+        const auto closeEditable = qScopeGuard([editable] { CloseHandle(editable); });
         alignas(DWORD) std::array<BYTE, SECURITY_MAX_SID_SIZE> world{};
         DWORD size = static_cast<DWORD>(world.size());
         QVERIFY(CreateWellKnownSid(WinWorldSid, nullptr, world.data(), &size));
@@ -44,10 +50,10 @@ private slots:
         PACL writable = nullptr;
         QCOMPARE(SetEntriesInAclW(1, &grant, original, &writable), DWORD{ERROR_SUCCESS});
         const auto freeAcl = qScopeGuard([writable] { LocalFree(writable); });
-        QCOMPARE(SetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+        QCOMPARE(SetSecurityInfo(editable, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
                                  nullptr, nullptr, writable, nullptr), DWORD{ERROR_SUCCESS});
-        const auto restore = qScopeGuard([handle, original] {
-            SetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+        const auto restore = qScopeGuard([editable, original] {
+            SetSecurityInfo(editable, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
                             nullptr, nullptr, original, nullptr);
         });
         QVERIFY(!isTrustedPagesFile(file));

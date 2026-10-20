@@ -2,13 +2,13 @@
 
 Référence pour reprendre le développement à tout moment, y compris dans une nouvelle session Claude Code. À mettre à jour après chaque fonctionnalité terminée **et** testée (voir « Règle de mise à jour » en bas). Les notes de conception détaillées (protocole, RGB, OpenRGB, Windows) sont dans [docs/ROADMAP.md](docs/ROADMAP.md) ; les règles de code dans [CLAUDE.md](CLAUDE.md).
 
-État au 20 octobre 2026 : PR #19 à #24 fusionnées ; distribution Linux et correctif des fonds personnels validés en CI. Portage Windows en cours ; aucun premier tag avant validation interactive sous Windows par le propriétaire.
+État au 20 octobre 2026 : PR #19 à #25 fusionnées ; distribution Linux et correctif des fonds personnels validés en CI. Portage Windows en cours ; aucun premier tag avant validation interactive sous Windows par le propriétaire.
 
 ## 1. Implémenté et testé
 
 Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fonds personnels et du bouton « Parcourir » (PR #24).
 
-« Testé » = tests Qt automatiques (16 exécutables dans `tests/`, sous `-Werror`). « Sur le module » = confirmé par l'utilisateur sur le matériel (photo ou retour).
+« Testé » = tests Qt automatiques dans `tests/`, sous `-Werror`. « Sur le module » = confirmé par l'utilisateur sur le matériel (photo ou retour).
 
 | Fonction | Tests | Sur le module |
 |---|---|---|
@@ -134,9 +134,9 @@ Avant de la déplacer, les tests ciblés suffisent pour avancer, mais la case «
 
 ### Portage Windows : intégration des exécutables en cours
 
-La PR #25 prépare le clavier SendInput avec identifiants communs (validation
+La PR #25 fusionnée apporte le clavier SendInput avec identifiants communs (validation
 complète Ubuntu 24.04 et compilation native Windows réussies). La branche
-`codex/windows-desktop` prépare maintenant galleond et Bosun : communication locale
+`codex/windows-desktop` (PR #26) prépare maintenant galleond et Bosun : communication locale
 par utilisateur, verrou avant accès HID, lancement des raccourcis Windows,
 contrôle des ACL du fichier de pages et archive déployée en CI. Ces nouveaux
 éléments restent à valider avant fusion. Les essais interactifs Windows sont
