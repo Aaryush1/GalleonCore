@@ -82,7 +82,7 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
    À trancher : aperçu en direct sur le module pendant l'édition (demande une commande de plus au démon).
 2. **Profils** : plusieurs fichiers de pages et bascule (changement de profil selon l'application active ou au choix) ; le fichier JSON unique actuel est le profil de base.
 3. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, autres raccourcis clavier (l'action `key` existe, liste de touches limitée au pavé numérique : à étendre avec validation) ; opérateurs du pavé (+ − × ÷) : pas de place sur 12 touches, à placer sur une seconde page ou les molettes.
-4. **Windows** : séparation initiale des fabriques de backends Linux et construction de `libgalleon` seule sous Windows fusionnées ; suite sur `codex/windows-keyboard` (voir `docs/WINDOWS.md`). Backend SMTC C++/WinRT derrière `MediaController` fusionné : worker, métadonnées et commandes ; tests avec faux lecteur et CI Windows, Core Audio volume/muet fusionné avec tests sur faux périphérique ; validation interactive encore requise (MPRIS reste Linux seulement) ; portage hidapi déjà couvert par `Transport`.
+4. **Windows** : séparation initiale des fabriques de backends Linux et construction de `libgalleon` seule sous Windows fusionnées ; suite sur `codex/windows-desktop` (voir `docs/WINDOWS.md`). Backend SMTC C++/WinRT derrière `MediaController` fusionné : worker, métadonnées et commandes ; tests avec faux lecteur et CI Windows, Core Audio volume/muet fusionné avec tests sur faux périphérique ; validation interactive encore requise (MPRIS reste Linux seulement) ; portage hidapi déjà couvert par `Transport`.
 5. **Plasmoids KDE** réutilisant `widgets/` (aperçu de l'écran du clavier sur le bureau).
 6. **RVB du clavier** : reste côté fork d'OpenRGB, bloqué tant que le protocole d'écriture non persistant n'est pas trouvé.
 
@@ -125,28 +125,30 @@ Décisions à ne pas perdre :
 1. (fait) Reprise du module après une veille de l'ordinateur : confirmée. Le réglage NVIDIA de l'utilisateur est un sujet système, hors du projet.
 2. (fait) Branche `galleond-wallpaper-clock` fusionnée dans `main` (pull request 5, 19 octobre) ; la CI passe (GCC, Clang + sanitizers, lint).
 3. Confirmer sur le module les pages remplies, le classement par usage, les nouvelles touches média et le lancement de BIT SCRIPTS Musique.
-4. **Galleon Bosun** : (fait : maquette ; écrans de veille : lecture puis réglages et retrait) sélecteur de fichier natif images/vidéos et découverte du premier fond personnel après démarrage corrigés ; validation sur le module à confirmer ; démarrage de Bosun avec la session (option) ; distribution Linux : recettes PPA (Ubuntu 24.04/26.04), COPR (Fedora 43/44/45/rawhide), AUR et AppImage, CI de construction et publication sur tags dans `tools/packaging/` et `.github/workflows/linux-*.yml` (voir `tools/packaging/README.md` ; PPA et COPR ouverts, secrets requis pour publier, validation matérielle et CI de l’arbre fusionné à confirmer ; badges README/site et documents de contribution, conduite, licences et sécurité ajoutés), puis édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
+4. **Galleon Bosun** : (fait : maquette ; écrans de veille : lecture puis réglages et retrait) sélecteur de fichier natif images/vidéos et découverte du premier fond personnel après démarrage corrigés ; validation sur le module confirmée par le propriétaire ; démarrage de Bosun avec la session (option) ; distribution Linux : recettes PPA (Ubuntu 24.04/26.04), COPR (Fedora 43/44/45/rawhide), AUR et AppImage, CI de construction et publication sur tags dans `tools/packaging/` et `.github/workflows/linux-*.yml` (voir `tools/packaging/README.md` ; PPA et COPR ouverts, secrets requis pour publier, validation matérielle et CI de l’arbre fusionné à confirmer ; badges README/site et documents de contribution, conduite, licences et sécurité ajoutés), puis édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
 5. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
 
 ## Règle de mise à jour
 
 Avant de la déplacer, les tests ciblés suffisent pour avancer, mais la case « Tests : oui » ne vaut qu'avec une validation complète (`tools/check.py full`) de l'arbre fusionné. Après chaque fonctionnalité terminée et testée : la déplacer vers « Implémenté et testé » (avec ses tests et, si confirmé, « sur le module »), retirer ses lignes de « En cours » ou « À développer », et mettre à jour « Prochaines étapes » et la date. Ne pas marquer « sur le module » sans retour de l'utilisateur. Garder ce fichier court : le détail de conception va dans `docs/ROADMAP.md`.
 
-### Portage Windows : intégration des exécutables en cours
+### Portage Windows : exécutables et Setup validés sans matériel
 
 La PR #25 fusionnée apporte le clavier SendInput avec identifiants communs (validation
 complète Ubuntu 24.04 et compilation native Windows réussies). La branche
 `codex/windows-desktop` (PR #26) prépare maintenant galleond et Bosun : communication locale
 par utilisateur, verrou avant accès HID, lancement des raccourcis Windows,
-contrôle des ACL du fichier de pages et archive déployée en CI. Ces nouveaux
-éléments restent à valider avant fusion. Les essais interactifs Windows sont
+contrôle des ACL du fichier de pages et archive déployée en CI. La CI Windows a validé la compilation native, les tests sans matériel et
+le lancement des applications depuis leur archive déployée. La fusion reste
+conditionnée aux autres vérifications de la PR. Les essais interactifs Windows sont
 réservés au propriétaire ; aucun premier tag n'est autorisé avant son retour.
 
 La PR #26 inclut désormais la préparation d'un Setup NSIS Windows : identité
 visuelle et icône Bosun, raccourcis, démarrage optionnel du démon à l'ouverture de
 session et désinstallation par utilisateur. Les mises à niveau et la
 désinstallation demandent l'arrêt explicite de Bosun **et** de galleond et
-attendent leur sortie ; les essais automatisés de ce cycle et de la conservation
-des données restent obligatoires avant fusion. Le mode capture de Bosun capture
+attendent leur sortie. Le 20 octobre 2026, la CI Windows a validé l’installation,
+la mise à niveau et la désinstallation avec les deux applications ouvertes, ainsi
+que la conservation des données personnelles et des réglages. Le mode capture de Bosun capture
 maintenant ses valeurs par copie, pour éviter des références détruites au
 moment où le minuteur s'exécute.
