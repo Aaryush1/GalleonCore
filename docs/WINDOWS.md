@@ -5,8 +5,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Windows port: incremental backend separation
 
-Linux and Windows share `main`. The temporary `codex/windows-desktop` branch prepares
-small changes for review; it is not a second product branch.
+Linux and Windows share `main`. The desktop port and default content were merged
+in PRs #26 and #27. Follow-up fixes use `codex/windows-shell-and-wake`; no separate
+long-lived Windows product branch is maintained.
 
 ## First stage
 
@@ -17,8 +18,9 @@ core is static, so it does not claim a public DLL ABI yet. No protocol bytes or 
 
 `GALLEON_BUILD_DESKTOP` defaults to ON on Linux and OFF elsewhere. With it OFF,
 the portable library and backend tests are built. Windows desktop builds are explicit opt-in while native integration is being validated.
-The Windows CI builds this portable subset with MSVC and tests fake transport,
-protocol and geometry. It does not test a physical keyboard or ship an installer.
+The Windows CI now explicitly enables the desktop build with MSVC, tests fake
+transport, protocol, media and desktop integration, and builds ZIP/NSIS artifacts.
+It does not validate a physical keyboard.
 
 The daemon creates media and keyboard services through `PlatformBackends.h`.
 `LinuxPlatformBackends.cpp` supplies MPRIS and uinput. `MediaController` and
@@ -38,12 +40,12 @@ DLLs must be on PATH when running tests. Use `GALLEON_BUILD_DESKTOP=OFF` to buil
 - Validate the C++/WinRT SMTC backend with real interactive players.
   The Python backend in [MusicLocal-Discord-Presence](https://github.com/Bit-Scripts/MusicLocal-Discord-Presence/blob/HEAD/backends/smtc.py)
   is a reference; no code from it has been copied in this stage.
-- Complete native Windows CI and interactive validation of the new keyboard
-  backend; key identifiers are now platform independent.
+- Confirm the keyboard backend interactively; native CI passes and key identifiers
+  are platform independent.
 - Validate Windows application discovery, launching and file ACL checks.
 - Validate the local Windows IPC and executable lifecycle for Bosun.
 - Validate native HID access and coexistence with other device software on real
-  hardware, then add Windows deployment and packaging.
+  hardware. ZIP/NSIS deployment and installer lifecycle tests already run in CI.
 
 These features are not implemented by the portable-library build.
 

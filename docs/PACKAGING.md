@@ -166,3 +166,10 @@ Windows NSIS sources and generated manifests use UTF-8 with BOM. The builder
 also passes `/INPUTCHARSET UTF8` so French installer strings are independent
 of the build runner ANSI code page. Keep this separate from `Unicode true`,
 which selects the installer runtime encoding.
+
+Windows sign-in defaults enable galleond and Bosun for the current user. Bosun's
+shortcut uses `--minimized` and starts hidden when a notification area exists.
+Both shortcuts are removed on uninstall and can be deselected during upgrade.
+Native app icons are extracted on the user's machine; they are not redistributed
+inside the installer. Official OpenRGB ring ownership remains a separate hardware
+integration item and must not be reported as fixed by these packaging changes.

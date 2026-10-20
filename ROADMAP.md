@@ -2,7 +2,7 @@
 
 Référence pour reprendre le développement à tout moment, y compris dans une nouvelle session Claude Code. À mettre à jour après chaque fonctionnalité terminée **et** testée (voir « Règle de mise à jour » en bas). Les notes de conception détaillées (protocole, RGB, OpenRGB, Windows) sont dans [docs/ROADMAP.md](docs/ROADMAP.md) ; les règles de code dans [CLAUDE.md](CLAUDE.md).
 
-État au 20 octobre 2026 : PR #19 à #25 fusionnées ; distribution Linux et correctif des fonds personnels validés en CI. Portage Windows en cours ; aucun premier tag avant validation interactive sous Windows par le propriétaire.
+État au 20 octobre 2026 : PR #19 à #27 fusionnées ; CI de main vertes pour Linux et Windows. Premier essai Windows effectué : pages initiales et fonds présents, problèmes de réveil, icônes et démarrage relevés. Corrections sur `codex/windows-shell-and-wake` ; conflit des anneaux avec OpenRGB officiel encore à résoudre/valider. Aucun premier tag avant validation matérielle réussie par le propriétaire.
 
 ## 1. Implémenté et testé
 
@@ -136,11 +136,10 @@ Avant de la déplacer, les tests ciblés suffisent pour avancer, mais la case «
 
 La PR #25 fusionnée apporte le clavier SendInput avec identifiants communs (validation
 complète Ubuntu 24.04 et compilation native Windows réussies). La branche
-`codex/windows-desktop` (PR #26) prépare maintenant galleond et Bosun : communication locale
+`codex/windows-desktop` (PR #26, fusionnée) apporte galleond et Bosun : communication locale
 par utilisateur, verrou avant accès HID, lancement des raccourcis Windows,
 contrôle des ACL du fichier de pages et archive déployée en CI. La CI Windows a validé la compilation native, les tests sans matériel et
-le lancement des applications depuis leur archive déployée. La fusion reste
-conditionnée aux autres vérifications de la PR. Les essais interactifs Windows sont
+le lancement des applications depuis leur archive déployée. Les vérifications de cette PR et de main ont réussi avant les essais interactifs. Les essais interactifs Windows sont
 réservés au propriétaire ; aucun premier tag n'est autorisé avant son retour.
 
 La PR #26 inclut désormais la préparation d'un Setup NSIS Windows : identité
@@ -157,13 +156,13 @@ moment où le minuteur s'exécute.
 
 Le propriétaire confirme le 20 octobre 2026 que les fonds d’écran fonctionnent
 sous Windows. Il signale les pages initiales manquantes et demande les deux
-vidéos du dépôt par défaut. Correction sur `codex/windows-default-content` :
+vidéos du dépôt par défaut. Correction fusionnée dans la PR #27 (`codex/windows-default-content`) :
 cinq thèmes initiaux, découverte des navigateurs/lecteurs du menu Démarrer,
 jeux Steam installés et raccourcis de jeux du menu, utilitaires Windows et
 pavé numérique. Les deux vidéos sont installées avec le Setup ; la géométrie
 reprend celle de la configuration Linux du propriétaire (écran 62,6 × 33 mm,
 touches 13,7 × 13,7 mm, espacements 5,4 mm). Les configurations personnelles
-existantes ne sont pas remplacées. Validation de cette correction en cours ;
+existantes ne sont pas remplacées. Validation complète et CI de main réussies ;
 aucun tag avant nouvel essai Windows réussi.
 
 Le même essai signale des accents corrompus dans les textes français du Setup :
@@ -187,3 +186,9 @@ commande les anneaux, « Corsair Galleon 100 SD » désigne le clavier RGB. Le c
 de contrôle reste à résoudre/valider : aucun mécanisme de priorité garanti n’est
 annoncé, aucune course de réécriture des couleurs n’est ajoutée. Réveil prolongé
 et rendu Windows à confirmer sur le module ; pas de premier tag.
+
+Le diagnostic Linux précédent a montré une déconnexion USB spontanée puis un
+réveil court réussi après réénumération. Le correctif expérimental d’entrelacement
+du keep-alive a été retiré ; il n’est pas publié comme solution. Le réveil après
+veille prolongée reste à confirmer. La nouvelle correction asynchrone traite le
+délai d’arrêt du décodeur ; ses tests incluent un faux décodeur console natif.
