@@ -60,3 +60,11 @@ compile_commands.json
 /captures/*.pcap
 /captures/*.pcapng
 
+
+# Reports of tools/check.py
+/.check/
+/build-check/
+
+# Python
+__pycache__/
+*.pyc

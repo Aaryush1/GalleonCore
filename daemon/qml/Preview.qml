@@ -92,7 +92,8 @@ Window {
                     source: cell.modelData.url
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
-                    sourceSize: Qt.size(320, 180)
+                    sourceSize.width: 320
+                    sourceSize.height: 180
                 }
                 Rectangle {
                     anchors.fill: parent

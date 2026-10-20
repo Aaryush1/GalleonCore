@@ -97,7 +97,8 @@ Window {
                     width: 30
                     height: 30
                     source: "image://themeicon/" + (row.modelData.icon !== "" ? row.modelData.icon : "application-x-executable")
-                    sourceSize: Qt.size(60, 60)
+                    sourceSize.width: 60
+                    sourceSize.height: 60
                     asynchronous: true
                 }
                 Text {
@@ -188,7 +189,8 @@ Window {
                         width: 56
                         height: 56
                         source: keyCell.modelData.icon !== "" ? "image://themeicon/" + keyCell.modelData.icon : ""
-                        sourceSize: Qt.size(112, 112)
+                        sourceSize.width: 112
+                        sourceSize.height: 112
                     }
                     Text {
                         width: parent.width - 8

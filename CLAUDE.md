@@ -34,7 +34,22 @@ Project status and next steps: `ROADMAP.md` at the root (French). Read it at the
 - Deck enters host mode only while a keep-alive feature report is sent every 500 ms; otherwise it falls back to numpad mode.
 - Images are JPEG. Top screen resolution unconfirmed (1280×720 vs 720×180).
 
-## Build and check
+## Code quality (from the roadmap)
+- Small functions with one job. Logic that can be pure (decisions, parsing, geometry, ordering, formatting) is kept apart from I/O (files, D-Bus, processes, the device) and takes what it needs as arguments, so it is tested without the hardware or a desktop. The layers above are the model: `Protocol` and `Layout` pure, `Transport` raw I/O, `StreamDeck` logic over a fake transport.
+- Each change of behaviour comes with the test that would have caught the opposite. A test checks one behaviour, by its observable result, and is named after it.
+- The settings app (`bosun/`) reads and edits the pages file and draws the keys with `galleond_core`; it never opens the device (only `galleond` holds it, for the keep-alive).
+
+## Validation method (use `tools/check.py`)
+Two kinds of runs, never confused:
+- **Targeted** (`quick`, `batch`): incremental build, then only what is out of date: the tests whose program, shared library or data (the widgets) changed since they last passed in that build tree, clang-tidy on every file with the results reused for files whose content (everything they include) is the same, `qmllint`, `reuse lint`. Changes are counted from the last tree that passed in full. Use `quick` after a small change; group small UI changes into a batch and run `batch` at its end (adds the same selection under Clang + ASan/UBSan). The report says `TARGETED CHECKS PASSED (not a full validation: N of M tests run ...)`.
+- **Full** (`full`): what the CI does, on the whole project: all tests under GCC and under Clang + ASan/UBSan, fuzzing, clang-tidy on every file, `qmllint`, `reuse lint`. It prints `FULL VALIDATION PASSED` and records the exact tree; `tools/check.py status` says whether that is still the tree you have. **A full validation of the current tree is required before opening or merging a pull request.**
+- A targeted run is promoted to full by itself when the change touches something shared: `CMakeLists.txt`, `cmake/`, `.clang-tidy`, `.github/`, `tools/ci/`, `tools/check.py`, `REUSE.toml`, `lib/`, `fuzz/`, `data/`, `public/`, a kind of file it does not know, or when most of the tests are out of date (a shared header). If an impact is hard to bound, run `full`.
+- Environment: by default in a container made from `tools/ci/Dockerfile` (Ubuntu 24.04: GCC 13, Clang 18, Qt 6.4, clang-tidy 18, like the CI; the development machine has Ubuntu 26.04 and Qt 6.10, which hides real CI failures). Build trees and caches live in docker volumes, so the next run does only what changed; the image is rebuilt only when the Dockerfile changes. `--env host` uses the tools of the machine: quicker, other versions, never enough for a merge.
+- Reused results are never stale: the build tree is incremental by file dates; a test result is reused only while its program, the shared libraries and the widgets it reads are byte for byte the same as when it passed (a failed test stays out of date until it passes); a clang-tidy result only for the same tool version, the same `.clang-tidy` and the same preprocessed file; `--no-cache` ignores them.
+- Limits of the targeted selection: it follows the build graph, so it does not see a test that depends on another program, the session bus, files outside the repository or an order of execution. That is what `batch` and `full` are for. Say in the report what was verified in a targeted way and what passed in full.
+- The decisions of the tool are tested: `python3 -m unittest discover -s tools -p 'test_*.py'`.
+
+## Build and check (by hand)
 ```sh
 cmake -B build -DGALLEON_WERROR=ON && cmake --build build && ctest --test-dir build
 # Sanitizers and fuzzing (Clang):
@@ -43,6 +58,6 @@ cmake --build build-asan && ctest --test-dir build-asan
 ./build-asan/fuzz/fuzz_input_report -max_total_time=60
 # Lint:
 run-clang-tidy -p build '(lib/src|daemon|bosun|tests)/[^/]+\.cpp$'
-/usr/lib/qt6/bin/qmllint widgets/*.qml bosun/qml/*.qml
+/usr/lib/qt6/bin/qmllint widgets/*.qml bosun/qml/*.qml daemon/qml/*.qml
 reuse lint
 ```
