@@ -152,11 +152,16 @@ QStringList WallpaperCatalog::defaultRoots(const QString &fromCommandLine, const
     QStringList candidates{fromCommandLine, qEnvironmentVariable("GALLEONCORE_WALLPAPERS")};
     for (const QString &base : QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation))
         candidates << base + QStringLiteral("/galleoncore/wallpaper");
+    // Keep the writable user folder even before the first Bosun import creates
+    // it: rescan() must discover that first picture without restarting galleond.
+    const QString own = QFileInfo(userRoot()).absoluteFilePath();
+    if (!candidates.contains(own))
+        candidates.insert(2, own);
     candidates << buildTree;
     QStringList roots;
     for (const QString &path : std::as_const(candidates)) {
         const QFileInfo info(path);
-        if (!path.isEmpty() && info.isDir() && !roots.contains(info.absoluteFilePath()))
+        if (!path.isEmpty() && (info.isDir() || info.absoluteFilePath() == own) && !roots.contains(info.absoluteFilePath()))
             roots << info.absoluteFilePath();
     }
     return roots;

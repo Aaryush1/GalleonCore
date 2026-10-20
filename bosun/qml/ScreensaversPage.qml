@@ -8,6 +8,7 @@ import QtQuick
 
 Flickable {
     id: saverPage
+    property var filePicker: null
     required property var backend
     readonly property var saver: backend.screensaver
     property string message: ""
@@ -321,12 +322,28 @@ Flickable {
                     color: "#9aa0a6"
                     font.pixelSize: 13
                     wrapMode: Text.Wrap
-                    text: qsTr("Drop a video file here, or write its path. It is only looked at until you add it: as it is, where it is, or cut to the module's picture (that makes a new video in your screensavers folder).")
+                    text: qsTr("Choose a video with Browse, drop it here, or write its path. It is only looked at until you add it: as it is, where it is, or cut to the module's picture (that makes a new video in your screensavers folder).")
                 }
                 Row {
                     spacing: 10
+                    Pill {
+                        id: browseButton
+                        objectName: "browseScreensaver"
+                        text: qsTr("Browse…")
+                        selected: true
+                        enabledLook: saverPage.filePicker !== null
+                        onClicked: {
+                            const path = saverPage.filePicker.video()
+                            if (path !== "") {
+                                pathInput.text = path
+                                saverPage.backend.inspect(path)
+                                saverPage.message = ""
+                            }
+                        }
+                    }
                     Rectangle {
-                        width: addColumn.width - checkButton.width - 10
+                        objectName: "screensaverPath"
+                        width: addColumn.width - browseButton.width - checkButton.width - 20
                         height: 34
                         radius: 6
                         color: "#16181b"

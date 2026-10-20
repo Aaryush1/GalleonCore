@@ -19,6 +19,7 @@ Window {
     required property var backend
     required property var daemon
     required property var library
+    property var filePicker: null
 
     property int currentTab: 0
     property int selectedKey: -1
@@ -337,6 +338,7 @@ Window {
     }
 
     WallpapersPage {
+        filePicker: win.filePicker
         visible: win.tab.kind === "wallpapers" && win.backend.problem === ""
         x: 30
         y: 84
@@ -347,6 +349,7 @@ Window {
     }
 
     ScreensaversPage {
+        filePicker: win.filePicker
         visible: win.tab.kind === "screensavers" && win.backend.problem === ""
         x: 30
         y: 84

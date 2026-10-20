@@ -13,6 +13,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
+#include <QQuickItem>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -91,11 +92,79 @@ bool writeFile(const QString &path, const QByteArray &bytes)
     return file.write(bytes) == bytes.size();
 }
 
+class FakeFilePicker final : public QObject
+{
+    Q_OBJECT
+public:
+    QString picturePath;
+    QString videoPath;
+    Q_INVOKABLE QString picture() { return picturePath; }
+    Q_INVOKABLE QString video() { return videoPath; }
+};
+
 class TestBosun : public QObject
 {
     Q_OBJECT
 
 private Q_SLOTS:
+    void browseComesFirstAndImportsOnlyWhenAFileIsChosen()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        const QString picture = dir.filePath("my picture.png");
+        QImage image(720, 384, QImage::Format_RGB32);
+        image.fill(Qt::blue);
+        QVERIFY(image.save(picture));
+        const QString video = dir.filePath("my video.mp4");
+        QVERIFY(writeFile(video, "fake video"));
+        const auto backend = std::make_unique<bosun::BosunBackend>(file, bosun::BosunBackend::Tools{.ffprobe = fakeProbe(dir.path(), wideProbe()),
+                                         .thumbnailFolder = dir.filePath("thumbs")});
+        const bosun::DaemonStatus daemon("/nonexistent/systemctl");
+        const auto library = std::make_unique<bosun::WallpaperLibrary>(bosun::WallpaperLibrary::Places{.roots = {}, .userRoot = dir.filePath("own"), .settingsFile = dir.filePath("galleond.conf")});
+        FakeFilePicker picker;
+        picker.picturePath = picture;
+        picker.videoPath = video;
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(backend.get()));
+        engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
+        engine.addImageProvider(QStringLiteral("wallpapers"), new bosun::WallpaperThumbnails(library.get()));
+        engine.addImageProvider(QStringLiteral("wallpaperpreview"), new bosun::WallpaperPreview(library.get()));
+        engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(backend.get())},
+                                     {QStringLiteral("daemon"), QVariant::fromValue(&daemon)},
+                                     {QStringLiteral("library"), QVariant::fromValue(library.get())},
+                                     {QStringLiteral("filePicker"), QVariant::fromValue(&picker)}});
+        engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
+        QVERIFY(!engine.rootObjects().isEmpty());
+        auto *root = engine.rootObjects().constFirst();
+        root->setProperty("currentTab", root->property("tabs").toList().size() - 2);
+        auto *pictureButton = root->findChild<QQuickItem *>("browseWallpaper");
+        auto *videoButton = root->findChild<QQuickItem *>("browseScreensaver");
+        QVERIFY(pictureButton);
+        QVERIFY(videoButton);
+        const auto *pictureField = root->findChild<QQuickItem *>("wallpaperPath");
+        const auto *videoField = root->findChild<QQuickItem *>("screensaverPath");
+        QVERIFY(pictureField);
+        QVERIFY(videoField);
+        QTRY_VERIFY(pictureButton->x() < pictureField->x());
+        QTRY_VERIFY(videoButton->x() < videoField->x());
+        QVERIFY(QMetaObject::invokeMethod(pictureButton, "clicked"));
+        QCOMPARE(library->candidate().value("chosen").toString(), picture);
+        QCOMPARE(library->candidate().value("state").toString(), QStringLiteral("ready"));
+        const auto *crop = root->findChild<QQuickItem *>("wallpaperCrop");
+        QVERIFY(crop);
+        QTRY_VERIFY(crop->isVisible());
+        picker.picturePath.clear(); // cancel preserves the existing preview
+        QVERIFY(QMetaObject::invokeMethod(pictureButton, "clicked"));
+        QCOMPARE(library->candidate().value("chosen").toString(), picture);
+        root->setProperty("currentTab", root->property("tabs").toList().size() - 1);
+        QVERIFY(QMetaObject::invokeMethod(videoButton, "clicked"));
+        QCOMPARE(backend->candidate().value("path").toString(), video);
+        picker.videoPath.clear();
+        QVERIFY(QMetaObject::invokeMethod(videoButton, "clicked"));
+        QCOMPARE(backend->candidate().value("path").toString(), video);
+    }
+
     void themesAreTheTabs()
     {
         const QTemporaryDir dir;
