@@ -14,6 +14,10 @@
 #include <QtTest>
 #include <QUuid>
 #include <memory>
+#include <QStandardPaths>
+#include <windows.h>
+#include <shobjidl.h>
+#include <wrl/client.h>
 
 class TestWindowsDesktop : public QObject
 {
@@ -41,6 +45,59 @@ private slots:
             }
         }
         QVERIFY(found);
+    }
+
+    void browserShortcutsKeepSeparateAppsProfilesAndIcons()
+    {
+        if (qEnvironmentVariable("GITHUB_ACTIONS") != QStringLiteral("true"))
+            QSKIP("Temporary Start Menu shortcuts are isolated to the Windows CI runner");
+        const QTemporaryDir files;
+        const QString root = QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation);
+        QVERIFY(QDir().mkpath(root));
+        const QTemporaryDir menu(QDir(root).filePath(QStringLiteral("galleon-pwa-XXXXXX")));
+        QVERIFY(files.isValid());
+        QVERIFY(menu.isValid());
+        const QString executable = files.filePath(QStringLiteral("chrome.exe"));
+        QVERIFY(QFile::copy(QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32/notepad.exe")), executable));
+        const QString icon = files.filePath(QStringLiteral("web-app.ico"));
+        QImage picture(32, 32, QImage::Format_ARGB32);
+        picture.fill(Qt::red);
+        QVERIFY(picture.save(icon, "ICO"));
+        const HRESULT apartment = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        const auto cleanup = qScopeGuard([apartment] { if (SUCCEEDED(apartment)) CoUninitialize(); });
+        const auto makeLink = [&](const QString &name, const QString &arguments, bool customIcon) {
+            Microsoft::WRL::ComPtr<IShellLinkW> link;
+            if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(link.GetAddressOf())))
+                || FAILED(link->SetPath(QDir::toNativeSeparators(executable).toStdWString().c_str()))
+                || FAILED(link->SetArguments(arguments.toStdWString().c_str())))
+                return false;
+            if (customIcon && FAILED(link->SetIconLocation(QDir::toNativeSeparators(icon).toStdWString().c_str(), 0)))
+                return false;
+            Microsoft::WRL::ComPtr<IPersistFile> persist;
+            return SUCCEEDED(link.As(&persist))
+                && SUCCEEDED(persist->Save(QDir::toNativeSeparators(menu.filePath(name + QStringLiteral(".lnk"))).toStdWString().c_str(), TRUE));
+        };
+        QVERIFY(makeLink(QStringLiteral("Chrome"), {}, false));
+        QVERIFY(makeLink(QStringLiteral("Chrome duplicate"), {}, false));
+        QVERIFY(makeLink(QStringLiteral("Music PWA"), QStringLiteral("--profile-directory=Default --app-id=aaa"), true));
+        QVERIFY(makeLink(QStringLiteral("Video PWA"), QStringLiteral("--profile-directory=Default --app-id=bbb"), true));
+        QVERIFY(makeLink(QStringLiteral("Music other profile"), QStringLiteral("--profile-directory=Profile1 --app-id=aaa"), true));
+        int count = 0;
+        int webApps = 0;
+        for (const auto &app : galleond::DesktopEntries::list()) {
+            if (!app.file.startsWith(menu.path() + QLatin1Char('/')))
+                continue;
+            ++count;
+            QVERIFY(galleond::DesktopEntries::lookup(app.file).isValid());
+            if (!app.name.startsWith(QStringLiteral("Chrome"))) {
+                ++webApps;
+                const QImage cached(app.iconPath);
+                QVERIFY(!cached.isNull());
+                QCOMPARE(cached.pixelColor(cached.width() / 2, cached.height() / 2), QColor(Qt::red));
+            }
+        }
+        QCOMPARE(count, 4); // one browser, two app IDs, plus the same app in a different profile
+        QCOMPARE(webApps, 3);
     }
 
     void windowsExecutableHasANativeCachedIcon()

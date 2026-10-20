@@ -42,7 +42,23 @@ private:
     HRESULT m_status = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 };
 
-QString shortcutTarget(const QString &file)
+struct ShortcutInfo
+{
+    QString target;
+    QString arguments;
+    QString icon;
+};
+
+QString expandedPath(const wchar_t *path)
+{
+    std::array<wchar_t, 32768> expanded{};
+    const DWORD length = ExpandEnvironmentStringsW(path, expanded.data(), static_cast<DWORD>(expanded.size()));
+    if (length == 0 || length > expanded.size())
+        return {};
+    return QDir::fromNativeSeparators(QString::fromWCharArray(expanded.data()));
+}
+
+ShortcutInfo shortcutInfo(const QString &file)
 {
     const ComScope apartment;
     Microsoft::WRL::ComPtr<IShellLinkW> link;
@@ -54,11 +70,28 @@ QString shortcutTarget(const QString &file)
     std::array<wchar_t, 32768> target{};
     if (FAILED(link->GetPath(target.data(), static_cast<int>(target.size()), nullptr, SLGP_RAWPATH)))
         return {};
-    std::array<wchar_t, 32768> expanded{};
-    const DWORD length = ExpandEnvironmentStringsW(target.data(), expanded.data(), static_cast<DWORD>(expanded.size()));
-    if (length == 0 || length > expanded.size())
+    // Shell links retain Chrome/Edge profile and app IDs; never execute or resolve them here.
+    // https://learn.microsoft.com/windows/win32/api/shobjidl_core/nn-shobjidl_core-ishelllinkw
+    std::array<wchar_t, 32768> arguments{};
+    if (FAILED(link->GetArguments(arguments.data(), static_cast<int>(arguments.size()))))
         return {};
-    return QDir::fromNativeSeparators(QString::fromWCharArray(expanded.data()));
+    const QString args = QString::fromWCharArray(arguments.data());
+    // GetArguments can truncate silently. Reject a full buffer rather than merging distinct apps.
+    if (args.size() >= static_cast<qsizetype>(arguments.size() - 1))
+        return {};
+    ShortcutInfo result{expandedPath(target.data()), args, {}};
+    std::array<wchar_t, 32768> icon{};
+    int iconIndex = 0;
+    if (SUCCEEDED(link->GetIconLocation(icon.data(), static_cast<int>(icon.size()), &iconIndex)) && iconIndex == 0) {
+        const QString path = expandedPath(icon.data());
+        const QFileInfo info(path);
+        // A local ICO is data, not a shortcut's potentially remote/custom Shell icon handler.
+        if (!path.startsWith(QStringLiteral("//")) && info.isAbsolute() && info.isFile()
+            && !info.isSymbolicLink() && info.suffix().compare(QStringLiteral("ico"), Qt::CaseInsensitive) == 0
+            && info.size() > 0 && info.size() <= 4 * 1024 * 1024)
+            result.icon = path;
+    }
+    return result;
 }
 
 QString cachedIcon(const QString &file)
@@ -149,10 +182,14 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
     app.file = info.absoluteFilePath();
     app.id = id;
     app.name = info.completeBaseName();
-    const QString target = info.suffix().compare(QStringLiteral("lnk"), Qt::CaseInsensitive) == 0 ? shortcutTarget(file) : app.file;
-    if (!usefulShortcut(app.name, target))
+    const ShortcutInfo shortcut = info.suffix().compare(QStringLiteral("lnk"), Qt::CaseInsensitive) == 0
+        ? shortcutInfo(file) : ShortcutInfo{app.file, {}, {}};
+    if (!usefulShortcut(app.name, shortcut.target))
         return {};
-    app.iconPath = cachedIcon(target);
+    if (!shortcut.icon.isEmpty())
+        app.iconPath = cachedIcon(shortcut.icon);
+    if (app.iconPath.isEmpty())
+        app.iconPath = cachedIcon(shortcut.target);
     app.categories = windowsAppCategories(app.name, info.absolutePath());
     return app;
 }
@@ -197,8 +234,10 @@ QList<DesktopApp> DesktopEntries::list()
     }
     QSet<QString> seen;
     apps.removeIf([&seen](const DesktopApp &app) {
-        const QString target = app.file.endsWith(QStringLiteral(".lnk"), Qt::CaseInsensitive) ? shortcutTarget(app.file) : app.file;
-        const QString identity = target.toCaseFolded();
+        const ShortcutInfo shortcut = app.file.endsWith(QStringLiteral(".lnk"), Qt::CaseInsensitive)
+            ? shortcutInfo(app.file) : ShortcutInfo{app.file, {}, {}};
+        // Same browser + distinct app/profile arguments are distinct launchers.
+        const QString identity = shortcut.target.toCaseFolded() + QChar(QChar::Null) + shortcut.arguments;
         if (seen.contains(identity))
             return true;
         seen.insert(identity);

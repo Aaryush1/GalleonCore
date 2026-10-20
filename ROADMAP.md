@@ -210,3 +210,16 @@ raccourcis de démarrage et nettoie ses propres entrées à la désinstallation.
 Bosun tente de lancer une fois le démon absent (hors capture et profil `--pages`
 explicite). La découverte initiale se fait avant l’ouverture HID, avec cache de
 cinq minutes. Validation en cours ; essai matériel et premier tag toujours en attente.
+
+### Applications Chrome et PWA Windows
+
+Retour du propriétaire : inclure aussi les applications Chrome et PWA installées.
+La découverte fusionnait les raccourcis partageant le même exécutable : Chrome,
+plusieurs PWA et leurs profils pouvaient devenir une seule entrée. La correction
+utilise la cible et les arguments du raccourci pour distinguer les lanceurs, et
+préfère son icône ICO locale bornée à l’icône générique du navigateur. Le lancement
+continue à ouvrir le raccourci original, sans réinterpréter ses arguments.
+Les PWA doivent disposer d’un raccourci installé dans les emplacements Windows
+parcourus ; les favoris et sites non installés ne sont pas inventoriés. Le test
+Windows crée deux applications et deux profils partageant un faux navigateur,
+contrôle leurs icônes, sans les lancer. Validation en cours.

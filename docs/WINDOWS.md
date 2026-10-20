@@ -233,3 +233,15 @@ the IPC probe. Screenshots and explicit `--pages` profiles do not start a daemon
 The owner identified enabled Windows Dynamic Lighting as the cause of the ring
 color conflict. No repeated RGB writes or claim of priority over OpenRGB is added.
 Physical confirmation of pagination, wake and sign-in remains required.
+
+## Installed browser apps and PWAs
+
+Installed Chrome/Edge app shortcuts are distinct launchers when they share a
+browser executable but carry different app/profile arguments. Discovery reads
+those arguments as bounded metadata; launching still opens the original `.lnk`
+through Windows Shell. True duplicate target-and-argument shortcuts are merged.
+A shortcut's local, regular ICO file (at most 4 MiB, index zero) supplies its own
+icon; remote icon paths and custom Shell handlers are not used. Otherwise the
+executable icon remains the fallback. This covers installed shortcuts in the
+scanned Start Menu/Desktop locations, not arbitrary bookmarks or every site
+stored inside a browser profile. The automatic theme limit remains 22 launchers.
