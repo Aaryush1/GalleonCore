@@ -72,3 +72,5 @@ __pycache__/
 # Packaging scripts are sources, not build directories.
 !/tools/packaging/build-deb.sh
 !/tools/packaging/debian-build.sh
+
+!/tools/packaging/windows/build-setup.ps1
