@@ -1,0 +1,187 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Linux packages
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  sources:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate packaging scripts and workflows
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck
+          shellcheck tools/packaging/*.sh tools/packaging/postinst tools/packaging/postrm \
+            tools/packaging/debian/postinst tools/packaging/debian/postrm \
+            tools/packaging/appimage/*.sh tools/packaging/appimage/AppRun
+          GOBIN="$RUNNER_TEMP/ci-tools" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$RUNNER_TEMP/ci-tools/actionlint" .github/workflows/*.yml
+          python3 -B -m unittest discover -s tools -p test_packaging.py
+      - name: Prepare reproducible sources and checksummed PKGBUILD
+        id: prepare
+        run: |
+          python3 tools/packaging/prepare.py build-deb/dist
+          echo "version=$(cat build-deb/dist/version)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-sources
+          path: build-deb/dist/
+          if-no-files-found: error
+
+  debian:
+    needs: sources
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - series: noble
+            image: ubuntu:24.04
+          - series: resolute
+            image: ubuntu:26.04
+    container: ${{ matrix.image }}
+    steps:
+      - name: Install tools
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y git build-essential debhelper devscripts \
+            cmake pkg-config qt6-base-dev qt6-declarative-dev libhidapi-dev dbus \
+            qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml qml6-module-qtqml-workerscript
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-sources
+          path: build-deb/dist
+      - name: Build and test Debian binaries and PPA sources
+        env:
+          SERIES: ${{ matrix.series }}
+        run: |
+          bash tools/packaging/debian-build.sh build-deb/dist/*.tar.gz build-deb/debian "$SERIES" binary
+          bash tools/packaging/debian-build.sh build-deb/dist/*.tar.gz build-deb/debian "$SERIES" source
+      - name: Install and smoke-test
+        run: |
+          apt-get install -y ./build-deb/debian/galleoncore_*.deb
+          QT_QPA_PLATFORM=offscreen galleond --help
+          QT_QPA_PLATFORM=offscreen galleon-bosun --help
+          dpkg --audit
+          apt-get remove -y galleoncore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debian-${{ matrix.series }}
+          path: build-deb/debian/
+          if-no-files-found: error
+
+  rpm:
+    needs: sources
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: ['43', '44']
+    container: fedora:${{ matrix.fedora }}
+    steps:
+      - name: Install tools
+        run: dnf install -y git rpm-build rpmdevtools gcc-c++ cmake make pkgconf-pkg-config qt6-qtbase-devel qt6-qtdeclarative-devel hidapi-devel dbus-daemon
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-sources
+          path: build-deb/dist
+      - name: Build RPM, SRPM and run ctest
+        run: |
+          rpmdev-setuptree
+          cp build-deb/dist/*.tar.gz ~/rpmbuild/SOURCES/
+          version=$(cat build-deb/dist/version)
+          sed "s/^Version:.*/Version: $version/" tools/packaging/copr/galleoncore.spec > ~/rpmbuild/SPECS/galleoncore.spec
+          rpmbuild -ba ~/rpmbuild/SPECS/galleoncore.spec --define '_smp_mflags -j4'
+          mkdir -p build-deb/rpm
+          cp ~/rpmbuild/RPMS/*/*.rpm ~/rpmbuild/SRPMS/*.rpm build-deb/rpm/
+      - name: Install and smoke-test
+        run: |
+          dnf install -y --allowerasing ~/rpmbuild/RPMS/*/galleoncore-[0-9]*.rpm
+          QT_QPA_PLATFORM=offscreen galleond --help
+          QT_QPA_PLATFORM=offscreen galleon-bosun --help
+          dnf remove -y galleoncore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-fedora${{ matrix.fedora }}
+          path: build-deb/rpm/
+          if-no-files-found: error
+
+  arch:
+    needs: sources
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install tools
+        run: pacman -Syu --noconfirm --needed git cmake qt6-base qt6-declarative hidapi dbus python ttf-dejavu
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-sources
+          path: build-deb/dist
+      - name: Build as an unprivileged user, including check()
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: '4'
+        run: |
+          useradd -m builder
+          mkdir -p /tmp/aur
+          cp build-deb/dist/PKGBUILD /tmp/aur/
+          cd /tmp/aur
+          chown -R builder:builder /tmp/aur
+          su builder -c 'cd /tmp/aur && makepkg --printsrcinfo > .SRCINFO'
+          # Keep the publishable recipe; check the exact source bytes using a local mirror.
+          cp PKGBUILD PKGBUILD.release
+          cp "$GITHUB_WORKSPACE"/build-deb/dist/*.tar.gz .
+          printf '\nsource=("$pkgname-$pkgver.tar.gz")\n' >> PKGBUILD
+          chown -R builder:builder /tmp/aur
+          su builder -c 'cd /tmp/aur && makepkg --noconfirm'
+          pacman -U --noconfirm /tmp/aur/galleoncore-*.pkg.tar.zst
+          QT_QPA_PLATFORM=offscreen galleond --help
+          QT_QPA_PLATFORM=offscreen galleon-bosun --help
+          mkdir -p "$GITHUB_WORKSPACE/build-deb/aur"
+          cp PKGBUILD.release "$GITHUB_WORKSPACE/build-deb/aur/PKGBUILD"
+          cp .SRCINFO ./*.pkg.tar.zst "$GITHUB_WORKSPACE/build-deb/aur/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aur
+          path: build-deb/aur/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  appimage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake g++ pkg-config qt6-base-dev qt6-declarative-dev \
+            qt6-wayland qt6-svg-dev libhidapi-dev libxkbcommon-x11-0 patchelf \
+            qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml qml6-module-qtqml-workerscript
+      - name: Build and smoke-test AppImage
+        run: bash tools/packaging/appimage/build.sh build-deb/appimage
+      - name: Test QML rendering from the extracted AppImage
+        run: |
+          mkdir build-deb/extracted
+          cd build-deb/extracted
+          ../appimage/*.AppImage --appimage-extract >/dev/null
+          QT_QPA_PLATFORM=offscreen squashfs-root/AppRun --screenshot "$PWD/bosun.png"
+          test -s bosun.png
+      - name: Bundle host integration scripts and rules
+        run: tar -czf build-deb/appimage/GalleonCore-host-integration.tar.gz -C build-deb/appimage install-user-service.sh install-hardware-rules.sh hardware
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: build-deb/appimage/
+          if-no-files-found: error

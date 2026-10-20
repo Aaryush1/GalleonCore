@@ -2,7 +2,7 @@
 
 Référence pour reprendre le développement à tout moment, y compris dans une nouvelle session Claude Code. À mettre à jour après chaque fonctionnalité terminée **et** testée (voir « Règle de mise à jour » en bas). Les notes de conception détaillées (protocole, RGB, OpenRGB, Windows) sont dans [docs/ROADMAP.md](docs/ROADMAP.md) ; les règles de code dans [CLAUDE.md](CLAUDE.md).
 
-État au 19 octobre 2026, branche `main` (pull request 5 fusionnée, CI verte).
+État au 20 octobre 2026 : base `main` (pull request 5 fusionnée, CI verte) ; distribution Linux préparée localement, publication des dépôts et CI de cette évolution à confirmer.
 
 ## 1. Implémenté et testé
 
@@ -123,7 +123,7 @@ Décisions à ne pas perdre :
 1. (fait) Reprise du module après une veille de l'ordinateur : confirmée. Le réglage NVIDIA de l'utilisateur est un sujet système, hors du projet.
 2. (fait) Branche `galleond-wallpaper-clock` fusionnée dans `main` (pull request 5, 19 octobre) ; la CI passe (GCC, Clang + sanitizers, lint).
 3. Confirmer sur le module les pages remplies, le classement par usage, les nouvelles touches média et le lancement de BIT SCRIPTS Musique.
-4. **Galleon Bosun** : (fait : maquette ; écrans de veille : lecture puis réglages et retrait) sélecteur de fichier natif (portail) à ajouter ; démarrage de Bosun avec la session (option) ; paquets Linux (notes pour le paquetage dans `docs/PACKAGING.md`, à faire par un autre outil), puis édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
+4. **Galleon Bosun** : (fait : maquette ; écrans de veille : lecture puis réglages et retrait) sélecteur de fichier natif (portail) à ajouter ; démarrage de Bosun avec la session (option) ; distribution Linux : recettes PPA (Ubuntu 24.04/26.04), COPR (Fedora 43/44), AUR et AppImage, CI de construction et publication sur tags dans `tools/packaging/` et `.github/workflows/linux-*.yml` (voir `tools/packaging/README.md` ; ouverture des dépôts et secrets requis pour publier, validation matérielle et CI de l’arbre fusionné à confirmer), puis édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
 5. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
 
 ## Règle de mise à jour

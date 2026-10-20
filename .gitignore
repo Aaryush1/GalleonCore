@@ -68,3 +68,7 @@ compile_commands.json
 # Python
 __pycache__/
 *.pyc
+
+# Packaging scripts are sources, not build directories.
+!/tools/packaging/build-deb.sh
+!/tools/packaging/debian-build.sh

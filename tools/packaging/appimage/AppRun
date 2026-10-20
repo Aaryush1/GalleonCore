@@ -1,0 +1,21 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+APPDIR=${APPDIR:-$(cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)}
+export APPDIR
+export LD_LIBRARY_PATH="$APPDIR/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH QML2_IMPORT_PATH QML_IMPORT_PATH
+for hook in "$APPDIR"/apprun-hooks/*.sh; do
+    # linuxdeploy generates these hooks only when the bundle is built.
+    # shellcheck disable=SC1090
+    [ ! -f "$hook" ] || source "$hook"
+done
+export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+export GALLEONCORE_WIDGETS="$APPDIR/usr/share/galleoncore/widgets/"
+export GALLEONCORE_WALLPAPERS="$APPDIR/usr/share/galleoncore/wallpaper"
+if [ "${1:-}" = --galleond ]; then
+    shift
+    exec "$APPDIR/usr/bin/galleond" "$@"
+fi
+exec "$APPDIR/usr/bin/galleon-bosun" "$@"

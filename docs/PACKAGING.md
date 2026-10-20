@@ -95,11 +95,46 @@ Runtime:
   private session bus). The project's own full check is `tools/check.py full` (Docker, Ubuntu 24.04), described in `CLAUDE.md`.
 - Nothing in the package must write to the keyboard's flash or touch the RGB of the keyboard part: the project never does.
 
-## Open points for the packager
+## Other formats
 
 - Flatpak is **not** a good first target: the daemon needs `/dev/hidraw*`, `/dev/uinput`, the user's systemd and the session
   bus name, and the udev rules cannot be shipped inside a sandbox. A Flatpak of `galleon-bosun` alone would still need
   `--talk-name=org.galleoncore.Deck` and `--filesystem=xdg-config/galleoncore`, `xdg-data/galleoncore`.
-- AppImage: same problem (udev rules, user service).
+- AppImage: now built by CI with separate host integration helpers for udev and the user service; see `tools/packaging/README.md`.
 - Qt 6.4 is the oldest supported Qt (Ubuntu 24.04); the project's CI builds and tests on it.
 - The version is `0.1.0` (`project(GalleonCore VERSION 0.1.0)` in `CMakeLists.txt`); there are no release tags yet.
+
+## Build the Debian package
+
+A single `galleoncore` package contains all installed components, including
+libgalleon and its headers. Build on the Ubuntu 24.04 baseline (Qt 6.4.2),
+not on a newer host whose library dependencies would exclude Ubuntu 24.04:
+
+```sh
+python3 tools/check.py image
+mkdir -p build-deb
+docker build -t galleoncore-packaging:24.04 tools/packaging
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/src:ro" -v "$PWD/build-deb:/out" \
+  galleoncore-packaging:24.04 bash /src/tools/packaging/build-deb.sh
+```
+
+The script builds a Release package with source-tree paths disabled, generates
+shared-library dependencies using `dpkg-shlibdeps`, and runs `ctest` in a separate
+build plus `reuse lint`. Output: `build-deb/galleoncore_0.1.0-1_amd64.deb`
+(on amd64; the architecture is detected). `JOBS` defaults to 4.
+Build artifacts and test logs are not shipped. The package includes license texts,
+a per-file SPDX inventory, wallpaper provenance, and README.Debian with the
+opt-in service commands. Maintainer scripts reload udev rules and attempt to load
+uinput; they never start the daemon. No graphical-session or hardware validation
+is implied by container checks.
+
+## PPA, COPR, AUR and AppImage CI
+
+The complete recipes, CI matrix, release gates, account setup and secret names are
+in [the distribution guide](../tools/packaging/README.md). Builds run on Ubuntu
+24.04/26.04, Fedora 43/44 and Arch Linux; the AppImage uses the Ubuntu 24.04 / Qt
+6.4 baseline. Publication targets are `ppa:paulwoisard/galleoncore`,
+`paulwoisard/galleoncore` on COPR and `galleoncore` on AUR. Native source builds
+run ctest before packaging; no development/test files are installed. Account
+creation and publication credentials are separate from recipe validation.

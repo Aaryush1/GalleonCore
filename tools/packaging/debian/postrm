@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -e
+case "$1" in
+    remove|purge)
+        if command -v udevadm >/dev/null 2>&1; then
+            udevadm control --reload-rules || true
+        fi
+        ;;
+esac

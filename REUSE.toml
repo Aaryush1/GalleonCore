@@ -14,3 +14,18 @@ SPDX-License-Identifier = "CC-BY-SA-4.0"
 path = "public/Screensavers/**"
 SPDX-FileCopyrightText = "2026 Paul Woisard"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+[[annotations]]
+path = ["tools/packaging/debian/control", "tools/packaging/debian/changelog", "tools/packaging/debian/copyright", "tools/packaging/debian/source/format"]
+SPDX-FileCopyrightText = "2026 Paul Woisard"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "tools/packaging/appimage/tools.json"
+SPDX-FileCopyrightText = "2026 Paul Woisard"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "tools/packaging/aur/PKGBUILD.in"
+SPDX-FileCopyrightText = "2026 Paul Woisard"
+SPDX-License-Identifier = "GPL-3.0-or-later"

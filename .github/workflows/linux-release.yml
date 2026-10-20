@@ -1,0 +1,154 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Linux release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: linux-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an exact version tag
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/project(GalleonCore VERSION \([^ ]*\).*/\1/p' CMakeLists.txt)
+          test "$REF_TYPE" = tag
+          test "$REF_NAME" = "v$version"
+  checks:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+  packages:
+    needs: version
+    uses: ./.github/workflows/linux-packages.yml
+  release:
+    needs: [checks, packages]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create release and upload the tested packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --title "GalleonCore $TAG" --generate-notes
+          # Upload canonical sources before the AUR recipe referring to this URL is published.
+          gh release upload "$TAG" artifacts/linux-sources/*.tar.gz artifacts/linux-sources/SHA256SUMS \
+            artifacts/aur/PKGBUILD artifacts/aur/.SRCINFO artifacts/aur/*.pkg.tar.zst \
+            artifacts/debian-noble/*.deb artifacts/debian-resolute/*.deb \
+            artifacts/rpm-fedora43/*.rpm artifacts/rpm-fedora44/*.rpm \
+            artifacts/appimage/*.AppImage artifacts/appimage/AppImage-SHA256SUMS \
+            artifacts/appimage/GalleonCore-host-integration.tar.gz --clobber
+  ppa:
+    needs: release
+    if: vars.ENABLE_LINUX_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Install upload tools
+        run: sudo apt-get update -qq && sudo apt-get install -y devscripts dput gnupg openssh-client
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: debian-*
+          path: artifacts
+      - name: Sign and upload the tested source packages
+        env:
+          PPA_GPG_PRIVATE_KEY: ${{ secrets.PPA_GPG_PRIVATE_KEY }}
+          PPA_SSH_PRIVATE_KEY: ${{ secrets.PPA_SSH_PRIVATE_KEY }}
+          PPA_OWNER: ${{ vars.PPA_OWNER || 'paulwoisard' }}
+          PPA_NAME: ${{ vars.PPA_NAME || 'galleoncore' }}
+        run: |
+          set -euo pipefail
+          test -n "$PPA_GPG_PRIVATE_KEY" && test -n "$PPA_SSH_PRIVATE_KEY"
+          export GNUPGHOME=$(mktemp -d)
+          trap 'gpgconf --kill gpg-agent || true; rm -rf "$GNUPGHOME"; ssh-agent -k || true' EXIT
+          printf '%s\n' "$PPA_GPG_PRIVATE_KEY" | gpg --batch --import
+          fingerprint=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+          test -n "$fingerprint"
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$PPA_SSH_PRIVATE_KEY" | ssh-add -
+          mkdir -p ~/.ssh
+          ssh-keyscan ppa.launchpad.net >> ~/.ssh/known_hosts
+          cat > ~/.dput.cf <<CONFIG
+          [galleoncore]
+          fqdn = ppa.launchpad.net
+          method = sftp
+          incoming = ~$PPA_OWNER/ubuntu/$PPA_NAME/
+          login = $PPA_OWNER
+          allow_unsigned_uploads = 0
+          CONFIG
+          for series in noble resolute; do
+            debsign -k"$fingerprint" artifacts/debian-"$series"/*_source.changes
+            timeout 2700 dput galleoncore artifacts/debian-"$series"/*_source.changes < /dev/null
+          done
+  copr:
+    needs: release
+    if: vars.ENABLE_LINUX_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    container: fedora:44
+    timeout-minutes: 90
+    steps:
+      - run: dnf install -y copr-cli
+      - uses: actions/download-artifact@v4
+        with:
+          name: rpm-fedora44
+          path: artifacts
+      - name: Submit the tested SRPM and wait for COPR
+        env:
+          COPR_LOGIN: ${{ secrets.COPR_LOGIN }}
+          COPR_USERNAME: ${{ secrets.COPR_USERNAME }}
+          COPR_TOKEN: ${{ secrets.COPR_TOKEN }}
+          COPR_PROJECT: ${{ vars.COPR_PROJECT || 'paulwoisard/galleoncore' }}
+        run: |
+          set -eu
+          test -n "$COPR_LOGIN" && test -n "$COPR_USERNAME" && test -n "$COPR_TOKEN"
+          mkdir -p ~/.config
+          umask 077
+          trap 'rm -f ~/.config/copr' EXIT
+          printf '[copr-cli]\nlogin = %s\nusername = %s\ntoken = %s\ncopr_url = https://copr.fedorainfracloud.org\n' \
+            "$COPR_LOGIN" "$COPR_USERNAME" "$COPR_TOKEN" > ~/.config/copr
+          copr-cli build "$COPR_PROJECT" artifacts/*.src.rpm
+  aur:
+    needs: release
+    if: vars.ENABLE_LINUX_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: aur
+          path: artifacts
+      - name: Publish the validated PKGBUILD and .SRCINFO
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          AUR_PACKAGE: ${{ vars.AUR_PACKAGE || 'galleoncore' }}
+        run: |
+          set -euo pipefail
+          test -n "$AUR_SSH_PRIVATE_KEY"
+          eval "$(ssh-agent -s)"
+          trap 'ssh-agent -k' EXIT
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" | ssh-add -
+          export GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new'
+          git clone "ssh://aur@aur.archlinux.org/$AUR_PACKAGE.git" aur-repo
+          cp artifacts/PKGBUILD artifacts/.SRCINFO aur-repo/
+          cd aur-repo
+          git config user.name 'GalleonCore CI'
+          git config user.email 'paulwoisard@gmail.com'
+          git add PKGBUILD .SRCINFO
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update GalleonCore release'
+            git push origin HEAD:master
+          fi
