@@ -51,6 +51,26 @@ QString fakeProbe(const QString &dir, const QByteArray &json)
     return script;
 }
 
+// A program in place of FFmpeg: lists an H.264 encoder, and for a conversion runs `body`
+// (the last argument is the file to write; its arguments are kept in `<file>.args`).
+QString fakeFfmpeg(const QString &dir, const QString &body)
+{
+    QString script = dir + QStringLiteral("/fake-ffmpeg");
+    QFile file(script);
+    if (!file.open(QIODevice::WriteOnly))
+        return {};
+    file.write(("#!/bin/sh\ncase \"$*\" in\n  *-encoders*) printf ' V....D libx264 libx264 H.264\\n'; exit 0;;\nesac\n"
+                "for last; do :; done\nfor a in \"$@\"; do echo \"$a\" >> \"$last.args\"; done\n" + body + "\n").toUtf8());
+    file.close();
+    QFile::setPermissions(script, QFile::permissions(script) | QFile::ExeUser);
+    return script;
+}
+
+QByteArray wideProbe()
+{
+    return R"({"streams": [{"codec_name": "h264", "width": 1920, "height": 1080, "avg_frame_rate": "24/1"}], "format": {"duration": "12"}})";
+}
+
 QByteArray saverPages(const QString &videos, const QString &geometry = QStringLiteral(
                                                  R"("geometry": {"screen_mm": [62.6, 33.0], "key_mm": [13.7, 13.7], "gap_mm": [5.4, 5.4], "screen_to_keys_mm": 5.4},)"))
 {
@@ -415,6 +435,94 @@ private Q_SLOTS:
         backend.clearCandidate();
         QVERIFY(backend.candidate().isEmpty());
         QVERIFY(!backend.addCandidate("x").isEmpty()); // nothing chosen
+    }
+
+    void aConversionCutsTheVideoAddsTheResultAndKeepsTheOriginal()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("Night Rain.mp4"), "original"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()),
+                                           .ffmpeg = fakeFfmpeg(dir.path(), "echo out_time_us=6000000; printf converted > \"$last\"; exit 0"),
+                                           .thumbnailFolder = dir.filePath("thumbs"),
+                                           .convertedFolder = dir.filePath("converted")});
+        backend.inspect(dir.filePath("Night Rain.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        // A rectangle of other proportions: it is made valid before FFmpeg sees it (500 wide, 874 high).
+        QVERIFY(backend.startConversion(100, 0, 500, 900, "").isEmpty());
+        QCOMPARE(backend.conversion().value("state").toString(), QStringLiteral("running"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.conversion().value("state").toString(), QStringLiteral("done"), 8000);
+
+        const QString result = dir.filePath("converted/Night Rain.mp4");
+        QCOMPARE(backend.conversion().value("message").toString(), result);
+        const QVariantList videos = backend.screensaver().value("videos").toList();
+        QCOMPARE(videos.size(), 2);
+        QCOMPARE(videos.at(1).toMap().value("file").toString(), result);
+        QCOMPARE(videos.at(1).toMap().value("title").toString(), QStringLiteral("Night Rain"));
+        QVERIFY(backend.candidate().isEmpty());
+        QFile original(dir.filePath("Night Rain.mp4"));
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        QCOMPARE(original.readAll(), QByteArray("original")); // the source is never touched
+        QFile arguments(result + ".partial.args");
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        const QString text = QString::fromUtf8(arguments.readAll());
+        QVERIFY2(text.contains("crop=500:874:100:0,scale=720:1258:flags=lanczos,fps=12"), qPrintable(text));
+    }
+
+    void aConversionThatFailsSaysWhyAndAddsNothing()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()),
+                                           .ffmpeg = fakeFfmpeg(dir.path(), "echo 'Invalid data' >&2; exit 1"),
+                                           .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        backend.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        QVERIFY(backend.startConversion(651, 0, 618, 1080, "T").isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(backend.conversion().value("state").toString(), QStringLiteral("failed"), 8000);
+        QVERIFY(backend.conversion().value("message").toString().contains("Invalid data"));
+        QCOMPARE(backend.screensaver().value("videos").toList().size(), 1);
+        QVERIFY(!backend.candidate().isEmpty()); // still there: the user can try again
+    }
+
+    void aConversionCanBeCancelled()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = fakeFfmpeg(dir.path(), "sleep 30"),
+                                           .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        backend.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        QVERIFY(backend.startConversion(651, 0, 618, 1080, "T").isEmpty());
+        QVERIFY(!backend.startConversion(651, 0, 618, 1080, "T").isEmpty()); // one at a time
+        backend.cancelConversion();
+        QTRY_COMPARE_WITH_TIMEOUT(backend.conversion().value("state").toString(), QStringLiteral("cancelled"), 8000);
+        QCOMPARE(backend.screensaver().value("videos").toList().size(), 1);
+    }
+
+    void nothingIsConvertedWhenThereIsNothingToConvertOrNoRoom()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("v.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"("a.mp4")")));
+        bosun::BosunBackend backend(file, {.ffprobe = fakeProbe(dir.path(), wideProbe()), .ffmpeg = fakeFfmpeg(dir.path(), "exit 0"),
+                                           .thumbnailFolder = dir.filePath("thumbs"), .convertedFolder = dir.filePath("converted")});
+        QVERIFY(!backend.startConversion(0, 0, 100, 100, "x").isEmpty()); // nothing chosen
+        QStringList names;
+        for (int i = 0; i < galleond::MaxScreensaverVideos; ++i)
+            names << QStringLiteral(R"("v%1.mp4")").arg(i);
+        QVERIFY(writeFile(file, saverPages(names.join(','))));
+        backend.reload();
+        backend.inspect(dir.filePath("v.mp4"));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.candidate().value("state").toString(), QStringLiteral("ready"), 8000);
+        QVERIFY(!backend.startConversion(651, 0, 618, 1080, "x").isEmpty()); // the list is full: no use converting
+        QVERIFY(!QFileInfo::exists(dir.filePath("converted")));
     }
 
     void theWindowHasATabPerThemeAndTheFixedOnes()

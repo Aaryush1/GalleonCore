@@ -8,6 +8,7 @@
 #include <galleon/Protocol.h>
 
 #include <QImage>
+#include <QRectF>
 #include <QSize>
 
 #include <array>
@@ -41,6 +42,15 @@ public:
     // Cuts `frame`, which must be canvasSize() (or the same proportions).
     // Empty frames when the picture is null or the splitter is not valid.
     [[nodiscard]] Frames split(const QImage &frame) const;
+
+    // Where the screen and the 12 keys fall in the picture, in its pixels (canvasSize()): what
+    // a person who crops a video wants to see. Empty rectangles when the splitter is not valid.
+    struct Regions
+    {
+        QRectF screen;
+        std::array<QRectF, galleon::protocol::KeyCount> keys;
+    };
+    [[nodiscard]] Regions regions() const;
 
     // A picture from `rgb`, 3 bytes per pixel in rows without padding, `size`
     // large; null when the amount of data is not exactly that.

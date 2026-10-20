@@ -67,6 +67,26 @@ QImage ScreensaverSplitter::imageFromRgb888(const QByteArray &rgb, const QSize &
     return image;
 }
 
+ScreensaverSplitter::Regions ScreensaverSplitter::regions() const
+{
+    Regions out;
+    if (!m_valid)
+        return out;
+    const double scale = m_canvas.width() / m_widthMm;
+    out.screen = QRectF(m_screenX * scale, 0, m_config.screenWidthMm * scale, m_config.screenHeightMm * scale);
+    galleon::layout::GridGeometry grid;
+    grid.columns = galleon::protocol::KeyColumns;
+    grid.rows = galleon::protocol::KeyRows;
+    grid.keyWidthMm = m_config.keyWidthMm;
+    grid.keyHeightMm = m_config.keyHeightMm;
+    grid.gapXMm = m_config.gapXMm;
+    grid.gapYMm = m_config.gapYMm;
+    const auto rects = galleon::layout::keyRects(grid, {.x = m_gridX, .y = m_gridY, .width = grid.widthMm(), .height = grid.heightMm()});
+    for (std::size_t i = 0; i < rects.size() && i < out.keys.size(); ++i)
+        out.keys.at(i) = QRectF(rects[i].x * scale, rects[i].y * scale, rects[i].width * scale, rects[i].height * scale);
+    return out;
+}
+
 ScreensaverSplitter::Frames ScreensaverSplitter::split(const QImage &frame) const
 {
     Frames out;
