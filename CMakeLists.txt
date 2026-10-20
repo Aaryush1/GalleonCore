@@ -60,6 +60,7 @@ endif()
 include(GNUInstallDirs)
 
 add_subdirectory(lib)
+add_subdirectory(media)
 if(GALLEON_BUILD_DESKTOP)
     add_subdirectory(daemon)
     add_subdirectory(bosun)

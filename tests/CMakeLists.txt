@@ -30,6 +30,9 @@ galleon_add_test(test_layout)
 galleon_add_test(test_protocol)
 galleon_add_test(test_streamdeck FakeTransport.h)
 
+galleon_add_test(test_smtc)
+target_link_libraries(test_smtc PRIVATE galleon_smtc)
+
 if(NOT GALLEON_BUILD_DESKTOP)
     return()
 endif()

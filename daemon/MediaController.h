@@ -7,6 +7,7 @@
 #include <QString>
 
 #include <cmath>
+#include <cstdint>
 
 namespace galleond {
 
@@ -48,8 +49,8 @@ struct NowPlaying
     }
 };
 
-// What the button pages need from a music player. The real one talks MPRIS
-// over D-Bus; the tests use a fake.
+// What pages and screens need from a music player. Linux uses MPRIS; Windows
+// uses SMTC. Tests replace either backend with a fake.
 class MediaController : public QObject
 {
     Q_OBJECT

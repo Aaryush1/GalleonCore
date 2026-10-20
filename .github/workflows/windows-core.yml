@@ -4,7 +4,7 @@
 name: Windows portable core
 on:
   push:
-    branches: [main, codex/windows-port]
+    branches: [main, codex/windows-port, codex/windows-smtc]
   pull_request:
 permissions:
   contents: read
