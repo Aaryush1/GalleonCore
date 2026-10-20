@@ -101,7 +101,8 @@ int main(int argc, char *argv[])
     engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
     engine.addImageProvider(QStringLiteral("wallpapers"), new bosun::WallpaperThumbnails(&library));
     engine.addImageProvider(QStringLiteral("wallpaperpreview"), new bosun::WallpaperPreview(&library));
-    engine.setInitialProperties({{QStringLiteral("filePicker"), QVariant::fromValue(filePicker.get())},
+    engine.setInitialProperties({{QStringLiteral("startMinimized"), parser.isSet(minimizedOption) && !parser.isSet(shotOption) && bosun::Tray::isAvailable()},
+                                 {QStringLiteral("filePicker"), QVariant::fromValue(filePicker.get())},
                                  {QStringLiteral("backend"), QVariant::fromValue(&backend)},
                                  {QStringLiteral("daemon"), QVariant::fromValue(&daemon)},
                                  {QStringLiteral("library"), QVariant::fromValue(&library)}});
