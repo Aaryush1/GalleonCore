@@ -3,6 +3,7 @@
 
 #include "BosunBackend.h"
 
+#include "CropMath.h"
 #include "VideoAdvice.h"
 
 #include <DesktopEntries.h>
@@ -75,6 +76,11 @@ Described describe(const galleond::KeyConfig &key)
 
 } // namespace
 
+QString BosunBackend::defaultConvertedFolder()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/galleoncore/screensavers");
+}
+
 BosunBackend::BosunBackend(QString pagesFile, QObject *parent)
     : BosunBackend(std::move(pagesFile), Tools{}, parent)
 {
@@ -89,8 +95,14 @@ BosunBackend::BosunBackend(QString pagesFile, const Tools &tools, QObject *paren
                        ? QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + QStringLiteral("/galleoncore/thumbnails")
                        : tools.thumbnailFolder,
                    tools.ffmpeg)
+    , m_converter(tools.ffmpeg)
+    , m_convertedFolder(tools.convertedFolder)
 {
     qRegisterMetaType<galleond::VideoInfo>();
+    connect(&m_converter, &VideoConverter::progress, this, [this](double fraction) { setConversion(QStringLiteral("running"), fraction); });
+    connect(&m_converter, &VideoConverter::finished, this, &BosunBackend::conversionDone);
+    connect(&m_converter, &VideoConverter::failed, this, [this](const QString &reason) { setConversion(QStringLiteral("failed"), 0, reason); });
+    connect(&m_converter, &VideoConverter::cancelled, this, [this] { setConversion(QStringLiteral("cancelled")); });
     connect(&m_probe, &galleond::VideoProbe::probed, this, [this](const QString &path, const galleond::VideoInfo &info) {
         m_videoInfo.insert(path, info);
         buildScreensaver();
@@ -316,6 +328,58 @@ QString BosunBackend::addCandidate(const QString &title)
     if (error.isEmpty())
         clearCandidate();
     return error;
+}
+
+void BosunBackend::setConversion(const QString &state, double fraction, const QString &message)
+{
+    m_conversion = QVariantMap{{QStringLiteral("state"), state}, {QStringLiteral("fraction"), fraction}, {QStringLiteral("message"), message}};
+    Q_EMIT changed();
+}
+
+QString BosunBackend::startConversion(int x, int y, int width, int height, const QString &title)
+{
+    if (m_candidatePath.isEmpty() || !m_candidate.value(QStringLiteral("canAdd")).toBool())
+        return m_candidate.value(QStringLiteral("why")).toString().isEmpty() ? tr("No video can be converted now.")
+                                                                             : m_candidate.value(QStringLiteral("why")).toString();
+    const galleond::VideoInfo info = m_videoInfo.value(m_candidatePath);
+    const galleond::ScreensaverConfig saver = m_config ? m_config->screensaver : galleond::ScreensaverConfig{};
+    const QSize canvas = galleond::ScreensaverSplitter(saver).canvasSize();
+    if (!info.valid || canvas.isEmpty())
+        return tr("The size of the video, or the measures of the module, are not known: nothing to cut it to.");
+
+    ConversionJob job;
+    job.input = m_candidatePath;
+    job.source = QSize(info.width, info.height);
+    job.crop = crop::fitted(QRect(x, y, width, height), job.source, canvas);
+    job.canvas = canvas;
+    job.fps = saver.fps;
+    job.seconds = info.seconds;
+    job.outputFolder = m_convertedFolder;
+    m_conversionTitle = title.trimmed().isEmpty() ? m_candidate.value(QStringLiteral("suggestedTitle")).toString() : title.trimmed();
+    job.name = m_conversionTitle;
+    if (const QString refused = m_converter.start(job); !refused.isEmpty())
+        return refused;
+    setConversion(QStringLiteral("running"), 0);
+    return {};
+}
+
+void BosunBackend::cancelConversion()
+{
+    m_converter.cancel();
+}
+
+void BosunBackend::conversionDone(const QString &outputFile)
+{
+    const QString error = applied(galleond::PagesEditor::addScreensaverVideo(m_file, outputFile, m_conversionTitle));
+    if (!error.isEmpty()) {
+        setConversion(QStringLiteral("failed"), 1, tr("The video was converted (%1) but could not be added: %2").arg(outputFile, error));
+        return;
+    }
+    m_candidatePath.clear();
+    m_candidateChosen.clear();
+    m_candidateProblem.clear();
+    buildCandidate();
+    setConversion(QStringLiteral("done"), 1, outputFile);
 }
 
 void BosunBackend::buildCandidate()

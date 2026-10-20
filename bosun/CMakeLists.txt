@@ -4,7 +4,9 @@
 # Galleon Bosun: the settings window. The logic is a library so that the tests can use it.
 add_library(bosun_core STATIC
     BosunBackend.h BosunBackend.cpp
+    CropMath.h CropMath.cpp
     VideoAdvice.h VideoAdvice.cpp
+    VideoConverter.h VideoConverter.cpp
 )
 target_include_directories(bosun_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(bosun_core PUBLIC galleond_core Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick PRIVATE galleon_warnings)

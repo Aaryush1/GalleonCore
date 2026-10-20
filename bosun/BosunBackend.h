@@ -4,6 +4,8 @@
 #pragma once
 
 #include <PagesConfig.h>
+#include "VideoConverter.h"
+
 #include <PagesEditor.h>
 #include <TileRenderer.h>
 #include <VideoProbe.h>
@@ -40,14 +42,21 @@ class BosunBackend : public QObject
     Q_PROPERTY(QVariantMap screensaver READ screensaver NOTIFY changed)
     // The video being looked at before it is added (see inspect()); empty map when none.
     Q_PROPERTY(QVariantMap candidate READ candidate NOTIFY changed)
+    // The conversion of the video being looked at: {state, fraction, message}; `state` is
+    // "idle", "running", "done", "failed" or "cancelled".
+    Q_PROPERTY(QVariantMap conversion READ conversion NOTIFY changed)
 
 public:
+    // The user's own folder for converted videos: ~/.local/share/galleoncore/screensavers.
+    [[nodiscard]] static QString defaultConvertedFolder();
+
     // The programs and the folder the screensaver tab uses; the defaults are the ones of galleond.
     struct Tools
     {
         QString ffprobe = QStringLiteral("ffprobe");
         QString ffmpeg = QStringLiteral("ffmpeg");
         QString thumbnailFolder; // empty: the user's cache folder, shared with galleond
+        QString convertedFolder = defaultConvertedFolder(); // where the results are written
     };
 
     explicit BosunBackend(QString pagesFile, QObject *parent = nullptr);
@@ -70,6 +79,7 @@ public:
     // "checking" (ffprobe has not answered), "ready" or "unusable"; `why` says why it cannot be
     // added (not a video, list full, already in the list); `notes` as for a video of the list.
     [[nodiscard]] QVariantMap candidate() const { return m_candidate; }
+    [[nodiscard]] QVariantMap conversion() const { return m_conversion; }
 
     // The 12 keys of `page`, as written in the file: [{index, label, kind, detail, empty}].
     // Empty list for a page that does not exist.
@@ -93,6 +103,13 @@ public:
     Q_INVOKABLE [[nodiscard]] QString addCandidate(const QString &title);
     Q_INVOKABLE void clearCandidate();
 
+    // Cuts the video being looked at to the picture of the module, keeping the part
+    // (x, y, width, height) of it (in the pixels of the video; made valid first), writes the
+    // result in the user's screensaver folder and adds it to the list when FFmpeg is done.
+    // "" when it started, else why not. The original file is never touched.
+    Q_INVOKABLE [[nodiscard]] QString startConversion(int x, int y, int width, int height, const QString &title);
+    Q_INVOKABLE void cancelConversion();
+
     // The 160 x 160 picture of key `key` of `page`; a blank key when there is none.
     [[nodiscard]] QPixmap tile(const QString &page, int key) const;
 
@@ -104,6 +121,8 @@ private:
     [[nodiscard]] QString applied(const galleond::EditResult &result);
     void buildScreensaver();
     void buildCandidate();
+    void setConversion(const QString &state, double fraction = 0, const QString &message = {});
+    void conversionDone(const QString &outputFile);
     void askAboutVideos();
     void nextThumbnail();
     [[nodiscard]] const galleond::Page *pageNamed(const QString &page) const;
@@ -123,6 +142,10 @@ private:
     QString m_candidateProblem; // why what was chosen is not a usable file, when it is not
     QString m_candidateChosen;  // what was chosen, as the user wrote it
     QVariantMap m_candidate;
+    QVariantMap m_conversion{{QStringLiteral("state"), QStringLiteral("idle")}, {QStringLiteral("fraction"), 0.0}, {QStringLiteral("message"), QString()}};
+    VideoConverter m_converter;
+    QString m_convertedFolder;
+    QString m_conversionTitle;
     QStringList m_videoFiles;                         // the resolved path of each video, "" when it is not readable
     QHash<QString, galleond::VideoInfo> m_videoInfo;   // by path
     QHash<QString, QString> m_videoPictures;           // by path

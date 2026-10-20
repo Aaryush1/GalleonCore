@@ -169,6 +169,28 @@ private Q_SLOTS:
         QCOMPARE(splitter.canvasSize().height(), 1136); // 720 * 142 / 90
     }
 
+    void theRegionsSayWhereTheScreenAndTheKeysFallInThePicture()
+    {
+        const ScreensaverSplitter splitter(testConfig());
+        const auto regions = splitter.regions();
+        // 8 pixels per millimetre (720 px for the 90 mm of the screen).
+        QCOMPARE(regions.screen, QRectF(0, 0, 720, 384));
+        QCOMPARE(regions.keys.at(0), QRectF(112, 464, 144, 144));  // first key: 14 mm in, 58 mm down
+        QCOMPARE(regions.keys.at(1), QRectF(288, 464, 144, 144));  // one key and one gap to the right
+        QCOMPARE(regions.keys.at(3), QRectF(112, 640, 144, 144));  // next row
+        QCOMPARE(regions.keys.at(11), QRectF(464, 992, 144, 144)); // last key, its bottom is the picture's
+        QCOMPARE(regions.keys.at(11).bottom(), static_cast<double>(splitter.canvasSize().height()));
+    }
+
+    void withoutGeometryThereAreNoRegions()
+    {
+        ScreensaverConfig config = testConfig();
+        config.hasGeometry = false;
+        const auto regions = ScreensaverSplitter(config).regions();
+        QVERIFY(regions.screen.isEmpty());
+        QVERIFY(regions.keys.at(0).isEmpty());
+    }
+
     void withoutGeometryTheSplitterIsNotValid()
     {
         ScreensaverConfig config = testConfig();
