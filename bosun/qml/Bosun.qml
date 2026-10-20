@@ -57,8 +57,8 @@ Window {
     ])
     readonly property var tab: tabs[Math.min(currentTab, tabs.length - 1)]
     readonly property string page: tab.kind === "theme" ? (shownPage !== "" && backend.pageNames.indexOf(shownPage) >= 0 ? shownPage : tab.page) : ""
-    // The pages that are not the page of a theme: reached from a key.
-    readonly property var subPages: backend.pageNames.filter(name => !backend.themes.some(t => t.page === name))
+    // The sub-pages that the keys of this tab's page lead to (not the pages of other tabs).
+    readonly property var subPages: tab.kind === "theme" ? backend.subPagesOf(tab.page) : []
     readonly property var keys: tab.kind === "theme" ? backend.keys(page) : []
     readonly property var selected: selectedKey >= 0 && selectedKey < keys.length ? keys[selectedKey] : null
 

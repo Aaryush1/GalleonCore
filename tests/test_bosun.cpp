@@ -715,6 +715,31 @@ private Q_SLOTS:
         QVERIFY(!window->isVisible());
     }
 
+    void aTabShowsOnlyTheSubPagesItsOwnKeysLeadTo()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        // main -> sub-a -> sub-b; music -> sub-c; games -> main (a theme's page: not a sub-page); an orphan page nobody leads to.
+        QVERIFY(writeFile(file, QByteArray(R"({"version": 1, "home": "main",
+          "themes": [{"name": "Control", "page": "main", "color": "#ffd600"}, {"name": "Music", "page": "music", "color": "#e53935"},
+                     {"name": "Games", "page": "games", "color": "#3949ab"}],
+          "pages": {
+            "main": {"keys": [{"key": 0, "label": "A", "action": {"type": "page", "page": "sub-a"}}]},
+            "sub-a": {"keys": [{"key": 0, "label": "B", "action": {"type": "page", "page": "sub-b"}}, {"key": 1, "label": "Home", "action": {"type": "back"}}]},
+            "sub-b": {"keys": [{"key": 0, "label": "Loop", "action": {"type": "page", "page": "sub-a"}}]},
+            "music": {"keys": [{"key": 0, "label": "C", "action": {"type": "page", "page": "sub-c"}}]},
+            "sub-c": {"keys": []},
+            "games": {"keys": [{"key": 0, "label": "Main", "action": {"type": "page", "page": "main"}}]},
+            "orphan": {"keys": []}}})")));
+        const bosun::BosunBackend backend(file);
+        QVERIFY2(backend.problem().isEmpty(), qPrintable(backend.problem()));
+        QCOMPARE(backend.subPagesOf("main"), (QStringList{"sub-a", "sub-b"}));   // two levels, a loop does not repeat
+        QCOMPARE(backend.subPagesOf("music"), (QStringList{"sub-c"}));            // not main's
+        QVERIFY(backend.subPagesOf("games").isEmpty());                           // main is a theme's page: it has its tab
+        QVERIFY(backend.subPagesOf("orphan").isEmpty());
+        QVERIFY(backend.subPagesOf("no-such-page").isEmpty());
+    }
+
     void theWindowHasATabPerThemeAndTheFixedOnes()
     {
         const QTemporaryDir dir;

@@ -71,6 +71,10 @@ public:
     [[nodiscard]] QString problem() const { return m_problem; }
     [[nodiscard]] QVariantList themes() const { return m_themes; }
     [[nodiscard]] QStringList pageNames() const;
+    // The sub-pages of `page`: the pages that its keys lead to, and those that theirs lead to, in the
+    // order they are met, leaving out the pages of the themes (they have their own tab) and `page`
+    // itself. Empty for a page that leads nowhere.
+    Q_INVOKABLE [[nodiscard]] QStringList subPagesOf(const QString &page) const;
     [[nodiscard]] static QVariantList mediaCommands();
     [[nodiscard]] static QStringList keypadKeys();
     // The installed applications, [{name, id, icon}] by name (read from the menu on the first call).
