@@ -35,12 +35,13 @@ qt_add_resources(galleond_core "galleond_ui"
 )
 
 add_executable(galleond main.cpp)
-target_compile_definitions(galleond PRIVATE
-    PROJECT_VERSION_STRING="${PROJECT_VERSION}"
+target_compile_definitions(galleond PRIVATE PROJECT_VERSION_STRING="${PROJECT_VERSION}")
+if(GALLEON_SOURCE_TREE_PATHS)
     # Defaults for running from the build tree; an installed galleond looks in
     # <data dir>/galleoncore first.
-    GALLEON_SOURCE_WIDGETS="${CMAKE_SOURCE_DIR}/widgets"
-    GALLEON_SOURCE_WALLPAPERS="${CMAKE_SOURCE_DIR}/public/wallpaper"
-)
+    target_compile_definitions(galleond PRIVATE
+        GALLEON_SOURCE_WIDGETS="${CMAKE_SOURCE_DIR}/widgets"
+        GALLEON_SOURCE_WALLPAPERS="${CMAKE_SOURCE_DIR}/public/wallpaper")
+endif()
 target_link_libraries(galleond PRIVATE galleond_core galleon_warnings Qt6::DBus)
 install(TARGETS galleond RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -123,7 +123,7 @@ Décisions à ne pas perdre :
 1. (fait) Reprise du module après une veille de l'ordinateur : confirmée. Le réglage NVIDIA de l'utilisateur est un sujet système, hors du projet.
 2. (fait) Branche `galleond-wallpaper-clock` fusionnée dans `main` (pull request 5, 19 octobre) ; la CI passe (GCC, Clang + sanitizers, lint).
 3. Confirmer sur le module les pages remplies, le classement par usage, les nouvelles touches média et le lancement de BIT SCRIPTS Musique.
-4. **Galleon Bosun** : (fait : maquette ; écrans de veille : lecture puis réglages et retrait) sélecteur de fichier natif (portail) à ajouter ; démarrage de Bosun avec la session (option), puis édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
+4. **Galleon Bosun** : (fait : maquette ; écrans de veille : lecture puis réglages et retrait) sélecteur de fichier natif (portail) à ajouter ; démarrage de Bosun avec la session (option) ; paquets Linux (notes pour le paquetage dans `docs/PACKAGING.md`, à faire par un autre outil), puis édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
 5. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
 
 ## Règle de mise à jour
