@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "Required.h"
 #include <InitialPages.h>
 #include <PagesConfig.h>
 #include <QFile>
@@ -27,8 +28,8 @@ private Q_SLOTS:
         QCOMPARE(pages.value("jeux").toObject().value("steam").toObject().value("max").toInt(), 12);
         const auto parsed = parsePagesConfig(QJsonDocument(root).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
-        QCOMPARE(parsed.config->screensaver.videos.size(), 2);
-        QVERIFY(parsed.config->screensaver.hasGeometry);
+        QCOMPARE(required(parsed.config).screensaver.videos.size(), 2);
+        QVERIFY(required(parsed.config).screensaver.hasGeometry);
     }
     void mediaAndGamesHaveUsefulCategories()
     {
@@ -48,8 +49,8 @@ private Q_SLOTS:
     {
         const auto parsed = parsePagesConfig(initialPagesJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
-        QCOMPARE(parsed.config->themes.size(), size_t(5));
-        QVERIFY(parsed.config->pages.value("systeme").keys[0].has_value());
+        QCOMPARE(required(parsed.config).themes.size(), size_t(5));
+        QVERIFY(required(parsed.config).pages.value("systeme").keys[0].has_value());
     }
 #else
     void linuxDefaultsStayUnchanged() { QCOMPARE(initialPagesJson(), defaultPagesJson()); }
