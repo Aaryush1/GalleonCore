@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "KeyInjector.h"
+#include "LinuxKeyInjector.h"
 
 #include <QDebug>
 #include <QStringList>

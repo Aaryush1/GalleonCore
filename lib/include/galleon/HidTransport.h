@@ -9,7 +9,7 @@
 
 namespace galleon {
 
-// Transport over hidapi (hidraw backend).
+// Transport over hidapi (hidraw on Linux, native HID on Windows).
 //
 // A USB part exposes several HID interfaces (the Stream Deck module has four);
 // `interfaceNumber` selects the one to open, or -1 for the first one found.

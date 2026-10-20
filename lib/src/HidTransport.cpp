@@ -3,7 +3,7 @@
 
 #include "galleon/HidTransport.h"
 
-#include <hidapi/hidapi.h>
+#include <hidapi.h>
 
 #include <QDebug>
 
