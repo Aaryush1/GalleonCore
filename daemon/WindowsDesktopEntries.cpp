@@ -5,6 +5,7 @@
 #include "InitialPages.h"
 
 #include <QCryptographicHash>
+#include <QDebug>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
@@ -70,15 +71,21 @@ QString cachedIcon(const QString &file)
     if (QFileInfo::exists(output))
         return output;
     SHFILEINFOW shellInfo{};
-    if (!SHGetFileInfoW(file.toStdWString().c_str(), 0, &shellInfo, static_cast<UINT>(sizeof(shellInfo)), SHGFI_ICON | SHGFI_LARGEICON))
+    if (!SHGetFileInfoW(file.toStdWString().c_str(), 0, &shellInfo, static_cast<UINT>(sizeof(shellInfo)), SHGFI_ICON | SHGFI_LARGEICON)) {
+        qWarning() << "galleond: Shell icon lookup failed" << file << GetLastError();
         return {};
+    }
     const QImage image = QImage::fromHICON(shellInfo.hIcon);
     DestroyIcon(shellInfo.hIcon);
-    if (image.isNull() || !QDir().mkpath(root))
+    if (image.isNull() || !QDir().mkpath(root)) {
+        qWarning() << "galleond: Shell icon conversion/cache failed" << file << image.size() << root << GetLastError();
         return {};
+    }
     QSaveFile saved(output);
-    if (!saved.open(QIODevice::WriteOnly) || !image.save(&saved, "PNG") || !saved.commit())
+    if (!saved.open(QIODevice::WriteOnly) || !image.save(&saved, "PNG") || !saved.commit()) {
+        qWarning() << "galleond: icon cache write failed" << output << saved.errorString();
         return {};
+    }
     return output;
 }
 
