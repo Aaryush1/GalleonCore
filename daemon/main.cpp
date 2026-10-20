@@ -22,7 +22,12 @@
 #include <galleon/StreamDeck.h>
 
 #include <QCommandLineParser>
+#ifdef Q_OS_WIN
+#include "LocalControl.h"
+#include <QLockFile>
+#else
 #include <QDBusConnection>
+#endif
 #include <QDateTime>
 #include <QDebug>
 #include <QImage>
@@ -317,7 +322,7 @@ QString defaultPagesFile(const QString &fromCommandLine)
 {
     if (!fromCommandLine.isEmpty())
         return QFileInfo(fromCommandLine).absoluteFilePath();
-    return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + QStringLiteral("/galleoncore/pages.json");
+    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/galleoncore/pages.json");
 }
 
 // The 12 keys of the first page in one PNG (3 columns, 4 rows, like the module),
@@ -401,6 +406,9 @@ QString defaultWidgetFile(const QString &fromCommandLine)
         candidates << qEnvironmentVariable("GALLEONCORE_WIDGETS") + name;
     for (const QString &base : QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation))
         candidates << base + QStringLiteral("/galleoncore/widgets") + name;
+#ifdef Q_OS_WIN
+    candidates << QCoreApplication::applicationDirPath() + QStringLiteral("/../share/galleoncore/widgets") + name;
+#endif
 #ifdef GALLEON_SOURCE_WIDGETS
     candidates << QStringLiteral(GALLEON_SOURCE_WIDGETS) + name;
 #endif
@@ -613,11 +621,32 @@ int main(int argc, char *argv[])
 
     // One galleond at a time: two would both write the module. The name is
     // claimed before the module is touched, so a second start leaves it alone.
+#ifdef Q_OS_WIN
+    const QString instanceFolder = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+        + QStringLiteral("/galleoncore");
+    if (!QDir().mkpath(instanceFolder)) {
+        qCritical() << "galleond: cannot create the instance lock directory";
+        return 1;
+    }
+    QLockFile instanceLock(instanceFolder + QStringLiteral("/galleond.lock"));
+    instanceLock.setStaleLockTime(0);
+    if (!instanceLock.tryLock(0)) {
+        qCritical() << "galleond: another instance owns the user lock";
+        return 1;
+    }
+    galleond::LocalControl localControl;
+    if (!localControl.listen(galleond::localControlName())) {
+        qCritical() << "galleond: cannot listen for Bosun:" << localControl.errorString();
+        return 1;
+    }
+#else
     auto bus = QDBusConnection::sessionBus();
     if (bus.isConnected() && !bus.registerService(QStringLiteral("org.galleoncore.Deck"))) {
         qCritical() << "galleond: another galleond is already running (org.galleoncore.Deck is taken), exiting";
         return 1;
     }
+
+#endif
 
     galleon::StreamDeck deck;
     deck.setTraceInput(parser.isSet(traceOption));
@@ -737,8 +766,15 @@ int main(int argc, char *argv[])
 
     // org.galleoncore.Deck on the session bus (the name was claimed at the start):
     // SetWallpaper, ClearWallpaper, Wallpapers.
+#ifdef Q_OS_WIN
+    QObject::connect(&localControl, &galleond::LocalControl::wallpaperRequested,
+                     &controller, &galleond::ScreenController::SetWallpaper);
+    QObject::connect(&localControl, &galleond::LocalControl::stopRequested,
+                     &app, [] { QCoreApplication::quit(); });
+#else
     if (!bus.registerObject(QStringLiteral("/org/galleoncore/Deck"), &controller, QDBusConnection::ExportAllSlots))
         qWarning() << "galleond: cannot export the D-Bus object";
+#endif
 
     if (parser.isSet(wallpaperOption)) {
         if (!controller.SetWallpaper(parser.value(wallpaperOption)))

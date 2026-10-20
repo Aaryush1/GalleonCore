@@ -16,8 +16,7 @@ Linux keeps hidapi-hidraw and the existing shared library. The initial Windows
 core is static, so it does not claim a public DLL ABI yet. No protocol bytes or device behaviour change.
 
 `GALLEON_BUILD_DESKTOP` defaults to ON on Linux and OFF elsewhere. With it OFF,
-the portable library and backend tests are built. Windows desktop
-builds fail configuration explicitly until the remaining integrations exist.
+the portable library and backend tests are built. Windows desktop builds are explicit opt-in while native integration is being validated.
 The Windows CI builds this portable subset with MSVC and tests fake transport,
 protocol and geometry. It does not test a physical keyboard or ship an installer.
 
@@ -41,8 +40,8 @@ DLLs must be on PATH when running tests.
   is a reference; no code from it has been copied in this stage.
 - Complete native Windows CI and interactive validation of the new keyboard
   backend; key identifiers are now platform independent.
-- Isolate application discovery, launch and file ownership checks.
-- Replace desktop D-Bus integration and the Linux session lifecycle for Bosun.
+- Validate Windows application discovery, launching and file ACL checks.
+- Validate the local Windows IPC and executable lifecycle for Bosun.
 - Validate native HID access and coexistence with other device software on real
   hardware, then add Windows deployment and packaging.
 
@@ -68,8 +67,8 @@ format and pixel validation.
 Implemented commands: play/pause, next, previous, stop, relative seek, restart,
 shuffle and repeat. Each native command checks the player's advertised capability.
 Volume/mute use Core Audio on the default multimedia output; raising a window and fullscreen are not provided
-by this backend. The Windows media factory exists, but the Linux-only desktop
-build is still gated: this does not enable galleond or Bosun on Windows yet.
+by this backend. The Windows media factory is selected by the Windows desktop build;
+interactive validation with galleond and Bosun is still required.
 
 The design references MusicLocal-Discord-Presence's SMTC metadata flow and
 [Microsoft's session API](https://learn.microsoft.com/en-us/uwp/api/windows.media.control.globalsystemmediatransportcontrolssession).
@@ -119,3 +118,33 @@ Windows testing is still required before the first release tag.
 
 References: [MapVirtualKeyW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mapvirtualkeyw)
 and [SendInput](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput).
+
+## Desktop integration in preparation
+
+`-DGALLEON_BUILD_DESKTOP=ON` now selects native Windows integrations for both
+executables. Linux keeps MPRIS, uinput, D-Bus and its systemd user service.
+Windows uses a per-user instance lock before HID access, a local Qt named pipe
+restricted to the creating user, and a bounded JSON protocol for status,
+wallpaper application and shutdown. Bosun starts the sibling `galleond.exe`;
+it does not open the keyboard itself or install a Windows service.
+
+The shared pages file lives under `GenericConfigLocation/galleoncore`, so both
+executables use the same path on Windows. Before application actions are
+allowed, the open configuration file's owner and ACL are checked. Write access
+is accepted only for the current user, SYSTEM and local administrators; unknown
+ACL forms fail closed. Start Menu shortcuts and absolute `.exe` references replace
+Linux `.desktop` references. Linux configuration files keep their original rules.
+
+Installed Windows resources are found relative to `bin/../share/galleoncore`.
+The native CI builds both executables, runs portable backend tests and renderer
+tests without HID, deploys Qt/hidapi, and produces an archive with preview images
+for interactive testing. FFmpeg is an external prerequisite for video features;
+install an x64 FFmpeg build and make `ffmpeg.exe` and `ffprobe.exe` available on PATH.
+No video tool is silently downloaded by the application.
+
+Before calling the port ready, validate the installed archive on Windows, then
+check on real hardware: HID reconnect, media metadata and commands, output volume
+and mute, Num Lock on/off and key releases, start/stop from Bosun, application
+launches, personal wallpaper imports and animated screensavers. Windows startup
+registration is manual in this stage. A first release tag still requires the
+owner's explicit confirmation after those interactive tests.

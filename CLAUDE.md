@@ -69,3 +69,7 @@ reuse lint
   keyboard tests must inject a fake sender and must not type real input.
 - The first release tag and PPA/COPR/AUR publication wait for the owner's explicit
   confirmation of interactive Windows testing, after all port PRs are merged.
+- Windows desktop integration is being prepared on `codex/windows-desktop`:
+  per-user local IPC and instance locks, native launcher/file ACL checks, and
+  deployed ZIP smoke tests. Keep Linux D-Bus/systemd behavior covered by tests.
+  Do not confuse a successful Windows build with physical-device validation.

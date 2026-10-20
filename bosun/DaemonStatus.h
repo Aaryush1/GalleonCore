@@ -3,16 +3,20 @@
 
 #pragma once
 
-#include <QDBusServiceWatcher>
 #include <QObject>
 #include <QString>
+#ifdef Q_OS_WIN
+#include <QTimer>
+#include <QLocalSocket>
+#else
+#include <QDBusServiceWatcher>
+#endif
 
 namespace bosun {
 
-// Whether galleond is running (does it own org.galleoncore.Deck on the session bus?), so that
-// the window can say whether a change reaches the module at once, and can start or stop the
-// daemon through its systemd user service. Starting and stopping only ask systemd: this
-// window never talks to the device.
+// Reports whether galleond is available and requests its lifecycle operations.
+// Linux uses the session bus and systemd; Windows uses a per-user local endpoint
+// and starts the sibling executable. This window never opens the device.
 class DaemonStatus : public QObject
 {
     Q_OBJECT
@@ -22,8 +26,9 @@ public:
     static constexpr const char *BusName = "org.galleoncore.Deck";
     static constexpr const char *ServiceName = "galleond.service";
 
-    // `systemctl` is the program to ask (a name or a path); tests give a fake one.
-    explicit DaemonStatus(QString systemctl = QStringLiteral("systemctl"), QObject *parent = nullptr);
+    // Empty selects systemctl on Linux or the sibling galleond.exe on Windows.
+    // Tests can supply a fake program.
+    explicit DaemonStatus(QString systemctl = {}, QObject *parent = nullptr);
 
     [[nodiscard]] bool running() const { return m_running; }
 
@@ -42,7 +47,13 @@ private:
     void look();
 
     QString m_systemctl;
+#ifdef Q_OS_WIN
+    void setRunning(bool running);
+    QTimer m_poll;
+    QLocalSocket m_probe;
+#else
     QDBusServiceWatcher m_watcher;
+#endif
     bool m_running = false;
 };
 

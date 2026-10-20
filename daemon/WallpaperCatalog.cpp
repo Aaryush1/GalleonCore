@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "WallpaperCatalog.h"
+#include <QCoreApplication>
 
 #include <QDir>
 #include <QFileInfo>
@@ -158,6 +159,9 @@ QStringList WallpaperCatalog::defaultRoots(const QString &fromCommandLine, const
     if (!candidates.contains(own))
         candidates.insert(2, own);
     candidates << buildTree;
+#ifdef Q_OS_WIN
+    candidates << QCoreApplication::applicationDirPath() + QStringLiteral("/../share/galleoncore/wallpaper");
+#endif
     QStringList roots;
     for (const QString &path : std::as_const(candidates)) {
         const QFileInfo info(path);

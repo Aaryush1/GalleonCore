@@ -14,7 +14,7 @@ namespace bosun {
 
 DaemonStatus::DaemonStatus(QString systemctl, QObject *parent)
     : QObject(parent)
-    , m_systemctl(std::move(systemctl))
+    , m_systemctl(systemctl.isEmpty() ? QStringLiteral("systemctl") : std::move(systemctl))
     , m_watcher(QString::fromLatin1(BusName), QDBusConnection::sessionBus(), QDBusServiceWatcher::WatchForOwnerChange)
 {
     connect(&m_watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, [this] { look(); });

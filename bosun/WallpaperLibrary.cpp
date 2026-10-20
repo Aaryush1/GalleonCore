@@ -7,9 +7,13 @@
 #include "FileNames.h"
 
 #include <QCoreApplication>
+#ifdef Q_OS_WIN
+#include "LocalControl.h"
+#else
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
+#endif
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -114,6 +118,10 @@ QString WallpaperLibrary::apply(const QString &name)
     settings.setValue(QString::fromLatin1(SettingName), name);
     settings.sync();
     // When galleond runs it shows it now (and keeps it, as above); else it will at its next start.
+#ifdef Q_OS_WIN
+    galleond::sendLocalCommand(galleond::localControlName(),
+                              {galleond::LocalAction::Wallpaper, name}, this);
+#else
     const QDBusConnectionInterface *bus = QDBusConnection::sessionBus().interface();
     if (bus && bus->isServiceRegistered(QStringLiteral("org.galleoncore.Deck"))) {
         QDBusMessage call = QDBusMessage::createMethodCall(QStringLiteral("org.galleoncore.Deck"), QStringLiteral("/org/galleoncore/Deck"),
@@ -121,6 +129,7 @@ QString WallpaperLibrary::apply(const QString &name)
         call << name;
         QDBusConnection::sessionBus().asyncCall(call);
     }
+#endif
     Q_EMIT changed();
     return {};
 }

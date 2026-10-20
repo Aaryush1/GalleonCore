@@ -145,3 +145,8 @@ Do not create the first release tag until the Windows port is merged, the final
 main commit passes all CI workflows, and the owner confirms interactive Windows
 tests. Building Linux artifacts remains enabled before that confirmation;
 publishing the first PPA/COPR/AUR release waits for the tag decision.
+
+The Windows workflow also prepares a desktop ZIP as a GitHub Actions artifact
+for pre-release interactive testing. It deploys Qt and hidapi and checks installed
+resources with `GALLEON_SOURCE_TREE_PATHS=OFF`; it does not publish a release or
+install a Windows service. Video functionality requires FFmpeg on PATH.

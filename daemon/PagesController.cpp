@@ -21,7 +21,7 @@
 #include <QSet>
 #include <QStandardPaths>
 
-#include <unistd.h>
+#include "FileTrust.h"
 
 namespace galleond {
 
@@ -203,8 +203,7 @@ void PagesController::reload()
     }
     // Applications are started from this file, so it must be the user's own and
     // not writable by anyone else (as for a shell startup file).
-    const QFileInfo fileInfo(m_file);
-    const bool owned = fileInfo.ownerId() == getuid() && !fileInfo.permissions().testFlag(QFileDevice::WriteOther);
+    const bool owned = isTrustedPagesFile(file);
     if (!owned && m_appsAllowed)
         qWarning() << "galleond: the pages file" << m_file << "is not owned by you or is writable by others: its application keys are disabled";
     m_appsAllowed = owned;

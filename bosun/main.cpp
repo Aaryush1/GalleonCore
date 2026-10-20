@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 
     const QString pagesFile = parser.isSet(pagesOption)
                                   ? QDir::current().absoluteFilePath(parser.value(pagesOption))
-                                  : QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+                                  : QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
     bosun::DaemonStatus daemon;

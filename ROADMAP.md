@@ -131,3 +131,13 @@ Décisions à ne pas perdre :
 ## Règle de mise à jour
 
 Avant de la déplacer, les tests ciblés suffisent pour avancer, mais la case « Tests : oui » ne vaut qu'avec une validation complète (`tools/check.py full`) de l'arbre fusionné. Après chaque fonctionnalité terminée et testée : la déplacer vers « Implémenté et testé » (avec ses tests et, si confirmé, « sur le module »), retirer ses lignes de « En cours » ou « À développer », et mettre à jour « Prochaines étapes » et la date. Ne pas marquer « sur le module » sans retour de l'utilisateur. Garder ce fichier court : le détail de conception va dans `docs/ROADMAP.md`.
+
+### Portage Windows : intégration des exécutables en cours
+
+La PR #25 prépare le clavier SendInput avec identifiants communs (validation
+complète Ubuntu 24.04 et compilation native Windows réussies). La branche
+`codex/windows-desktop` prépare maintenant galleond et Bosun : communication locale
+par utilisateur, verrou avant accès HID, lancement des raccourcis Windows,
+contrôle des ACL du fichier de pages et archive déployée en CI. Ces nouveaux
+éléments restent à valider avant fusion. Les essais interactifs Windows sont
+réservés au propriétaire ; aucun premier tag n'est autorisé avant son retour.

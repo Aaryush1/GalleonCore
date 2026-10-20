@@ -4,7 +4,7 @@
 name: Windows core and SMTC
 on:
   push:
-    branches: [main, codex/windows-port, codex/windows-smtc, codex/windows-core-audio, codex/windows-keyboard]
+    branches: [main, codex/windows-port, codex/windows-smtc, codex/windows-core-audio, codex/windows-keyboard, codex/windows-desktop]
   pull_request:
 permissions:
   contents: read
@@ -27,7 +27,7 @@ jobs:
           cmake -S . -B build -A x64
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows
-          -DGALLEON_BUILD_DESKTOP=OFF -DGALLEON_SOURCE_TREE_PATHS=OFF
+          -DGALLEON_BUILD_DESKTOP=ON -DGALLEON_SOURCE_TREE_PATHS=OFF
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Test without hardware
@@ -37,3 +37,36 @@ jobs:
           ctest --test-dir build -C Release --output-on-failure
       - name: Check library installation
         run: cmake --install build --config Release --prefix staging
+      - name: Deploy Windows desktop dependencies
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          windeployqt --release --no-translations --qmldir bosun/qml staging/bin/galleon-bosun.exe
+          if ($LASTEXITCODE -ne 0) { throw "Bosun deployment failed" }
+          windeployqt --release --no-translations --qmldir daemon/qml staging/bin/galleond.exe
+          if ($LASTEXITCODE -ne 0) { throw "Daemon deployment failed" }
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/hidapi.dll" staging/bin/
+      - name: Smoke test installed desktop without hardware
+        shell: pwsh
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:QT_QUICK_BACKEND = "software"
+          $root = (Resolve-Path staging/share/galleoncore/wallpaper).Path
+          $picture = Get-ChildItem $root -Recurse -Filter *.jpg | Select-Object -First 1
+          if (-not $picture) { throw "No packaged wallpaper" }
+          $name = $picture.FullName.Substring($root.Length + 1).Replace('\', '/')
+          staging/bin/galleond.exe --render-to daemon-preview.png --wallpaper $name
+          if ($LASTEXITCODE -ne 0) { throw "Installed daemon rendering failed" }
+          staging/bin/galleon-bosun.exe --pages "$env:RUNNER_TEMP/galleon-smoke-pages.json" --screenshot bosun-preview.png
+          if ($LASTEXITCODE -ne 0) { throw "Installed Bosun rendering failed" }
+          if (-not (Test-Path daemon-preview.png) -or -not (Test-Path bosun-preview.png)) { throw "Missing previews" }
+      - name: Archive desktop for interactive testing
+        shell: pwsh
+        run: Compress-Archive -Path staging/* -DestinationPath GalleonCore-Windows-x86_64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-x86_64
+          path: |
+            GalleonCore-Windows-x86_64.zip
+            daemon-preview.png
+            bosun-preview.png
