@@ -5,14 +5,18 @@
 
 #include <PagesConfig.h>
 #include <TileRenderer.h>
+#include <VideoProbe.h>
+#include <VideoThumbnails.h>
 
 #include <QFileSystemWatcher>
+#include <QHash>
 #include <QObject>
 #include <QPixmap>
 #include <QQuickImageProvider>
 #include <QString>
 #include <QTimer>
 #include <QVariantList>
+#include <QVariantMap>
 
 #include <optional>
 
@@ -31,14 +35,33 @@ class BosunBackend : public QObject
     Q_PROPERTY(QVariantList themes READ themes NOTIFY changed)
     // Goes up at each reading, to make the window ask for the pictures again.
     Q_PROPERTY(int revision READ revision NOTIFY changed)
+    // The screensaver of the file, with what is known of each video (see screensaver()).
+    Q_PROPERTY(QVariantMap screensaver READ screensaver NOTIFY changed)
 
 public:
+    // The programs and the folder the screensaver tab uses; the defaults are the ones of galleond.
+    struct Tools
+    {
+        QString ffprobe = QStringLiteral("ffprobe");
+        QString ffmpeg = QStringLiteral("ffmpeg");
+        QString thumbnailFolder; // empty: the user's cache folder, shared with galleond
+    };
+
     explicit BosunBackend(QString pagesFile, QObject *parent = nullptr);
+    BosunBackend(QString pagesFile, const Tools &tools, QObject *parent = nullptr);
 
     [[nodiscard]] QString file() const { return m_file; }
     [[nodiscard]] QString problem() const { return m_problem; }
     [[nodiscard]] QVariantList themes() const { return m_themes; }
     [[nodiscard]] int revision() const { return m_revision; }
+
+    // {enabled, hasGeometry, idleMinutes, fps, whilePlaying, probeMissing, canvas, videos}. `probeMissing`: ffprobe was not found,
+    // so no size or rate is known. `canvas` is
+    // the size a video is cut to ("720 x 1245"), empty without geometry. `videos` is
+    // [{index, title, file, name, found, details, thumbnail, notes}]: `details` is the size,
+    // rate and length once ffprobe has answered, `thumbnail` a file URL once there is one,
+    // `notes` the words of what will not be quite right (cut, enlarged, no file).
+    [[nodiscard]] QVariantMap screensaver() const { return m_screensaver; }
 
     // The 12 keys of `page`, as written in the file: [{index, label, kind, detail, empty}].
     // Empty list for a page that does not exist.
@@ -56,6 +79,9 @@ Q_SIGNALS:
 
 private:
     void watchFile();
+    void buildScreensaver();
+    void askAboutVideos();
+    void nextThumbnail();
     [[nodiscard]] const galleond::Page *pageNamed(const QString &page) const;
 
     QString m_file;
@@ -66,6 +92,14 @@ private:
     galleond::TileRenderer m_tiles;
     QFileSystemWatcher m_watcher;
     QTimer m_reloadSoon; // a save often arrives as several changes
+    galleond::VideoProbe m_probe;
+    galleond::VideoThumbnails m_thumbnails;
+    QVariantMap m_screensaver;
+    QStringList m_videoFiles;                         // the resolved path of each video, "" when it is not readable
+    QHash<QString, galleond::VideoInfo> m_videoInfo;   // by path
+    QHash<QString, QString> m_videoPictures;           // by path
+    QStringList m_pictureTried;                        // no picture is asked for twice
+    bool m_pictureBusy = false;                        // a picture is being made
 };
 
 // Serves image://tiles/<page>/<key>; a "?..." after the key is ignored (it

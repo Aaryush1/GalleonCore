@@ -38,6 +38,27 @@ QByteArray twoThemes()
 })";
 }
 
+// A program that prints what ffprobe would, in place of ffprobe.
+QString fakeProbe(const QString &dir, const QByteArray &json)
+{
+    QString script = dir + QStringLiteral("/fake-ffprobe");
+    QFile file(script);
+    if (!file.open(QIODevice::WriteOnly))
+        return {};
+    file.write("#!/bin/sh\ncat <<'EOF'\n" + json + "\nEOF\n");
+    file.close();
+    QFile::setPermissions(script, QFile::permissions(script) | QFile::ExeUser);
+    return script;
+}
+
+QByteArray saverPages(const QString &videos, const QString &geometry = QStringLiteral(
+                                                 R"("geometry": {"screen_mm": [62.6, 33.0], "key_mm": [13.7, 13.7], "gap_mm": [5.4, 5.4], "screen_to_keys_mm": 5.4},)"))
+{
+    return (QStringLiteral(R"({"version": 1, "home": "main", "pages": {"main": {"keys": []}}, "screensaver": {)") + geometry
+            + QStringLiteral(R"("idle_minutes": 3, "fps": 12, "while_playing": true, "video": [)") + videos + QStringLiteral("]}}"))
+        .toUtf8();
+}
+
 bool writeFile(const QString &path, const QByteArray &bytes)
 {
     QFile file(path);
@@ -174,6 +195,86 @@ private Q_SLOTS:
         QVERIFY(QFile::rename(file + ".new", file));
         changed.clear();
         QTRY_VERIFY_WITH_TIMEOUT(backend.themes().size() == 2, 3000);
+    }
+
+    void theScreensaverIsOffWithoutGeometryOrVideo()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        const bosun::BosunBackend nothing(file, {.ffprobe = "/nonexistent", .ffmpeg = "/nonexistent", .thumbnailFolder = dir.filePath("thumbs")});
+        QVERIFY(!nothing.screensaver().value("enabled").toBool());
+        QVERIFY(!nothing.screensaver().value("hasGeometry").toBool());
+        QVERIFY(nothing.screensaver().value("videos").toList().isEmpty());
+        QVERIFY(nothing.screensaver().value("canvas").toString().isEmpty());
+
+        // Geometry but no video: still off, and the size of the picture is known.
+        QVERIFY(writeFile(file, R"({"version": 1, "home": "main", "pages": {"main": {"keys": []}}, "screensaver": {
+            "geometry": {"screen_mm": [62.6, 33.0], "key_mm": [13.7, 13.7], "gap_mm": [5.4, 5.4], "screen_to_keys_mm": 5.4}}})"));
+        const bosun::BosunBackend noVideo(file, {.ffprobe = "/nonexistent", .ffmpeg = "/nonexistent", .thumbnailFolder = dir.filePath("thumbs")});
+        QVERIFY(noVideo.screensaver().value("hasGeometry").toBool());
+        QVERIFY(!noVideo.screensaver().value("enabled").toBool());
+        QCOMPARE(noVideo.screensaver().value("canvas").toString(), QStringLiteral("720 × 1258"));
+    }
+
+    void theSettingsAndTheVideosAreListed()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("night.mp4"), "not really a video"));
+        QVERIFY(writeFile(dir.filePath("notes.txt"), "not a video at all"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"({"file": "night.mp4", "title": "Night"}, {"file": "gone.mp4"}, {"file": "notes.txt"})")));
+        const bosun::BosunBackend backend(file, {.ffprobe = "/nonexistent", .ffmpeg = "/nonexistent", .thumbnailFolder = dir.filePath("thumbs")});
+        const QVariantMap saver = backend.screensaver();
+        QVERIFY(saver.value("enabled").toBool());
+        QCOMPARE(saver.value("idleMinutes").toInt(), 3);
+        QCOMPARE(saver.value("fps").toInt(), 12);
+        QVERIFY(saver.value("whilePlaying").toBool());
+        const QVariantList videos = saver.value("videos").toList();
+        QCOMPARE(videos.size(), 3);
+        const QVariantMap first = videos.at(0).toMap();
+        QCOMPARE(first.value("title").toString(), QStringLiteral("Night"));
+        QCOMPARE(first.value("name").toString(), QStringLiteral("night.mp4"));
+        QVERIFY(first.value("found").toBool());
+        QVERIFY(first.value("notes").toStringList().isEmpty()); // without ffprobe nothing is known, so nothing to say
+        QVERIFY(saver.value("probeMissing").toBool());
+        // A missing file and a file that is not a video are said, not hidden.
+        for (const int index : {1, 2}) {
+            const QVariantMap missing = videos.at(index).toMap();
+            QVERIFY(!missing.value("found").toBool());
+            QCOMPARE(missing.value("notes").toStringList().size(), 1);
+        }
+    }
+
+    void whatFfprobeSaysIsShownWithItsWarnings()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("tall.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"({"file": "tall.mp4"})")));
+        // 640 x 640 and 10 fps: square for a tall picture, below the 720 px of the screen, slower than 12.
+        const QString probe = fakeProbe(dir.path(),
+                                        R"({"streams": [{"codec_name": "h264", "width": 640, "height": 640, "avg_frame_rate": "10/1"}], "format": {"duration": "75.5"}})");
+        const bosun::BosunBackend backend(file, {.ffprobe = probe, .ffmpeg = "/nonexistent", .thumbnailFolder = dir.filePath("thumbs")});
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.screensaver().value("videos").toList().at(0).toMap().value("details").toString().isEmpty(), 8000);
+        const QVariantMap video = backend.screensaver().value("videos").toList().at(0).toMap();
+        QCOMPARE(video.value("details").toString(), QStringLiteral("640 × 640 · 10.0 fps · 1:16 · h264"));
+        const QString notes = video.value("notes").toStringList().join('\n');
+        QVERIFY2(notes.contains("cut off at the sides"), qPrintable(notes));
+        QVERIFY2(notes.contains("Smaller than the screen"), qPrintable(notes));
+        QVERIFY2(notes.contains("fewer images per second"), qPrintable(notes));
+    }
+
+    void aVideoThatFfprobeCannotReadIsSaid()
+    {
+        const QTemporaryDir dir;
+        QVERIFY(writeFile(dir.filePath("bad.mp4"), "x"));
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, saverPages(R"({"file": "bad.mp4"})")));
+        const QString probe = fakeProbe(dir.path(), "this is not what ffprobe prints");
+        const bosun::BosunBackend backend(file, {.ffprobe = probe, .ffmpeg = "/nonexistent", .thumbnailFolder = dir.filePath("thumbs")});
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.screensaver().value("videos").toList().at(0).toMap().value("notes").toStringList().isEmpty(), 8000);
+        QVERIFY(backend.screensaver().value("videos").toList().at(0).toMap().value("notes").toStringList().at(0).contains("ffprobe"));
     }
 
     void theWindowHasATabPerThemeAndTheFixedOnes()

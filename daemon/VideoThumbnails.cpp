@@ -31,7 +31,7 @@ VideoThumbnails::VideoThumbnails(QString cacheFolder, const QString& ffmpeg, QOb
 {
     if (!QFileInfo(ffmpeg).isAbsolute())
         m_program = QStandardPaths::findExecutable(ffmpeg);
-    else if (QFileInfo(ffmpeg).isExecutable())
+    else if (QFileInfo(ffmpeg).isFile() && QFileInfo(ffmpeg).isExecutable()) // not a folder, which is "executable" too
         m_program = ffmpeg;
     m_nice = QStandardPaths::findExecutable(QStringLiteral("nice"));
     if (m_program.isEmpty()) {
@@ -172,6 +172,7 @@ void VideoThumbnails::finished(const Job &job, double at, int exitCode, QProcess
         Q_EMIT thumbnailReady(job.video, result);
     } else {
         qInfo() << "galleond: no thumbnail made for" << QFileInfo(job.video).fileName();
+        Q_EMIT thumbnailFailed(job.video);
     }
     next();
 }
