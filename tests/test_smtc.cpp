@@ -23,6 +23,7 @@ struct SessionState
     SmtcSnapshot snapshot;
     std::vector<SmtcCommand> commands;
     bool fail = false;
+    bool failAudio = false;
     std::atomic<bool> blockCommand = false;
     std::atomic<bool> enteredCommand = false;
     std::atomic<bool> started = false;
@@ -47,6 +48,8 @@ public:
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         const std::lock_guard lock(m_state->mutex);
         m_state->commands.push_back(command);
+        if (m_state->failAudio && (command.action == SmtcAction::Volume || command.action == SmtcAction::Mute))
+            throw std::runtime_error("audio output removed");
     }
 private:
     std::shared_ptr<SessionState> m_state;
@@ -131,7 +134,7 @@ private Q_SLOTS:
         QCOMPARE(state->commands[2].action, SmtcAction::Previous);
         QCOMPARE(state->commands[3].action, SmtcAction::Stop);
         QCOMPARE(state->commands[4].action, SmtcAction::Seek);
-        QCOMPARE(state->commands[4].seconds, -10);
+        QCOMPARE(state->commands[4].value, -10);
         QCOMPARE(state->commands[5].action, SmtcAction::Shuffle);
         QCOMPARE(state->commands[6].action, SmtcAction::Repeat);
         QCOMPARE(state->commands[7].action, SmtcAction::Restart);
@@ -203,6 +206,46 @@ private Q_SLOTS:
             return state->commands.size();
         };
         QTRY_COMPARE(count(), std::size_t{17}); // one executing, at most sixteen waiting
+    }
+
+    void systemAudioWorksWithoutAPlayerAndPreservesSignedVolume()
+    {
+        auto state = std::make_shared<SessionState>();
+        const auto controller = std::make_unique<SmtcController>(std::make_unique<FakeSession>(state));
+        QTRY_VERIFY(state->started.load());
+        controller->changeVolume(0);
+        controller->changeVolume(-7);
+        controller->toggleMute();
+        auto count = [&] {
+            const std::lock_guard lock(state->mutex);
+            return state->commands.size();
+        };
+        QTRY_COMPARE(count(), std::size_t{2});
+        const std::lock_guard lock(state->mutex);
+        QCOMPARE(state->commands[0].action, SmtcAction::Volume);
+        QCOMPARE(state->commands[0].value, -7);
+        QCOMPARE(state->commands[1].action, SmtcAction::Mute);
+    }
+
+    void anAudioFailureDoesNotClearThePlayerOrDropTheNextCommand()
+    {
+        auto state = std::make_shared<SessionState>();
+        state->snapshot = playing();
+        state->failAudio = true;
+        const auto controller = std::make_unique<SmtcController>(std::make_unique<FakeSession>(state));
+        QTRY_COMPARE(controller->state(), MediaController::State::Playing);
+        const QSignalSpy changes(controller.get(), &MediaController::stateChanged);
+        controller->changeVolume(5);
+        controller->next();
+        auto count = [&] {
+            const std::lock_guard lock(state->mutex);
+            return state->commands.size();
+        };
+        QTRY_COMPARE(count(), std::size_t{2});
+        QTest::qWait(100); // drain any queued snapshot after the command failure
+        QCOMPARE(controller->state(), MediaController::State::Playing);
+        QCOMPARE(controller->nowPlaying().title, QStringLiteral("Song"));
+        QCOMPARE(changes.size(), 0);
     }
 
     void shutdownJoinsTheWorkerAndStopsTheSession()

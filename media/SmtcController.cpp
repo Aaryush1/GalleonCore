@@ -27,14 +27,14 @@ SmtcController::~SmtcController()
     m_worker.join();
 }
 
-void SmtcController::enqueue(SmtcAction action, int seconds)
+void SmtcController::enqueue(SmtcAction action, int value)
 {
-    if (m_snapshot.state == State::NoPlayer)
+    if (m_snapshot.state == State::NoPlayer && action != SmtcAction::Volume && action != SmtcAction::Mute)
         return;
     const std::lock_guard lock(m_mutex);
     if (m_commands.size() >= 16)
         return;
-    m_commands.push_back({action, seconds, m_snapshot.session});
+    m_commands.push_back({action, value, m_snapshot.session});
     m_wake.notify_one();
 }
 
@@ -46,7 +46,12 @@ void SmtcController::seek(int seconds) { enqueue(SmtcAction::Seek, seconds); }
 void SmtcController::toggleShuffle() { enqueue(SmtcAction::Shuffle); }
 void SmtcController::cycleRepeat() { enqueue(SmtcAction::Repeat); }
 void SmtcController::restartTrack() { enqueue(SmtcAction::Restart); }
-void SmtcController::changeVolume(int /*percent*/) {}
+void SmtcController::changeVolume(int percent)
+{
+    if (percent != 0)
+        enqueue(SmtcAction::Volume, percent);
+}
+void SmtcController::toggleMute() { enqueue(SmtcAction::Mute); }
 
 void SmtcController::publish(SmtcSnapshot snapshot)
 {
@@ -89,6 +94,7 @@ void SmtcController::deliver()
 void SmtcController::run(std::stop_token stop)
 {
     bool failed = false;
+    bool commandFailed = false;
     try {
         m_session->start();
         while (!stop.stop_requested()) {
@@ -97,12 +103,21 @@ void SmtcController::run(std::stop_token stop)
                 const std::lock_guard lock(m_mutex);
                 commands.swap(m_commands);
             }
-            try {
-                for (const auto &command : commands) {
-                    if (stop.stop_requested())
-                        break;
+            for (const auto &command : commands) {
+                if (stop.stop_requested())
+                    break;
+                try {
                     m_session->command(command);
+                    commandFailed = false;
+                } catch (const std::exception &) {
+                    if (!commandFailed)
+                        qWarning() << "galleond: Windows media/audio command unavailable";
+                    commandFailed = true;
+                    // An unplugged audio output must not erase the player or
+                    // discard the remaining commands in this batch.
                 }
+            }
+            try {
                 if (stop.stop_requested())
                     break;
                 publish(m_session->read());

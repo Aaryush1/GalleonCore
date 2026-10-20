@@ -67,7 +67,7 @@ format and pixel validation.
 
 Implemented commands: play/pause, next, previous, stop, relative seek, restart,
 shuffle and repeat. Each native command checks the player's advertised capability.
-Volume/mute require Core Audio; raising a window and fullscreen are not provided
+Volume/mute use Core Audio on the default multimedia output; raising a window and fullscreen are not provided
 by this backend. The Windows media factory exists, but the Linux-only desktop
 build is still gated: this does not enable galleond or Bosun on Windows yet.
 
@@ -81,3 +81,25 @@ sanitization, timeline bounds, failure/recovery and worker shutdown on both Linu
 and Windows. Windows also links and starts the native adapter in headless CI;
 actual control of Spotify/VLC/browser sessions still needs interactive validation
 on Windows, followed by testing with the physical keyboard.
+
+## Core Audio volume and mute
+
+The Windows worker handles volume and mute before checking for an SMTC player.
+`IMMDeviceEnumerator::GetDefaultAudioEndpoint(eRender, eMultimedia)` resolves the
+current default output on each command. `IAudioEndpointVolume` reads its current
+scalar level or mute state before applying the requested change. Volume deltas
+are percentage points, clamped to 0–100%, and preserve mute. Toggling mute leaves
+the volume unchanged. A zero delta performs no operation.
+
+COM interfaces are scoped to the command on the initialized MTA worker; no device
+is cached across commands. A removed output is not retried automatically (which
+could toggle mute twice), and the next command can resolve a replacement device.
+Command errors do not clear SMTC metadata or discard the rest of the queue.
+
+Tests use fake endpoints for numeric bounds, mute preservation and read/write
+failures, and a fake session for audio commands without a player and error
+isolation. CI does not modify the runner's real volume or mute state. Native
+Windows compilation/linking is checked; audible effects and default-output
+switches still require interactive Windows validation.
+
+API reference: [Microsoft Core Audio endpoint volume](https://learn.microsoft.com/en-us/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume).
