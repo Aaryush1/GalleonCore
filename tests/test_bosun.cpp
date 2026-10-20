@@ -688,7 +688,7 @@ private Q_SLOTS:
         const QTemporaryDir dir;
         const QString file = dir.filePath("pages.json");
         QVERIFY(writeFile(file, twoThemes()));
-        bosun::BosunBackend backend(file);
+        const bosun::BosunBackend backend(file);
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
         engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
