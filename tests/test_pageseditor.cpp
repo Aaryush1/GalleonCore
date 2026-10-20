@@ -533,7 +533,7 @@ private Q_SLOTS:
     {
         Environment const env;
         QVERIFY(writeFile(env.pages(), themesFile()));
-        KeySpec taken = spec("back");
+        const KeySpec taken = spec("back");
         QVERIFY(PagesEditor::setKey(env.pages(), "music", 11, taken).ok); // the 12th is used
         QVERIFY(PagesEditor::setKey(env.pages(), "music", 10, taken).ok);
         QVERIFY(PagesEditor::addSubPage(env.pages(), "music", "music-plus", "More", "Back").ok);
