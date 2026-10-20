@@ -247,6 +247,7 @@ void BosunBackend::buildScreensaver()
                                 {QStringLiteral("idleMinutes"), config.idleMinutes},
                                 {QStringLiteral("fps"), config.fps},
                                 {QStringLiteral("whilePlaying"), config.whilePlaying},
+                                {QStringLiteral("probeMissing"), !m_probe.isAvailable()},
                                 {QStringLiteral("canvas"), canvas.isEmpty() ? QString() : QStringLiteral("%1 × %2").arg(canvas.width()).arg(canvas.height())},
                                 {QStringLiteral("videos"), videos}};
 }
@@ -255,7 +256,7 @@ void BosunBackend::askAboutVideos()
 {
     m_pictureTried.clear();
     for (const QString &path : std::as_const(m_videoFiles)) {
-        if (!path.isEmpty() && !m_videoInfo.contains(path))
+        if (m_probe.isAvailable() && !path.isEmpty() && !m_videoInfo.contains(path))
             m_probe.request(path);
     }
     nextThumbnail(); // those whose length is known already; the others follow their answer

@@ -55,7 +55,8 @@ public:
     [[nodiscard]] QVariantList themes() const { return m_themes; }
     [[nodiscard]] int revision() const { return m_revision; }
 
-    // {enabled, hasGeometry, idleMinutes, fps, whilePlaying, canvas, videos}. `canvas` is
+    // {enabled, hasGeometry, idleMinutes, fps, whilePlaying, probeMissing, canvas, videos}. `probeMissing`: ffprobe was not found,
+    // so no size or rate is known. `canvas` is
     // the size a video is cut to ("720 x 1245"), empty without geometry. `videos` is
     // [{index, title, file, name, found, details, thumbnail, notes}]: `details` is the size,
     // rate and length once ffprobe has answered, `thumbnail` a file URL once there is one,

@@ -236,7 +236,8 @@ private Q_SLOTS:
         QCOMPARE(first.value("title").toString(), QStringLiteral("Night"));
         QCOMPARE(first.value("name").toString(), QStringLiteral("night.mp4"));
         QVERIFY(first.value("found").toBool());
-        QVERIFY(first.value("notes").toStringList().isEmpty()); // nothing is known yet, so nothing to say
+        QVERIFY(first.value("notes").toStringList().isEmpty()); // without ffprobe nothing is known, so nothing to say
+        QVERIFY(saver.value("probeMissing").toBool());
         // A missing file and a file that is not a video are said, not hidden.
         for (const int index : {1, 2}) {
             const QVariantMap missing = videos.at(index).toMap();

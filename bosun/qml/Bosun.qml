@@ -305,6 +305,14 @@ Window {
                 }
             }
             Text {
+                visible: saverPage.saver.probeMissing
+                width: parent.width
+                color: "#ffb74d"
+                font.pixelSize: 13
+                wrapMode: Text.Wrap
+                text: qsTr("ffprobe was not found (it comes with FFmpeg): the size, rate and length of the videos cannot be shown.")
+            }
+            Text {
                 visible: saverPage.saver.canvas !== ""
                 width: parent.width
                 color: "#9aa0a6"
