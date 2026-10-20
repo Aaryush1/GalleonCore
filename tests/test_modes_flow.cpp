@@ -254,7 +254,8 @@ private Q_SLOTS:
         f.click(1);   // wallpaper mode
         f.turn(1, 1); // the blue one: the user's choice
         QTRY_VERIFY_WITH_TIMEOUT(near(f.lastScreen().pixel(700, 200), qRgb(40, 60, 200)), 3000);
-        QTest::qWait(300);
+        // Keep the deliberate choice outside the controller's 350 ms pre-click window.
+        QTest::qWait(450);
 
         // Pressing the dial moves it a little: a step right before the press...
         std::vector<std::uint8_t> turn = {0x01, 0x03, 0x03, 0x00, 0x01, 0x00, 0x00};
