@@ -51,7 +51,7 @@ private Q_SLOTS:
     }
     void automaticLaunchersUseAtMostTwoPages()
     {
-        QFETCH(int, count);
+        QFETCH(const int, count);
         QList<DesktopApp> apps;
         for (int index = 0; index < count; ++index) {
             DesktopApp app;

@@ -44,7 +44,7 @@ function Start-Applications {
 function Assert-Closed {
     foreach ($child in $script:processes) {
         if (-not $child.WaitForExit(10000)) { throw 'Setup left an application running.' }
-        if ($child.ExitCode -ne 0) { throw 'Application did not shut down cleanly.' }
+        if ($child.ExitCode -ne 0) { throw "Application $($child.Id) did not shut down cleanly (exit: $($child.ExitCode))." }
     }
 }
 try {
@@ -68,6 +68,8 @@ try {
     $daemon = @(Get-Process galleond -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq (Join-Path $root 'bin/galleond.exe') })
     $script:processes += $daemon
     if (-not $ready -or $daemon.Count -ne 1) { throw 'Bosun did not automatically start one installed daemon.' }
+    # Get-Process returns a snapshot; retain its native handle before exit so ExitCode remains readable.
+    $null = $daemon[0].Handle
     Run-Installer (Resolve-Path $Setup).Path "/S /D=$root"
     Assert-Closed
     if (-not (Test-Path $sentinel)) { throw 'Upgrade removed personal data.' }
