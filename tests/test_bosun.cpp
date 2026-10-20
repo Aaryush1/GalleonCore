@@ -612,12 +612,15 @@ private Q_SLOTS:
         const bosun::BosunBackend backend(file);
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
-        bosun::DaemonStatus daemon("/nonexistent/systemctl");
+        const bosun::DaemonStatus daemon("/nonexistent/systemctl");
         engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
         engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}, {QStringLiteral("daemon"), QVariant::fromValue(&daemon)}});
         engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
         QVERIFY(!engine.rootObjects().isEmpty());
         QObject *window = engine.rootObjects().constFirst();
+        // The window must be able to call what it is given (the daemon's start, the backend's edits).
+        QVERIFY(qvariant_cast<QObject *>(window->property("daemon")) != nullptr);
+        QVERIFY(qvariant_cast<QObject *>(window->property("backend")) != nullptr);
         QCOMPARE(window->property("tabs").toList().size(), 2 + 4); // themes, the new tab, keyboard, wallpapers, screensavers
         QCOMPARE(window->property("keys").toList().size(), 12);
         QVERIFY(window->property("selected").toMap().isEmpty()); // nothing chosen yet

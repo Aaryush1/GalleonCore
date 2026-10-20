@@ -149,7 +149,8 @@ Column {
                     width: 26
                     height: 26
                     source: "image://themeicon/" + (appRow.modelData.icon !== "" ? appRow.modelData.icon : "application-x-executable")
-                    sourceSize: Qt.size(52, 52)
+                    sourceSize.width: 52
+                    sourceSize.height: 52
                     asynchronous: true
                 }
                 Text {
@@ -328,7 +329,8 @@ Column {
                     height: 34
                     visible: editor.spec.icon !== ""
                     source: editor.spec.icon !== "" ? "image://themeicon/" + editor.spec.icon : ""
-                    sourceSize: Qt.size(68, 68)
+                    sourceSize.width: 68
+                    sourceSize.height: 68
                 }
             }
         }

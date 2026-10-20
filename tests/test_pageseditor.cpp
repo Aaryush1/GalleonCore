@@ -79,7 +79,7 @@ QByteArray saverFile(const QString &video = QStringLiteral(R"([{"file": "a.mp4",
 // Three themes (the first is the home page) and a sub-page that the first one leads to.
 QByteArray themesFile()
 {
-    return QByteArray(R"({"version": 1, "home": "main",
+    return {R"({"version": 1, "home": "main",
       "themes": [{"name": "Control", "page": "main", "color": "#ffd600"},
                  {"name": "Music", "page": "music", "color": "#e53935"},
                  {"name": "Games", "page": "games", "color": "#3949ab"}],
@@ -88,7 +88,7 @@ QByteArray themesFile()
           {"key": 0, "label": "Shuffle", "icon": "media-playlist-shuffle", "action": {"type": "media", "command": "shuffle"}, "state_labels": ["OFF", "ON"]},
           {"key": 1, "label": "More", "action": {"type": "page", "page": "sub"}}]},
         "music": {"keys": []}, "games": {"keys": []},
-        "sub": {"keys": [{"key": 0, "label": "Back", "action": {"type": "back"}}]}}})");
+        "sub": {"keys": [{"key": 0, "label": "Back", "action": {"type": "back"}}]}}})"};
 }
 
 KeySpec spec(const QString &type)

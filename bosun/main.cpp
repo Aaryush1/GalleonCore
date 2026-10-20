@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
                                   : QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
-    bosun::DaemonStatus daemon;
+    const bosun::DaemonStatus daemon;
 
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));

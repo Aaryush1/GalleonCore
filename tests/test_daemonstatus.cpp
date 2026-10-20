@@ -52,9 +52,9 @@ private Q_SLOTS:
         QDBusConnection bus = QDBusConnection::sessionBus();
         QVERIFY(bus.isConnected());
         QVERIFY(!bus.interface()->isServiceRegistered(DaemonStatus::BusName)); // a private bus: nobody has it
-        DaemonStatus status("/nonexistent/systemctl");
+        const DaemonStatus status("/nonexistent/systemctl");
         QVERIFY(!status.running());
-        QSignalSpy changed(&status, &DaemonStatus::changed);
+        const QSignalSpy changed(&status, &DaemonStatus::changed);
         QVERIFY(bus.registerService(DaemonStatus::BusName));
         QTRY_VERIFY_WITH_TIMEOUT(status.running(), 3000);
         QCOMPARE(changed.size(), 1);
