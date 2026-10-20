@@ -13,6 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_TESTING "Build the unit tests" ON)
 option(GALLEON_WERROR "Treat compiler warnings as errors" OFF)
 option(GALLEON_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(GALLEON_SOURCE_TREE_PATHS "Let galleond and galleon-bosun find the widgets and wallpapers in the source tree when run from the build folder (turn OFF for a package: the paths of the build machine must not end up in the programs)" ON)
 option(GALLEON_FUZZ "Build the libFuzzer targets (Clang only)" OFF)
 
 # Strict warnings, applied to our own targets only (Qt headers are SYSTEM).

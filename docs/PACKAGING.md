@@ -1,0 +1,105 @@
+<!--
+SPDX-FileCopyrightText: 2026 Paul Woisard
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+# Packaging GalleonCore for Linux
+
+Notes for whoever makes the packages (a `.deb` first: the owner uses Kubuntu 26.04 / KDE Plasma 6;
+then perhaps an RPM or an Arch `PKGBUILD`). Everything below was checked against the source tree;
+what is only advice is marked as such.
+
+## What the project builds
+
+| Piece | Files | Licence |
+|---|---|---|
+| `libgalleon` (protocol, `StreamDeck`, `HidTransport`, `Layout`) | `lib/` → `libgalleon.so.0.1.0` (+ headers) | LGPL-3.0-or-later |
+| `galleond` (the daemon: drives the module over HID, exposes `org.galleoncore.Deck` on the session bus) | `daemon/` → `/usr/bin/galleond` | GPL-3.0-or-later |
+| `galleon-bosun` (the settings window, Qt Quick + a tray icon) | `bosun/` → `/usr/bin/galleon-bosun` | GPL-3.0-or-later |
+| widgets (QML shown on the module's screen) | `widgets/` → `/usr/share/galleoncore/widgets/` | GPL-3.0-or-later |
+| wallpapers (24 pictures) | `public/wallpaper/` → `/usr/share/galleoncore/wallpaper/` | **CC-BY-SA-4.0** (see `ASSETS.md`, each folder has a `PROVENANCE.md`) |
+| desktop file, icon | `bosun/galleon-bosun.desktop`, `bosun/icons/galleon-bosun.svg` | GPL-3.0-or-later |
+| udev rules | `tools/udev/70-galleon.rules`, `71-galleon-uinput.rules` → `/usr/lib/udev/rules.d/` | GPL-3.0-or-later |
+| systemd **user** service | `tools/systemd/galleond.service` → `/usr/lib/systemd/user/` | GPL-3.0-or-later |
+
+Not to ship: `tools/check.py`, `tools/ci/`, `tools/windows/`, `tools/linux/*.c` (hardware probes),
+`tools/systemd/galleond-dev.service` (runs from a build tree), `openrgb-plugin/` (separate build, needs
+OpenRGB's sources), `plasmoid/` (not packaged yet), `tests/`, `fuzz/`, `docs/`, `site/`.
+`public/Screensavers/` (two videos, 19 MB, CC-BY-SA-4.0) is **not installed** by `cmake --install`: the
+screensaver is configured in the user's `pages.json`, which names the videos. Advice: leave them out of
+the main package (an optional `galleoncore-screensavers` package could install them to
+`/usr/share/galleoncore/screensavers/`, but nothing refers to that folder yet).
+
+## Build
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+      -DGALLEON_SOURCE_TREE_PATHS=OFF -DBUILD_TESTING=OFF
+cmake --build build -j
+DESTDIR=staging cmake --install build
+```
+
+- `-DGALLEON_SOURCE_TREE_PATHS=OFF` is **required for a package**: otherwise the programs carry the path of
+  the build machine's source tree as a fallback. (Checked: with it OFF `strings` finds no such path.)
+- `BUILD_TESTING=OFF` for the package build; the test suite is run separately (below).
+- Do not pass `-DGALLEON_SANITIZE=ON` or `-DGALLEON_FUZZ=ON` (they are for development).
+- C++20, CMake >= 3.21. Warnings are errors only with `-DGALLEON_WERROR=ON` (off by default).
+- The install rules are in `CMakeLists.txt`, `lib/`, `daemon/`, `bosun/`. The RPATH of the build tree is dropped at install.
+  `libgalleon` has SOVERSION 0.
+
+## Dependencies
+
+Build (names for Ubuntu 24.04 / Debian 13; Qt **6.4 or newer**):
+`cmake g++ pkg-config qt6-base-dev qt6-declarative-dev libhidapi-dev` (Qt Core, Gui, Widgets, Qml, Quick, DBus,
+Network; `hidapi-hidraw`).
+
+Runtime:
+- the Qt libraries above, and the QML modules `qml6-module-qtquick`, `qml6-module-qtquick-window`,
+  `qml6-module-qtqml`, `qml6-module-qtqml-workerscript` (no Qt Quick Controls, no Kirigami);
+- `libhidapi-hidraw0`;
+- **Recommends**: `ffmpeg` (provides `ffmpeg` and `ffprobe`: video thumbnails, the animated screensaver and its conversion;
+  without it those features say so and everything else works);
+- **Suggests**: a music player that speaks MPRIS (VLC, Chrome/Chromium, Strawberry, ...), `wireplumber` (`wpctl`, for the mute key),
+  `steam` (Steam games on a page), `openrgb` (the dials' rings through the plugin, not packaged here).
+- systemd (the user service), `udev` (the rules), the kernel module `uinput` for the keypad theme (see below).
+
+## Post-install / maintainer scripts (advice)
+
+1. `udevadm control --reload-rules && udevadm trigger --subsystem-match=hidraw --subsystem-match=usb --attr-match=idVendor=1b1c`
+   (the rules give the logged-in user access through `uaccess`: no group to join).
+2. `uinput`: the "keypad" theme types with a virtual keyboard (`/dev/uinput`). The rule `71-galleon-uinput.rules`
+   gives the user access; the module must be loaded. Advice: ship `/usr/lib/modules-load.d/galleoncore.conf`
+   containing the single line `uinput`.
+3. The service is **not** enabled by the package (it is a user service; a package cannot enable it for a user). The
+   desktop file starts the settings window; the owner enables the daemon with
+   `systemctl --user enable --now galleond.service`. Advice: print that line in the package's README/NEWS, and
+   consider `systemd-user` preset or an XDG autostart entry for `galleon-bosun` (optional; `galleon-bosun` has a
+   tray icon and hides when its window is closed).
+4. Nothing is written outside the user's home at run time: configuration in `~/.config/galleoncore/`
+   (`pages.json`, `galleond.conf`), data in `~/.local/share/galleoncore/` (`usage.json`, `wallpaper/mine/`,
+   `screensavers/`), cache in `~/.cache/galleoncore/`.
+
+## Where the programs look for their files (installed)
+
+- widgets: `<XDG data dirs>/galleoncore/widgets/` (so `/usr/share/galleoncore/widgets`), also `$GALLEONCORE_WIDGETS`;
+- wallpapers: the user's `~/.local/share/galleoncore/wallpaper`, then `<XDG data dirs>/galleoncore/wallpaper`
+  (all of them are read and merged), also `$GALLEONCORE_WALLPAPERS`;
+- the pages file: `~/.config/galleoncore/pages.json`; a built-in default is used when it does not exist (no file to ship);
+- D-Bus: the session bus name `org.galleoncore.Deck`, no service file needed (the user service owns it).
+
+## Checks before publishing a package
+
+- `galleond --help` and `galleon-bosun --help` run; `galleon-bosun` starts under a Wayland and an X11 session.
+- `reuse lint` passes on the source tree (the packaged copyright file can be written from `REUSE.toml` and the SPDX headers).
+- The test suite, on the build machine: `ctest --test-dir build` (needs `dbus-run-session`; each test runs in its own
+  private session bus). The project's own full check is `tools/check.py full` (Docker, Ubuntu 24.04), described in `CLAUDE.md`.
+- Nothing in the package must write to the keyboard's flash or touch the RGB of the keyboard part: the project never does.
+
+## Open points for the packager
+
+- Flatpak is **not** a good first target: the daemon needs `/dev/hidraw*`, `/dev/uinput`, the user's systemd and the session
+  bus name, and the udev rules cannot be shipped inside a sandbox. A Flatpak of `galleon-bosun` alone would still need
+  `--talk-name=org.galleoncore.Deck` and `--filesystem=xdg-config/galleoncore`, `xdg-data/galleoncore`.
+- AppImage: same problem (udev rules, user service).
+- Qt 6.4 is the oldest supported Qt (Ubuntu 24.04); the project's CI builds and tests on it.
+- The version is `0.1.0` (`project(GalleonCore VERSION 0.1.0)` in `CMakeLists.txt`); there are no release tags yet.
