@@ -10,6 +10,7 @@ import QtQuick
 Column {
     id: editor
 
+    property var filePicker: null
     required property var backend
     required property string page
     required property var key // the entry of backend.keys(page) for the selected key
@@ -123,6 +124,14 @@ Column {
         visible: editor.spec.type === "app"
         width: parent.width
         spacing: 6
+        Pill {
+            text: qsTr("Browse…")
+            enabledLook: editor.filePicker !== null
+            onClicked: {
+                const path = editor.filePicker.application()
+                if (path !== "") editor.change("desktop", path)
+            }
+        }
         Field {
             width: parent.width
             placeholder: qsTr("Search an application…")

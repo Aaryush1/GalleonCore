@@ -169,3 +169,21 @@ aucun tag avant nouvel essai Windows réussi.
 Le même essai signale des accents corrompus dans les textes français du Setup :
 le script et les manifestes NSIS sont explicitement UTF-8 (BOM), et le compilateur
 reçoit `/INPUTCHARSET UTF8`, indépendamment de la page de codes du runner Windows.
+
+### Deuxième essai Windows : réveil, Shell et démarrage de session
+
+Retour du propriétaire : réveil demandant plusieurs touches ; icônes d’applications
+absentes ; catalogue incomplet (Chrome), entrées WSL et désinstalleurs ; démarrage
+automatique absent. Correction sur `codex/windows-shell-and-wake` : arrêt asynchrone
+du décodeur au réveil (la première action reste consommée), extraction des icônes
+natives et utilisation des icônes avec un libellé personnalisé, menu Démarrer
+commun/personnel et applications enregistrées dans App Paths, bouton Parcourir,
+anciens emplacements des jaquettes Steam. Au démarrage de session, galleond et
+Bosun sont activés par défaut dans le Setup ; Bosun utilise `--minimized` pour
+la zone de notification. Le test du Setup vérifie ces raccourcis et leur retrait.
+
+Anneaux : le propriétaire utilise OpenRGB officiel ; le périphérique « Keyboard »
+commande les anneaux, « Corsair Galleon 100 SD » désigne le clavier RGB. Le conflit
+de contrôle reste à résoudre/valider : aucun mécanisme de priorité garanti n’est
+annoncé, aucune course de réécriture des couleurs n’est ajoutée. Réveil prolongé
+et rendu Windows à confirmer sur le module ; pas de premier tag.

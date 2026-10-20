@@ -78,6 +78,18 @@ class TestUsage : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void steamCoversSupportOldAndHashedCacheLayouts()
+    {
+        for (const QString &relative : {QStringLiteral("appcache/librarycache/123_header.jpg"),
+                 QStringLiteral("appcache/librarycache/123/abcdef_library_600x900.jpg")}) {
+            QTemporaryDir dir;
+            const QString file = dir.filePath(relative);
+            QVERIFY(writeFile(file, "artwork placeholder; decoding is checked by TileRenderer"));
+            QCOMPARE(SteamLibrary::coverImage(123, dir.path()), file);
+            QVERIFY(SteamLibrary::coverImage(124, dir.path()).isEmpty());
+        }
+    }
+
     void aLaunchCountsOneAndFadesByHalfEveryThirtyDays()
     {
         UsageStats stats;

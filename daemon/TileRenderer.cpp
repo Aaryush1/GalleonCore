@@ -43,10 +43,13 @@ KeyConfig TileRenderer::effectiveKey(const KeyConfig &key, const DesktopApp &app
 {
     KeyConfig effective = key;
     iconFile.clear();
-    if (key.action.type == ActionType::App && key.label.isEmpty() && key.icon.name.isEmpty() && key.icon.byState.isEmpty()) {
-        // The name of the file when the application was not found, so that the key says what is wrong.
-        effective.label = (app.isValid() ? app.name : key.action.desktop.section(QLatin1Char('.'), 0, -2)).left(MaxLabelLength);
-        effective.icon.name = app.icon;
+    if (key.action.type == ActionType::App) {
+        if (key.label.isEmpty())
+            effective.label = (app.isValid() ? app.name : key.action.desktop.section(QLatin1Char('.'), 0, -2)).left(MaxLabelLength);
+        // A custom label does not disable the application's default icon.
+        if (key.icon.name.isEmpty() && key.icon.byState.isEmpty()) {
+            effective.icon.name = app.icon;
+        }
         iconFile = app.iconPath;
     }
     return effective;

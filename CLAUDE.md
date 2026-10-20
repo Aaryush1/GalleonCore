@@ -89,3 +89,11 @@ fixture and Linux fallback. Never overwrite customized pages to deliver new
 Windows defaults. Start Menu classification is a heuristic; Steam discovery uses
 its installed library metadata. No arbitrary shell commands or URI schemes are
 accepted as Windows app references.
+
+Windows follow-up: application icons are extracted from Shell metadata and cached
+as PNG; a custom label must not suppress its app icon. Keep the icon loader's file
+size/dimension limits. Startup uses user-session shortcuts (Bosun `--minimized`),
+never a Session 0 media controller. Screensaver wake must not wait synchronously
+for a decoder process; test an ignored termination request as well as consumed
+wake input. Official OpenRGB ring ownership remains a hardware integration item;
+do not claim priority from repeated color writes.

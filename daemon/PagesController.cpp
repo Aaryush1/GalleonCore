@@ -583,12 +583,14 @@ void PagesController::applyRings()
     // white, for the music player control.
     const Theme *theme = currentTheme();
     const std::uint32_t rgb = theme ? theme->rgb : 0;
-    m_deck->setDialRing(0, static_cast<std::uint8_t>(rgb >> 16), static_cast<std::uint8_t>(rgb >> 8),
-                        static_cast<std::uint8_t>(rgb));
+    if (!m_deck->setDialRing(0, static_cast<std::uint8_t>(rgb >> 16), static_cast<std::uint8_t>(rgb >> 8),
+                            static_cast<std::uint8_t>(rgb)))
+        qWarning() << "galleond: could not update the left dial ring";
     // The right ring: white for the player control, magenta while it chooses the wallpaper.
     const std::uint32_t right = wallpaperMode() ? WallpaperModeRgb : 0xffffff;
-    m_deck->setDialRing(1, static_cast<std::uint8_t>(right >> 16), static_cast<std::uint8_t>(right >> 8),
-                        static_cast<std::uint8_t>(right));
+    if (!m_deck->setDialRing(1, static_cast<std::uint8_t>(right >> 16), static_cast<std::uint8_t>(right >> 8),
+                            static_cast<std::uint8_t>(right)))
+        qWarning() << "galleond: could not update the right dial ring";
 }
 
 void PagesController::setWallpaperMode(int dial)

@@ -16,6 +16,10 @@ namespace galleond {
 QStringList windowsAppCategories(const QString &name, const QString &folder)
 {
     const QString lower = name.toLower();
+    for (const QString &helper : {QStringLiteral("software center"), QStringLiteral("removable drives"), QStringLiteral("icon mode"), QStringLiteral("video capture")}) {
+        if (lower.contains(helper))
+            return {QStringLiteral("Utility")};
+    }
     const QString path = QString(folder).replace(QLatin1Char('\\'), QLatin1Char('/')).toLower();
     const QStringList mediaNames{QStringLiteral("firefox"), QStringLiteral("chrome"), QStringLiteral("edge"),
         QStringLiteral("brave"), QStringLiteral("opera"), QStringLiteral("vivaldi"), QStringLiteral("chromium"),

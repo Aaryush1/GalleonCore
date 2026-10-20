@@ -253,6 +253,7 @@ Window {
                 spacing: 22
 
                 KeyEditor {
+                    filePicker: win.filePicker
                     visible: win.selected !== null
                     width: parent.width
                     backend: win.backend

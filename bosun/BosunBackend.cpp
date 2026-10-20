@@ -764,7 +764,7 @@ QPixmap BosunBackend::tile(const QString &page, int key, const QString &themePag
             const galleond::KeyConfig effective = galleond::TileRenderer::effectiveKey(*configured, app, iconFile);
             if (configured->action.type == ActionType::Steam && configured->icon.name.isEmpty())
                 iconFile = galleond::SteamLibrary::coverImage(configured->action.appid);
-            image = m_tiles.render(effective, {}, false, iconFile, tint);
+            image = m_tiles.render(effective, QStringLiteral("stopped"), false, iconFile, tint);
         }
     }
     return QPixmap::fromImage(image);

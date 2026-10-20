@@ -57,6 +57,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption cropOption(QStringLiteral("crop"), QStringLiteral("With --inspect: open the crop window on the video."));
     const QCommandLineOption pictureOption(QStringLiteral("inspect-picture"),
                                            QStringLiteral("Open the Wallpapers tab with this picture file chosen (to be added)."), QStringLiteral("file"));
+    const QCommandLineOption minimizedOption(QStringLiteral("minimized"), QStringLiteral("Start in the notification area when available."));
+    parser.addOption(minimizedOption);
     parser.addOption(pagesOption);
     parser.addOption(pictureOption);
     parser.addOption(cropOption);
@@ -165,6 +167,8 @@ int main(int argc, char *argv[])
                 break;
             }
         });
+        if (parser.isSet(minimizedOption))
+            window->hide();
         refresh();
         tray.show();
     }

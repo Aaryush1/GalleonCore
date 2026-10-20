@@ -194,13 +194,25 @@ void ScreensaverController::start()
     Q_EMIT activeChanged(true);
 }
 
-void ScreensaverController::stop()
+void ScreensaverController::stop(bool wait)
 {
     if (!m_process)
         return;
     QProcess *process = m_process;
     m_process = nullptr;
     process->disconnect(this);
+    if (!wait) {
+        connect(process, &QProcess::finished, process, &QObject::deleteLater);
+        process->terminate();
+        QTimer::singleShot(StopWaitMs, process, [process] {
+            if (process->state() != QProcess::NotRunning)
+                process->kill();
+            else
+                process->deleteLater();
+        });
+        m_buffer.clear();
+        return;
+    }
     process->terminate();
     if (!process->waitForFinished(StopWaitMs)) {
         process->kill();
@@ -214,8 +226,8 @@ void ScreensaverController::wake()
 {
     if (!m_active)
         return;
-    stop();
     m_active = false;
+    stop(false);
     m_restarts = 0;
     qInfo() << "galleond: screensaver off";
     Q_EMIT activeChanged(false);

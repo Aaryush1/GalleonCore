@@ -61,8 +61,8 @@ LangString CoreLabel ${LANG_ENGLISH} "GalleonCore (required)"
 LangString CoreLabel ${LANG_FRENCH} "GalleonCore (obligatoire)"
 LangString DesktopLabel ${LANG_ENGLISH} "Desktop shortcut"
 LangString DesktopLabel ${LANG_FRENCH} "Raccourci sur le bureau"
-LangString StartupLabel ${LANG_ENGLISH} "Start galleond when signing in"
-LangString StartupLabel ${LANG_FRENCH} "Démarrer galleond à l'ouverture de session"
+LangString StartupLabel ${LANG_ENGLISH} "Start galleond and Bosun when signing in"
+LangString StartupLabel ${LANG_FRENCH} "Démarrer galleond et Bosun à l'ouverture de session"
 LangString StopError ${LANG_ENGLISH} "GalleonCore could not stop cleanly. Close Bosun and galleond, then retry."
 LangString StopError ${LANG_FRENCH} "GalleonCore n'a pas pu s'arrêter proprement. Fermez Bosun et galleond, puis réessayez."
 
@@ -109,6 +109,8 @@ Section "$(CoreLabel)" Core
     File /r "${STAGING_DIR}\*"
     File /oname=install-payload.txt "${PAYLOAD_MANIFEST}"
     WriteUninstaller "$INSTDIR\Uninstall.exe"
+    Delete "$SMSTARTUP\GalleonCore.lnk"
+    Delete "$SMSTARTUP\Galleon Bosun.lnk"
     CreateDirectory "$SMPROGRAMS\GalleonCore"
     CreateShortCut "$SMPROGRAMS\GalleonCore\Galleon Bosun.lnk" "$INSTDIR\bin\galleon-bosun.exe"
     CreateShortCut "$SMPROGRAMS\GalleonCore\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
@@ -125,8 +127,9 @@ SectionEnd
 Section /o "$(DesktopLabel)" Desktop
     CreateShortCut "$DESKTOP\Galleon Bosun.lnk" "$INSTDIR\bin\galleon-bosun.exe"
 SectionEnd
-Section /o "$(StartupLabel)" Startup
+Section "$(StartupLabel)" Startup
     CreateShortCut "$SMSTARTUP\GalleonCore.lnk" "$INSTDIR\bin\galleond.exe"
+    CreateShortCut "$SMSTARTUP\Galleon Bosun.lnk" "$INSTDIR\bin\galleon-bosun.exe" "--minimized"
 SectionEnd
 Section "Uninstall"
     Call un.StopApplications
@@ -136,6 +139,7 @@ Section "Uninstall"
     RMDir "$SMPROGRAMS\GalleonCore"
     Delete "$DESKTOP\Galleon Bosun.lnk"
     Delete "$SMSTARTUP\GalleonCore.lnk"
+    Delete "$SMSTARTUP\Galleon Bosun.lnk"
     DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\GalleonCore"
     DeleteRegKey HKCU "Software\GalleonCore\Installer"
     Delete "$INSTDIR\install-payload.txt"

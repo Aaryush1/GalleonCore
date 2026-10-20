@@ -9,6 +9,7 @@
 #include "UsageStats.h"
 
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -323,6 +324,16 @@ QString SteamLibrary::coverImage(int appid, const QString &root)
     const QString folder = QStringLiteral("%1/appcache/librarycache/%2/").arg(root).arg(appid);
     for (const char *name : {"library_600x900.jpg", "logo.png"}) {
         const QFileInfo info(folder + QLatin1String(name));
+        if (info.isFile() && !info.isSymLink())
+            return info.absoluteFilePath();
+    }
+    // Newer clients can prefix artwork with a content hash inside the app folder.
+    QDirIterator artwork(folder, {QStringLiteral("*library_600x900*.jpg"), QStringLiteral("*header*.jpg"), QStringLiteral("*icon*.jpg")}, QDir::Files | QDir::NoSymLinks);
+    if (artwork.hasNext())
+        return artwork.next();
+    // Older Steam caches use flat app-id-prefixed filenames rather than subdirectories.
+    for (const char *suffix : {"_library_600x900.jpg", "_header.jpg", "_icon.jpg", "_logo.png"}) {
+        const QFileInfo info(QStringLiteral("%1/appcache/librarycache/%2%3").arg(root).arg(appid).arg(QLatin1String(suffix)));
         if (info.isFile() && !info.isSymLink())
             return info.absoluteFilePath();
     }

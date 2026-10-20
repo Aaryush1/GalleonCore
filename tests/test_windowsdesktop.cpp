@@ -3,6 +3,13 @@
 #include "DaemonStatus.h"
 #include "DesktopEntries.h"
 #include "LocalControl.h"
+#include <QImage>
+#include <QFile>
+#include <QSettings>
+#include <QTemporaryDir>
+#include <QScopeGuard>
+#include <QDir>
+#include <QFileInfo>
 #include <QtTest>
 #include <QUuid>
 #include <memory>
@@ -11,6 +18,40 @@ class TestWindowsDesktop : public QObject
 {
     Q_OBJECT
 private slots:
+    void registeredApplicationWithoutShortcutIsListed()
+    {
+        if (qEnvironmentVariable("GITHUB_ACTIONS") != QStringLiteral("true"))
+            QSKIP("Temporary App Paths registration is isolated to the Windows CI runner");
+        QTemporaryDir dir;
+        const QString executable = dir.filePath(QStringLiteral("chrome.exe"));
+        QVERIFY(QFile::copy(QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32/notepad.exe")), executable));
+        const QString group = QStringLiteral("galleon-ci-") + QUuid::createUuid().toString(QUuid::Id128) + QStringLiteral(".exe");
+        QSettings registry(QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths"), QSettings::NativeFormat);
+        const auto cleanup = qScopeGuard([&] { registry.remove(group); registry.sync(); });
+        registry.setValue(group + QStringLiteral("/."), executable);
+        registry.sync();
+        const auto apps = galleond::DesktopEntries::list();
+        bool found = false;
+        for (const auto &app : apps) {
+            if (app.file.compare(executable, Qt::CaseInsensitive) == 0) {
+                found = true;
+                QVERIFY(!app.iconPath.isEmpty());
+                QVERIFY(app.categories.contains(QStringLiteral("AudioVideo")));
+            }
+        }
+        QVERIFY(found);
+    }
+
+    void windowsExecutableHasANativeCachedIcon()
+    {
+        const QString file = QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32/notepad.exe"));
+        const auto app = galleond::DesktopEntries::lookup(file);
+        QVERIFY(app.isValid());
+        QVERIFY(!app.iconPath.isEmpty());
+        QVERIFY(!QImage(app.iconPath).isNull());
+        QCOMPARE(galleond::DesktopEntries::lookup(file).iconPath, app.iconPath);
+    }
+
     void statusAndStopUsePrivateEndpoint()
     {
         const QString name = QStringLiteral("galleon-test-") + QUuid::createUuid().toString(QUuid::Id128);
@@ -40,5 +81,5 @@ private slots:
         QVERIFY(galleond::DesktopEntries::isValidReference(QStringLiteral("C:/example/application.lnk")));
     }
 };
-QTEST_GUILESS_MAIN(TestWindowsDesktop)
+QTEST_MAIN(TestWindowsDesktop)
 #include "test_windowsdesktop.moc"

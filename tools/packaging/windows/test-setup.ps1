@@ -50,6 +50,12 @@ function Assert-Closed {
 try {
     # First installation, then upgrade while both applications are running.
     Run-Installer (Resolve-Path $Setup).Path "/S /D=$root"
+    $startup = [System.Environment]::GetFolderPath('Startup')
+    $shell = New-Object -ComObject WScript.Shell
+    $daemonStartup = $shell.CreateShortcut((Join-Path $startup 'GalleonCore.lnk'))
+    $bosunStartup = $shell.CreateShortcut((Join-Path $startup 'Galleon Bosun.lnk'))
+    if ($daemonStartup.TargetPath -ne (Join-Path $root 'bin/galleond.exe')) { throw 'Daemon startup shortcut missing.' }
+    if ($bosunStartup.TargetPath -ne (Join-Path $root 'bin/galleon-bosun.exe') -or $bosunStartup.Arguments -ne '--minimized') { throw 'Bosun tray startup shortcut missing.' }
     Start-Applications
     Run-Installer (Resolve-Path $Setup).Path "/S /D=$root"
     Assert-Closed
@@ -58,6 +64,7 @@ try {
     Start-Applications
     Run-Installer (Join-Path $root 'Uninstall.exe') '/S'
     Assert-Closed
+    if ((Test-Path (Join-Path $startup 'GalleonCore.lnk')) -or (Test-Path (Join-Path $startup 'Galleon Bosun.lnk'))) { throw 'Uninstall left startup shortcuts.' }
     $deadline = [System.DateTime]::UtcNow.AddSeconds(20)
     while ((Test-Path (Join-Path $root 'bin/galleond.exe')) -and [System.DateTime]::UtcNow -lt $deadline) {
         Start-Sleep -Milliseconds 100

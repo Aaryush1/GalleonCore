@@ -144,8 +144,11 @@ private Q_SLOTS:
         galleond::KeyConfig mine = plain;
         mine.label = "Mine";
         QCOMPARE(TileRenderer::effectiveKey(mine, app, iconFile).label, QStringLiteral("Mine"));
-        QVERIFY(TileRenderer::effectiveKey(mine, app, iconFile).icon.name.isEmpty());
-        QVERIFY(iconFile.isEmpty());
+        QCOMPARE(TileRenderer::effectiveKey(mine, app, iconFile).icon.name, QStringLiteral("tool-icon"));
+        QCOMPARE(iconFile, QStringLiteral("/x/icon.png"));
+        mine.icon.name = QStringLiteral("custom-icon");
+        QCOMPARE(TileRenderer::effectiveKey(mine, app, iconFile).icon.name, QStringLiteral("custom-icon"));
+        QCOMPARE(iconFile, QStringLiteral("/x/icon.png"));
 
         // An application that was not found: the key says which file is wrong.
         QCOMPARE(TileRenderer::effectiveKey(plain, galleond::DesktopApp{}, iconFile).label, QStringLiteral("tool"));

@@ -20,6 +20,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QProcess>
 
 #include <memory>
 
@@ -420,6 +421,30 @@ private Q_SLOTS:
         f.controller->setIdleTimeoutMs(100);
         QTest::qWait(1500);
         QVERIFY(!f.controller->isActive());
+    }
+
+    void aDecoderIgnoringTerminationDoesNotDelayWake()
+    {
+        Fixture f;
+        QFile script(f.dir.filePath("fake-ffmpeg"));
+        QVERIFY(script.open(QIODevice::ReadOnly));
+        QByteArray contents = script.readAll();
+        script.close();
+        contents.replace("#!/bin/sh\n", "#!/bin/sh\ntrap '' TERM\n");
+        QVERIFY(script.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(script.write(contents), contents.size());
+        script.close();
+        f.configure(f.config);
+        f.controller->setIdleTimeoutMs(50);
+        QTRY_VERIFY_WITH_TIMEOUT(f.controller->isActive(), 3000);
+        QTRY_VERIFY_WITH_TIMEOUT(f.transport->writes.size() > 10, 3000);
+        f.controller->setIdleTimeoutMs(60000);
+        QElapsedTimer elapsed;
+        elapsed.start();
+        f.controller->notifyActivity();
+        QTRY_VERIFY_WITH_TIMEOUT(!f.controller->isActive(), 1000);
+        QVERIFY2(elapsed.elapsed() < 500, "Waking waited for the decoder to stop");
+        QTRY_VERIFY_WITH_TIMEOUT(f.controller->findChildren<QProcess *>().isEmpty(), 4000);
     }
 
     void severalVideosTakeTurnsAtEachStart()

@@ -22,4 +22,15 @@ QString FilePicker::video() // NOLINT(readability-convert-member-functions-to-st
                                        tr("Videos (*.mp4 *.mkv *.webm *.avi *.mov *.m4v *.mpeg *.mpg *.ogv);;All files (*)"));
 }
 
+QString FilePicker::application() // NOLINT(readability-convert-member-functions-to-static): QML invokes this QObject method.
+{
+#ifdef Q_OS_WIN
+    const QString filter = tr("Applications (*.exe *.lnk)");
+#else
+    const QString filter = tr("Applications (*.desktop)");
+#endif
+    return QFileDialog::getOpenFileName(nullptr, tr("Choose an application"),
+        QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation), filter);
+}
+
 } // namespace bosun
