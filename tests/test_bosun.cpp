@@ -591,6 +591,23 @@ private Q_SLOTS:
         QVERIFY(!backend.addTheme("", "#ab47bc").isEmpty());
     }
 
+    void aTabGetsItsPlusPageThroughTheBackend()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        bosun::BosunBackend backend(file);
+        QVERIFY(backend.subPagesOf("music").isEmpty());
+        QVERIFY(backend.addSubPage("music").isEmpty());
+        QCOMPARE(backend.subPagesOf("music"), (QStringList{"music-plus"})); // listed with its tab, and only there
+        QVERIFY(backend.subPagesOf("main").isEmpty() || !backend.subPagesOf("main").contains("music-plus"));
+        // The 12th key of this fixture's "music" is taken (a Back key): the link takes the last free one, the 11th.
+        QCOMPARE(backend.keys("music").at(10).toMap().value("pageTarget").toString(), QStringLiteral("music-plus"));
+        QCOMPARE(backend.keys("music-plus").at(11).toMap().value("type").toString(), QStringLiteral("back"));
+        QCOMPARE(backend.themes().size(), 2); // not a new tab
+        QVERIFY(backend.addSubPage("no-such-page").size() > 0);
+    }
+
     void aSubPageTakesTheColourOfTheTabItIsShownIn()
     {
         const QTemporaryDir dir;
@@ -713,6 +730,31 @@ private Q_SLOTS:
         window->setProperty("hideOnClose", false);
         window->close();
         QVERIFY(!window->isVisible());
+    }
+
+    void aTabShowsOnlyTheSubPagesItsOwnKeysLeadTo()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        // main -> sub-a -> sub-b; music -> sub-c; games -> main (a theme's page: not a sub-page); an orphan page nobody leads to.
+        QVERIFY(writeFile(file, QByteArray(R"({"version": 1, "home": "main",
+          "themes": [{"name": "Control", "page": "main", "color": "#ffd600"}, {"name": "Music", "page": "music", "color": "#e53935"},
+                     {"name": "Games", "page": "games", "color": "#3949ab"}],
+          "pages": {
+            "main": {"keys": [{"key": 0, "label": "A", "action": {"type": "page", "page": "sub-a"}}]},
+            "sub-a": {"keys": [{"key": 0, "label": "B", "action": {"type": "page", "page": "sub-b"}}, {"key": 1, "label": "Home", "action": {"type": "back"}}]},
+            "sub-b": {"keys": [{"key": 0, "label": "Loop", "action": {"type": "page", "page": "sub-a"}}]},
+            "music": {"keys": [{"key": 0, "label": "C", "action": {"type": "page", "page": "sub-c"}}]},
+            "sub-c": {"keys": []},
+            "games": {"keys": [{"key": 0, "label": "Main", "action": {"type": "page", "page": "main"}}]},
+            "orphan": {"keys": []}}})")));
+        const bosun::BosunBackend backend(file);
+        QVERIFY2(backend.problem().isEmpty(), qPrintable(backend.problem()));
+        QCOMPARE(backend.subPagesOf("main"), (QStringList{"sub-a", "sub-b"}));   // two levels, a loop does not repeat
+        QCOMPARE(backend.subPagesOf("music"), (QStringList{"sub-c"}));            // not main's
+        QVERIFY(backend.subPagesOf("games").isEmpty());                           // main is a theme's page: it has its tab
+        QVERIFY(backend.subPagesOf("orphan").isEmpty());
+        QVERIFY(backend.subPagesOf("no-such-page").isEmpty());
     }
 
     void theWindowHasATabPerThemeAndTheFixedOnes()

@@ -10,6 +10,7 @@ Column {
     required property var backend
     property string name: ""
     property string color: "#00acc1"
+    property bool withPlus: false
     signal answered(string error, string done)
     // The tab was made: the window shows it.
     signal created
@@ -40,12 +41,29 @@ Column {
         color: form.color
         onPicked: c => form.color = c
     }
+    Row {
+        spacing: 10
+        Pill {
+            text: form.withPlus ? qsTr("✓ With a “plus” page") : qsTr("With a “plus” page")
+            selected: form.withPlus
+            onClicked: form.withPlus = !form.withPlus
+        }
+        Text {
+            height: 32
+            verticalAlignment: Text.AlignVCenter
+            color: "#7d8591"
+            font.pixelSize: 12
+            text: qsTr("12 more keys: the last key of the tab leads to a second page.")
+        }
+    }
     Pill {
         selected: true
         text: qsTr("Create the tab")
         enabledLook: form.name.trim() !== ""
         onClicked: {
-            const error = form.backend.addTheme(form.name, form.color)
+            let error = form.backend.addTheme(form.name, form.color)
+            if (error === "" && form.withPlus)
+                error = form.backend.addSubPage(form.backend.themes[form.backend.themes.length - 1].page)
             form.answered(error, qsTr("Tab created."))
             if (error === "") {
                 form.name = ""

@@ -510,6 +510,56 @@ private Q_SLOTS:
         QVERIFY(required(configOf(env.pages()).pages.value("main").keys[0]).icon.name.isEmpty()); // the old icon went too
     }
 
+    void aPlusPageIsMadeForATabWithAKeyThatLeadsToItAndOneThatGoesBack()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        QVERIFY(PagesEditor::addSubPage(env.pages(), "music", "music-plus", "More", "Back").ok);
+        const PagesConfig config = configOf(env.pages());
+        const Page music = config.pages.value("music");
+        const Page plus = config.pages.value("music-plus");
+        const auto &more = music.keys[11];
+        QCOMPARE(int(required(more).action.type), int(ActionType::Page));
+        QCOMPARE(required(more).action.page, QStringLiteral("music-plus"));
+        QCOMPARE(required(more).label, QStringLiteral("More"));
+        const auto &back = plus.keys[11];
+        QCOMPARE(int(required(back).action.type), int(ActionType::Back));
+        QCOMPARE(required(back).label, QStringLiteral("Back"));
+        QVERIFY(!plus.keys[0].has_value()); // the rest is empty
+        QVERIFY(config.themes.size() == 3);                              // not a tab of its own
+    }
+
+    void theKeyThatLeadsToAPlusPageTakesTheLastFreeOne()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        const KeySpec taken = spec("back");
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 11, taken).ok); // the 12th is used
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 10, taken).ok);
+        QVERIFY(PagesEditor::addSubPage(env.pages(), "music", "music-plus", "More", "Back").ok);
+        QCOMPARE(required(configOf(env.pages()).pages.value("music").keys[9]).action.page, QStringLiteral("music-plus"));
+        QCOMPARE(int(required(configOf(env.pages()).pages.value("music").keys[11]).action.type), int(ActionType::Back)); // untouched
+    }
+
+    void aPlusPageCannotBeMadeWithoutRoomOrOnAPageThatIsThere()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        const QByteArray before = readFile(env.pages());
+        QVERIFY(!PagesEditor::addSubPage(env.pages(), "music", "games", "More", "Back").ok);      // the name is taken
+        QVERIFY(!PagesEditor::addSubPage(env.pages(), "no-such-page", "x", "More", "Back").ok);
+        QVERIFY(!PagesEditor::addSubPage(env.pages(), "music", "Not Valid!", "More", "Back").ok);   // not a page name
+        QVERIFY(!PagesEditor::addSubPage(env.pages(), "music", "x", QString(MaxLabelLength + 1, 'x'), "Back").ok);
+        QCOMPARE(readFile(env.pages()), before);
+        for (int key = 0; key < 12; ++key)
+            QVERIFY(PagesEditor::setKey(env.pages(), "games", key, spec("back")).ok);
+        const QByteArray full = readFile(env.pages());
+        const auto result = PagesEditor::addSubPage(env.pages(), "games", "games-plus", "More", "Back");
+        QVERIFY(!result.ok);
+        QVERIFY(result.errors.join(' ').contains("used"));
+        QCOMPARE(readFile(env.pages()), full);
+    }
+
     void aThemeIsAddedWithItsOwnEmptyPage()
     {
         Environment const env;
@@ -571,6 +621,31 @@ private Q_SLOTS:
         config = configOf(env.pages());
         QCOMPARE(config.themes.size(), size_t(2));
         QVERIFY(config.pages.contains("extra")); // still reachable from a key
+    }
+
+    void aThemeGoneTakesItsPlusPageToo()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        QVERIFY(PagesEditor::addSubPage(env.pages(), "games", "games-plus", "More", "Back").ok);
+        QVERIFY(configOf(env.pages()).pages.contains("games-plus"));
+        QVERIFY(PagesEditor::removeTheme(env.pages(), 2).ok); // Games
+        const PagesConfig config = configOf(env.pages());
+        QVERIFY(!config.pages.contains("games"));
+        QVERIFY(!config.pages.contains("games-plus")); // only it led there
+        QVERIFY(config.pages.contains("sub"));         // another tab's sub-page is not touched
+    }
+
+    void aPlusPageThatAnotherPageStillLeadsToStays()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        QVERIFY(PagesEditor::addSubPage(env.pages(), "games", "games-plus", "More", "Back").ok);
+        KeySpec link = spec("page");
+        link.page = "games-plus";
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 0, link).ok); // Music leads there too
+        QVERIFY(PagesEditor::removeTheme(env.pages(), 2).ok);
+        QVERIFY(configOf(env.pages()).pages.contains("games-plus"));
     }
 
     void theHomeThemeAndTheLastThemeCannotBeRemoved()

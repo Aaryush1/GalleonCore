@@ -588,6 +588,37 @@ QStringList BosunBackend::pageNames() const
     return m_config ? m_config->pages.keys() : QStringList();
 }
 
+QStringList BosunBackend::subPagesOf(const QString &page) const
+{
+    QStringList found;
+    if (!m_config)
+        return found;
+    QStringList themePages;
+    for (const galleond::Theme &theme : m_config->themes)
+        themePages << theme.page;
+    QStringList toVisit{page};
+    QStringList visited;
+    while (!toVisit.isEmpty()) {
+        const QString current = toVisit.takeFirst();
+        if (visited.contains(current))
+            continue;
+        visited << current;
+        const galleond::Page *looked = pageNamed(current);
+        if (!looked)
+            continue;
+        for (const auto &key : looked->keys) {
+            if (!key || key->action.type != ActionType::Page)
+                continue;
+            const QString target = key->action.page;
+            if (target == page || themePages.contains(target) || found.contains(target))
+                continue;
+            found << target;
+            toVisit << target;
+        }
+    }
+    return found;
+}
+
 QVariantList BosunBackend::mediaCommands()
 {
     QVariantList list;
@@ -638,6 +669,11 @@ QString BosunBackend::clearKey(const QString &page, int key)
 QString BosunBackend::addTheme(const QString &name, const QString &color)
 {
     return applied(galleond::PagesEditor::addTheme(m_file, name, color, pageNameFor(name, pageNames())));
+}
+
+QString BosunBackend::addSubPage(const QString &page)
+{
+    return applied(galleond::PagesEditor::addSubPage(m_file, page, pageNameFor(page + QStringLiteral(" plus"), pageNames()), tr("More"), tr("Back")));
 }
 
 QString BosunBackend::setTheme(int index, const QString &name, const QString &color)
