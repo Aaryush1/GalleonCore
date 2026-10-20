@@ -75,6 +75,29 @@ QByteArray saverFile(const QString &video = QStringLiteral(R"([{"file": "a.mp4",
         .toUtf8();
 }
 
+
+// Three themes (the first is the home page) and a sub-page that the first one leads to.
+QByteArray themesFile()
+{
+    return QByteArray(R"({"version": 1, "home": "main",
+      "themes": [{"name": "Control", "page": "main", "color": "#ffd600"},
+                 {"name": "Music", "page": "music", "color": "#e53935"},
+                 {"name": "Games", "page": "games", "color": "#3949ab"}],
+      "pages": {
+        "main": {"keys": [
+          {"key": 0, "label": "Shuffle", "icon": "media-playlist-shuffle", "action": {"type": "media", "command": "shuffle"}, "state_labels": ["OFF", "ON"]},
+          {"key": 1, "label": "More", "action": {"type": "page", "page": "sub"}}]},
+        "music": {"keys": []}, "games": {"keys": []},
+        "sub": {"keys": [{"key": 0, "label": "Back", "action": {"type": "back"}}]}}})");
+}
+
+KeySpec spec(const QString &type)
+{
+    KeySpec out;
+    out.type = type;
+    return out;
+}
+
 } // namespace
 
 class TestPagesEditor : public QObject
@@ -391,6 +414,195 @@ private Q_SLOTS:
         QVERIFY(!PagesEditor::addScreensaverVideo(env.pages(), "two\nlines.mp4", "").ok);
         QVERIFY(!PagesEditor::addScreensaverVideo(env.pages(), QString(MaxVideoPathLength + 1, 'p'), "").ok);
         QVERIFY(!PagesEditor::addScreensaverVideo(env.pages(), "ok.mp4", QString(MaxVideoTitleLength + 1, 't')).ok);
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
+
+    void aKeyCanDoAnyOfTheKindsOfAction()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        KeySpec app = spec("app");
+        app.desktop = "tool.desktop";
+        app.label = "  My tool ";
+        app.icon = "tool-icon";
+        QVERIFY2(PagesEditor::setKey(env.pages(), "music", 0, app).ok, "app");
+        KeySpec volume = spec("media");
+        volume.command = "volume";
+        volume.step = -5;
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 1, volume).ok);
+        KeySpec seek = spec("media");
+        seek.command = "seek";
+        seek.seconds = 30;
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 2, seek).ok);
+        KeySpec next = spec("media");
+        next.command = "next";
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 3, next).ok);
+        KeySpec link = spec("page");
+        link.page = "games";
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 4, link).ok);
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 5, spec("back")).ok);
+        KeySpec keypad = spec("key");
+        keypad.keyName = "kp7";
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 6, keypad).ok);
+
+        const Page music = configOf(env.pages()).pages.value("music");
+        const auto &first = music.keys[0];
+        QCOMPARE(int(required(first).action.type), int(ActionType::App));
+        QCOMPARE(required(first).action.desktop, QStringLiteral("tool.desktop"));
+        QCOMPARE(required(first).label, QStringLiteral("My tool"));
+        QCOMPARE(required(first).icon.name, QStringLiteral("tool-icon"));
+        QCOMPARE(required(music.keys[1]).action.step, -5);
+        QCOMPARE(required(music.keys[2]).action.seconds, 30);
+        QCOMPARE(int(required(music.keys[3]).action.command), int(MediaCommand::Next));
+        QCOMPARE(required(music.keys[4]).action.page, QStringLiteral("games"));
+        QCOMPARE(int(required(music.keys[5]).action.type), int(ActionType::Back));
+        QCOMPARE(required(music.keys[6]).action.keyName, QStringLiteral("kp7"));
+    }
+
+    void aKeyThatIsAskedForBadlyIsRefusedAndNothingIsWritten()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        const QByteArray before = readFile(env.pages());
+        KeySpec bad = spec("fly");
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 0, bad).ok);
+        bad = spec("app");
+        bad.desktop = "not-installed.desktop";
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 0, bad).ok);
+        bad.desktop = "../../x";
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 0, bad).ok);
+        bad = spec("media");
+        bad.command = "volume";
+        bad.step = 0;
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 0, bad).ok);
+        bad = spec("media");
+        bad.command = "fly";
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 0, bad).ok);
+        bad = spec("page");
+        bad.page = "no-such-page";
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 0, bad).ok);
+        bad = spec("key");
+        bad.keyName = "f13";
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 0, bad).ok);
+        KeySpec longLabel = spec("back");
+        longLabel.label = QString(MaxLabelLength + 1, 'x');
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 0, longLabel).ok);
+        QVERIFY(!PagesEditor::setKey(env.pages(), "music", 12, spec("back")).ok);
+        QVERIFY(!PagesEditor::setKey(env.pages(), "no-such-page", 0, spec("back")).ok);
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
+    void theWordsOfAShuffleKeyStayOnlyWhileItIsStillOne()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        KeySpec shuffle = spec("media");
+        shuffle.command = "shuffle";
+        shuffle.label = "Random";
+        QVERIFY(PagesEditor::setKey(env.pages(), "main", 0, shuffle).ok);
+        QCOMPARE(required(configOf(env.pages()).pages.value("main").keys[0]).stateLabels, (QStringList{"OFF", "ON"}));
+        QCOMPARE(required(configOf(env.pages()).pages.value("main").keys[0]).label, QStringLiteral("Random"));
+        KeySpec stop = spec("media");
+        stop.command = "stop";
+        QVERIFY(PagesEditor::setKey(env.pages(), "main", 0, stop).ok);
+        QVERIFY(required(configOf(env.pages()).pages.value("main").keys[0]).stateLabels.isEmpty());
+        QVERIFY(required(configOf(env.pages()).pages.value("main").keys[0]).icon.name.isEmpty()); // the old icon went too
+    }
+
+    void aThemeIsAddedWithItsOwnEmptyPage()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        QVERIFY(PagesEditor::addTheme(env.pages(), "  Work ", "#00BCD4", "work").ok);
+        const PagesConfig config = configOf(env.pages());
+        QCOMPARE(config.themes.size(), size_t(4));
+        QCOMPARE(config.themes.back().name, QStringLiteral("Work"));
+        QCOMPARE(config.themes.back().page, QStringLiteral("work"));
+        QCOMPARE(config.themes.back().rgb, 0x00bcd4U);
+        QVERIFY(config.pages.contains("work"));
+        QVERIFY(!config.pages.value("work").keys[0].has_value());
+    }
+
+    void aThemeCannotBeAddedOnAPageThatIsThereOrWithBadWords()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        const QByteArray before = readFile(env.pages());
+        QVERIFY(!PagesEditor::addTheme(env.pages(), "Work", "#00bcd4", "music").ok);  // the page exists
+        QVERIFY(!PagesEditor::addTheme(env.pages(), "Work", "red", "work").ok);       // not a #rrggbb colour
+        QVERIFY(!PagesEditor::addTheme(env.pages(), "", "#00bcd4", "work").ok);       // no name
+        QVERIFY(!PagesEditor::addTheme(env.pages(), QString(MaxLabelLength + 1, 'x'), "#00bcd4", "work").ok);
+        QVERIFY(!PagesEditor::addTheme(env.pages(), "Work", "#00bcd4", "Not Valid!").ok); // not a page name
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
+    void aThemeCanBeRenamedAndRecoloured()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        QVERIFY(PagesEditor::setTheme(env.pages(), 1, " Songs ", "#AABBCC").ok);
+        const PagesConfig config = configOf(env.pages());
+        QCOMPARE(config.themes[1].name, QStringLiteral("Songs"));
+        QCOMPARE(config.themes[1].rgb, 0xaabbccU);
+        QCOMPARE(config.themes[1].page, QStringLiteral("music")); // the page does not change
+        const QByteArray before = readFile(env.pages());
+        QVERIFY(!PagesEditor::setTheme(env.pages(), 1, "Songs", "nope").ok);
+        QVERIFY(!PagesEditor::setTheme(env.pages(), 1, "", "#aabbcc").ok);
+        QVERIFY(!PagesEditor::setTheme(env.pages(), 9, "Songs", "#aabbcc").ok);
+        QCOMPARE(readFile(env.pages()), before);
+    }
+
+    void aThemeGoneTakesItsPageWithItUnlessSomethingLeadsThere()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        QVERIFY(PagesEditor::removeTheme(env.pages(), 2).ok); // Games: nothing leads to it
+        PagesConfig config = configOf(env.pages());
+        QCOMPARE(config.themes.size(), size_t(2));
+        QVERIFY(!config.pages.contains("games"));
+
+        // Make a page that a key of Music leads to a theme too: removing the theme keeps the page.
+        QVERIFY(PagesEditor::addTheme(env.pages(), "Extra", "#123456", "extra").ok);
+        KeySpec link = spec("page");
+        link.page = "extra";
+        QVERIFY(PagesEditor::setKey(env.pages(), "music", 0, link).ok);
+        QVERIFY(PagesEditor::removeTheme(env.pages(), 2).ok);
+        config = configOf(env.pages());
+        QCOMPARE(config.themes.size(), size_t(2));
+        QVERIFY(config.pages.contains("extra")); // still reachable from a key
+    }
+
+    void theHomeThemeAndTheLastThemeCannotBeRemoved()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        const QByteArray before = readFile(env.pages());
+        QVERIFY(!PagesEditor::removeTheme(env.pages(), 0).ok); // opens the home page
+        QVERIFY(!PagesEditor::removeTheme(env.pages(), 7).ok);
+        QVERIFY(!PagesEditor::removeTheme(env.pages(), -1).ok);
+        QCOMPARE(readFile(env.pages()), before);
+        QVERIFY(PagesEditor::removeTheme(env.pages(), 2).ok);
+        QVERIFY(PagesEditor::removeTheme(env.pages(), 1).ok);
+        QVERIFY(!PagesEditor::removeTheme(env.pages(), 0).ok); // the last one, and home
+        QCOMPARE(configOf(env.pages()).themes.size(), size_t(1));
+    }
+
+    void themesCanBeMovedWithinTheList()
+    {
+        Environment const env;
+        QVERIFY(writeFile(env.pages(), themesFile()));
+        QVERIFY(PagesEditor::moveTheme(env.pages(), 2, -1).ok);
+        PagesConfig config = configOf(env.pages());
+        QCOMPARE(config.themes[1].name, QStringLiteral("Games"));
+        QCOMPARE(config.themes[2].name, QStringLiteral("Music"));
+        QVERIFY(PagesEditor::moveTheme(env.pages(), 0, 2).ok);
+        config = configOf(env.pages());
+        QCOMPARE(config.themes[2].name, QStringLiteral("Control"));
+        const QByteArray before = readFile(env.pages());
+        QVERIFY(!PagesEditor::moveTheme(env.pages(), 0, -1).ok);
+        QVERIFY(!PagesEditor::moveTheme(env.pages(), 2, 1).ok);
+        QVERIFY(!PagesEditor::moveTheme(env.pages(), 5, 1).ok);
         QCOMPARE(readFile(env.pages()), before);
     }
 

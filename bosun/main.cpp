@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "BosunBackend.h"
+#include "DaemonStatus.h"
+
+#include <AppsBackend.h>
 
 #include <QCommandLineParser>
 #include <QDebug>
@@ -56,10 +59,12 @@ int main(int argc, char *argv[])
                                   : QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
+    bosun::DaemonStatus daemon;
 
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
-    engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}});
+    engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
+    engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}, {QStringLiteral("daemon"), QVariant::fromValue(&daemon)}});
     engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;

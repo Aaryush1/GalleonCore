@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Galleon Bosun, the settings window. One tab per theme of the pages file, each
-// showing the 12 keys as the module draws them, then the tabs for the keyboard
-// lighting, the wallpapers and the screensavers. Only the tabs and the keys are
-// built so far: nothing here writes the pages file yet.
+// showing the 12 keys as the module draws them and letting the person change them, then
+// a tab to add a theme and the tabs for the keyboard lighting, the wallpapers and the
+// screensavers. Every change is written to the pages file at once (with a backup), which
+// galleond reads by itself: it reaches the module as soon as it is saved, and stays there
+// after a restart.
 
 pragma ComponentBehavior: Bound
 
@@ -15,9 +17,15 @@ Window {
     id: win
 
     required property var backend
+    required property var daemon
 
     property int currentTab: 0
     property int selectedKey: -1
+    // The page shown inside a theme's tab: its own, or one of the sub-pages it leads to.
+    property string shownPage: ""
+    // What the last edit said, in the status bar.
+    property string message: ""
+    property bool messageIsError: false
     // The last theme looked at: its colour is the keyboard tab's (the left dial of the module shows it).
     property int lastTheme: 0
 
@@ -29,18 +37,31 @@ Window {
     visible: true
     color: "#1b1c1f"
 
-    // One tab per theme, then the fixed ones.
+    // One tab per theme, a tab to add one, then the fixed ones.
     readonly property var tabs: backend.themes.map(t => ({title: t.name, kind: "theme", page: t.page, color: t.color})).concat([
+        {title: "+", kind: "newtab", page: "", color: "#9aa0a6"},
         {title: qsTr("Keyboard"), kind: "keyboard", page: "", color: lastTheme < backend.themes.length ? backend.themes[lastTheme].color : "#9aa0a6"},
         {title: qsTr("Wallpapers"), kind: "wallpapers", page: "", color: "#ff00ff"},
         {title: qsTr("Screensavers"), kind: "screensavers", page: "", color: "#b388ff"}
     ])
     readonly property var tab: tabs[Math.min(currentTab, tabs.length - 1)]
-    readonly property var keys: tab.kind === "theme" ? backend.keys(tab.page) : []
+    readonly property string page: tab.kind === "theme" ? (shownPage !== "" && backend.pageNames.indexOf(shownPage) >= 0 ? shownPage : tab.page) : ""
+    // The pages that are not the page of a theme: reached from a key.
+    readonly property var subPages: backend.pageNames.filter(name => !backend.themes.some(t => t.page === name))
+    readonly property var keys: tab.kind === "theme" ? backend.keys(page) : []
     readonly property var selected: selectedKey >= 0 && selectedKey < keys.length ? keys[selectedKey] : null
 
-    onTabChanged: selectedKey = -1
+    // What an edit answered, for the status bar.
+    function answered(error, done) {
+        message = error === "" ? done : error
+        messageIsError = error !== ""
+    }
+
+    // Another tab: the selection and the sub-page are forgotten. (Not when the list of tabs is
+    // read again after an edit: the person is still on the same key.)
     onCurrentTabChanged: {
+        selectedKey = -1
+        shownPage = ""
         if (currentTab < backend.themes.length)
             lastTheme = currentTab
     }
@@ -60,7 +81,7 @@ Window {
                 required property var modelData
                 required property int index
                 readonly property bool current: tabButton.index === win.currentTab
-                width: Math.max(120, (win.width - 40 - (win.tabs.length - 1) * 4) / win.tabs.length)
+                width: Math.max(90, (win.width - 40 - (win.tabs.length - 1) * 4) / win.tabs.length)
                 height: bar.height
                 radius: 8
                 color: tabButton.current ? "#2a2d32" : (hover.containsMouse ? "#232529" : "transparent")
@@ -115,31 +136,60 @@ Window {
         text: win.backend.problem
     }
 
-    // ---- a theme: the 12 keys and the detail of one
+    // ---- a theme: the 12 keys, and on the right what the selected key does or the tab itself
     Item {
         id: themePage
         visible: win.tab.kind === "theme" && win.backend.problem === ""
         x: 30
         y: 84
         width: win.width - 60
-        height: win.height - 104
+        height: win.height - 104 - statusBar.height
 
+        // The pages of the tab: its own and the sub-pages that keys lead to.
+        Row {
+            id: pageChoice
+            spacing: 6
+            Text {
+                height: 30
+                verticalAlignment: Text.AlignVCenter
+                color: "#9aa0a6"
+                font.pixelSize: 13
+                text: qsTr("Page")
+            }
+            Pill {
+                text: win.tab.page
+                selected: win.page === win.tab.page
+                onClicked: win.shownPage = win.tab.page
+            }
+            Repeater {
+                model: win.subPages
+                delegate: Pill {
+                    required property string modelData
+                    text: modelData
+                    selected: win.page === modelData
+                    onClicked: {
+                        win.shownPage = modelData
+                        win.selectedKey = -1
+                    }
+                }
+            }
+        }
         Text {
             id: pageNote
+            y: pageChoice.height + 4
             width: keyGrid.width
             color: "#9aa0a6"
-            font.pixelSize: 13
+            font.pixelSize: 12
             wrapMode: Text.Wrap
             text: {
-                const fill = win.backend.autoFill(win.tab.page)
-                return fill === "" ? qsTr("Page “%1”").arg(win.tab.page)
-                                   : qsTr("Page “%1”. The module also adds: %2.").arg(win.tab.page).arg(fill)
+                const fill = win.backend.autoFill(win.page)
+                return fill === "" ? "" : qsTr("The module also adds: %1.").arg(fill)
             }
         }
 
         Grid {
             id: keyGrid
-            y: pageNote.height + 12
+            y: pageChoice.height + pageNote.height + 12
             columns: 3
             spacing: 12
 
@@ -161,7 +211,7 @@ Window {
                         asynchronous: false
                         cache: false
                         smooth: true
-                        source: "image://tiles/" + win.tab.page + "/" + keyCell.modelData.index + "?r=" + win.backend.revision
+                        source: "image://tiles/" + win.page + "/" + keyCell.modelData.index + "?r=" + win.backend.revision + "&theme=" + win.tab.page
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -174,69 +224,68 @@ Window {
             }
         }
 
-        // The detail of the selected key.
-        Column {
+        // The right side: the key that is selected, else the tab itself.
+        Flickable {
+            id: rightSide
             x: keyGrid.width + 40
-            y: pageNote.height + 12
             width: parent.width - x
-            spacing: 14
+            height: parent.height
+            contentWidth: width
+            contentHeight: rightColumn.height
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
 
-            Text {
-                color: "white"
-                font.pixelSize: 18
-                font.bold: true
-                text: win.selected ? qsTr("Key %1").arg(win.selected.index + 1) : qsTr("Choose a key")
-            }
-            Repeater {
-                model: win.selected && !win.selected.empty
-                       ? [[qsTr("Shows"), win.selected.label], [qsTr("Does"), win.selected.kind], [qsTr("Target"), win.selected.detail]]
-                       : []
-                delegate: Row {
-                    id: detailRow
-                    required property var modelData
-                    visible: detailRow.modelData[1] !== ""
-                    spacing: 12
-                    Text {
-                        width: 80
-                        color: "#9aa0a6"
-                        font.pixelSize: 14
-                        text: detailRow.modelData[0]
-                    }
-                    Text {
-                        width: 360
-                        color: "white"
-                        font.pixelSize: 14
-                        wrapMode: Text.Wrap
-                        text: detailRow.modelData[1]
-                    }
+            Column {
+                id: rightColumn
+                width: rightSide.width - 12
+                spacing: 22
+
+                KeyEditor {
+                    visible: win.selected !== null
+                    width: parent.width
+                    backend: win.backend
+                    page: win.page
+                    key: win.selected !== null ? win.selected : ({index: 0, empty: true, type: "none"})
+                    onAnswered: (error, done) => win.answered(error, done)
                 }
-            }
-            Text {
-                visible: win.selected !== null && win.selected.empty
-                color: "#9aa0a6"
-                font.pixelSize: 14
-                text: qsTr("This key is empty.")
-            }
-            Text {
-                width: parent.width
-                color: "#7d8591"
-                font.pixelSize: 13
-                wrapMode: Text.Wrap
-                text: qsTr("Editing is not built yet: this window only shows the keys. To put an application on a key for now, run “galleond --apps”.")
-            }
-            Text {
-                width: parent.width
-                color: "#7d8591"
-                font.pixelSize: 12
-                wrapMode: Text.Wrap
-                text: qsTr("File: %1").arg(win.backend.file)
+                Text {
+                    visible: win.selected === null
+                    color: "#9aa0a6"
+                    font.pixelSize: 14
+                    text: qsTr("Choose a key to change what it does and shows.")
+                }
+                Rectangle {
+                    width: parent.width
+                    height: 1
+                    color: "#33ffffff"
+                }
+                TabEditor {
+                    width: parent.width
+                    backend: win.backend
+                    index: Math.min(win.currentTab, win.backend.themes.length - 1)
+                    theme: win.backend.themes[Math.min(win.currentTab, win.backend.themes.length - 1)]
+                    onAnswered: (error, done) => win.answered(error, done)
+                    onMoved: to => win.currentTab = to
+                    onRemoved: win.currentTab = Math.max(0, win.currentTab - 1)
+                }
             }
         }
     }
 
+    // ---- a new tab
+    NewTab {
+        visible: win.tab.kind === "newtab" && win.backend.problem === ""
+        x: 30
+        y: 90
+        width: Math.min(win.width - 60, 560)
+        backend: win.backend
+        onAnswered: (error, done) => win.answered(error, done)
+        onCreated: win.currentTab = win.backend.themes.length - 1
+    }
+
     // ---- the tabs still to build
     Column {
-        visible: win.tab.kind !== "theme" && win.tab.kind !== "screensavers" && win.backend.problem === ""
+        visible: (win.tab.kind === "keyboard" || win.tab.kind === "wallpapers") && win.backend.problem === ""
         x: 30
         y: 90
         width: win.width - 60
@@ -264,67 +313,6 @@ Window {
         }
     }
 
-    // A small button for the controls of the settings.
-    component Pill: Rectangle {
-        id: pill
-        property alias text: label.text
-        property bool danger: false
-        property bool selected: false // the value now in force, among several
-        property bool enabledLook: true
-        signal clicked
-        width: Math.max(34, label.implicitWidth + 24)
-        height: 32
-        radius: 6
-        color: !pill.enabledLook ? "#2a2c30" : pill.selected ? "#2e7d32" : (area.containsMouse ? (pill.danger ? "#7a3b3b" : "#3a3f47") : (pill.danger ? "#5b3a3a" : "#2e3238"))
-        Text {
-            id: label
-            anchors.centerIn: parent
-            color: pill.enabledLook ? "white" : "#6d737c"
-            font.pixelSize: 14
-        }
-        MouseArea {
-            id: area
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: pill.enabledLook
-            onClicked: pill.clicked()
-        }
-        Accessible.role: Accessible.Button
-        Accessible.name: label.text
-    }
-
-    // A value changed by two buttons, in steps, between two limits.
-    component Stepper: Row {
-        id: stepper
-        property int value: 0
-        property int from: 0
-        property int to: 10
-        property int step: 1
-        property string unit: ""
-        signal picked(int value)
-        spacing: 8
-        Pill {
-            text: "−"
-            enabledLook: stepper.value > stepper.from
-            onClicked: stepper.picked(Math.max(stepper.from, stepper.value - stepper.step))
-        }
-        Text {
-            width: 90
-            height: 32
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: "white"
-            font.pixelSize: 16
-            font.bold: true
-            text: stepper.value + (stepper.unit !== "" ? " " + stepper.unit : "")
-        }
-        Pill {
-            text: "+"
-            enabledLook: stepper.value < stepper.to
-            onClicked: stepper.picked(Math.min(stepper.to, stepper.value + stepper.step))
-        }
-    }
-
     // ---- the screensavers: the settings, then the videos with what is known of each
     Flickable {
         id: saverPage
@@ -335,7 +323,7 @@ Window {
         x: 30
         y: 84
         width: win.width - 60
-        height: win.height - 104
+        height: win.height - 104 - statusBar.height
         contentWidth: width
         contentHeight: saverColumn.height
         clip: true
@@ -801,6 +789,57 @@ Window {
                 wrapMode: Text.Wrap
                 text: qsTr("Cropping a video to the module and converting it come next. Every change is saved at once in %1 (the previous version is kept as .bak) and galleond reads it by itself.").arg(win.backend.file)
             }
+        }
+    }
+
+    // ---- the status bar: does the module follow, and what was done
+    Rectangle {
+        id: statusBar
+        x: 0
+        y: win.height - height
+        width: win.width
+        height: 34
+        color: "#15171a"
+        Rectangle {
+            width: parent.width
+            height: 1
+            color: "#33ffffff"
+        }
+        Row {
+            x: 20
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 8
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 10
+                height: 10
+                radius: 5
+                color: win.daemon.running ? "#43a047" : "#ffb74d"
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                color: "#c9ced6"
+                font.pixelSize: 13
+                text: win.daemon.running ? qsTr("galleond is running: a change reaches the module at once.")
+                                         : qsTr("galleond is not running: changes are saved and will show when it starts.")
+            }
+            Pill {
+                visible: !win.daemon.running
+                height: 24
+                text: qsTr("Start it")
+                onClicked: win.answered(win.daemon.start(), qsTr("Starting galleond…"))
+            }
+        }
+        Text {
+            anchors.right: parent.right
+            anchors.rightMargin: 20
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width / 2.4
+            horizontalAlignment: Text.AlignRight
+            elide: Text.ElideRight
+            color: win.messageIsError ? "#ff8a80" : "#9be7a0"
+            font.pixelSize: 13
+            text: win.message
         }
     }
 }

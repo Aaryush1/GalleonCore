@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "BosunBackend.h"
+#include "DaemonStatus.h"
 #include "Required.h"
+
+#include <AppsBackend.h>
 
 #include <QDir>
 #include <QFile>
@@ -525,6 +528,82 @@ private Q_SLOTS:
         QVERIFY(!QFileInfo::exists(dir.filePath("converted")));
     }
 
+    void theKeysCarryWhatAnEditorNeeds()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        const bosun::BosunBackend backend(file);
+        const QVariantMap play = backend.keys("main").at(0).toMap();
+        QCOMPARE(play.value("type").toString(), QStringLiteral("media"));
+        QCOMPARE(play.value("command").toString(), QStringLiteral("play-pause"));
+        QCOMPARE(play.value("rawLabel").toString(), QStringLiteral("Play"));
+        QCOMPARE(backend.keys("main").at(2).toMap().value("pageTarget").toString(), QStringLiteral("music"));
+        QVERIFY(backend.keys("main").at(5).toMap().value("type").isNull()); // an empty key has no action to describe
+        QVERIFY(backend.pageNames().contains("music"));
+        QCOMPARE(backend.mediaCommands().size(), 12);
+        QVERIFY(bosun::BosunBackend::keypadKeys().contains("kp0"));
+    }
+
+    void aKeyIsEditedThroughTheBackend()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        bosun::BosunBackend backend(file);
+        const int before = backend.revision();
+        QVERIFY(backend.setKey("music", 3, {{"type", "media"}, {"command", "volume"}, {"step", -10}, {"label", "Quieter"}}).isEmpty());
+        QVERIFY(backend.revision() > before); // read again at once
+        const QVariantMap key = backend.keys("music").at(3).toMap();
+        QCOMPARE(key.value("command").toString(), QStringLiteral("volume"));
+        QCOMPARE(key.value("step").toInt(), -10);
+        QCOMPARE(key.value("label").toString(), QStringLiteral("Quieter"));
+        QVERIFY(backend.clearKey("music", 3).isEmpty());
+        QVERIFY(backend.keys("music").at(3).toMap().value("empty").toBool());
+        QVERIFY(!backend.setKey("music", 3, {{"type", "media"}, {"command", "nonsense"}}).isEmpty());
+        QVERIFY(!backend.setKey("music", 3, {{"type", "page"}, {"page", "no-such-page"}}).isEmpty());
+        QVERIFY(backend.keys("music").at(3).toMap().value("empty").toBool()); // refused: nothing written
+    }
+
+    void aTabIsAddedRenamedMovedAndRemovedThroughTheBackend()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        bosun::BosunBackend backend(file);
+        QVERIFY(backend.addTheme("Création Musicale", "#ab47bc").isEmpty());
+        QCOMPARE(backend.themes().size(), 3);
+        QCOMPARE(backend.themes().at(2).toMap().value("page").toString(), QStringLiteral("creation-musicale")); // the page name is made from the name
+        QCOMPARE(backend.themes().at(2).toMap().value("color").toString(), QStringLiteral("#ab47bc"));
+        QVERIFY(backend.addTheme("Création Musicale", "#ab47bc").isEmpty()); // same name again: its own page
+        QCOMPARE(backend.themes().at(3).toMap().value("page").toString(), QStringLiteral("creation-musicale-2"));
+        QCOMPARE(backend.keys("creation-musicale").size(), 12); // the page is there, empty
+
+        QVERIFY(backend.setTheme(2, "Studio", "#00acc1").isEmpty());
+        QCOMPARE(backend.themes().at(2).toMap().value("name").toString(), QStringLiteral("Studio"));
+        QVERIFY(backend.moveTheme(2, -1).isEmpty());
+        QCOMPARE(backend.themes().at(1).toMap().value("name").toString(), QStringLiteral("Studio"));
+        QVERIFY(backend.removeTheme(1).isEmpty());
+        QCOMPARE(backend.themes().size(), 3);
+        QVERIFY(!backend.pageNames().contains("creation-musicale"));
+        QVERIFY(!backend.removeTheme(0).isEmpty()); // the home page's tab stays
+        QVERIFY(!backend.addTheme("", "#ab47bc").isEmpty());
+    }
+
+    void aSubPageTakesTheColourOfTheTabItIsShownIn()
+    {
+        const QTemporaryDir dir;
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, twoThemes()));
+        const bosun::BosunBackend backend(file);
+        // "music" is the page of a theme with its own colour; shown in the tab of "main" it takes main's.
+        QVERIFY(backend.tile("music", 0, "main").toImage() != backend.tile("music", 0, "music").toImage());
+        QVERIFY(backend.tile("music", 0).toImage() == backend.tile("music", 0, "music").toImage());
+        bosun::TileProvider provider(&backend);
+        QSize size;
+        QVERIFY(provider.requestPixmap("music/0?r=7&theme=main", &size, {}).toImage() == backend.tile("music", 0, "main").toImage());
+    }
+
     void theWindowHasATabPerThemeAndTheFixedOnes()
     {
         const QTemporaryDir dir;
@@ -533,11 +612,13 @@ private Q_SLOTS:
         const bosun::BosunBackend backend(file);
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
-        engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}});
+        bosun::DaemonStatus daemon("/nonexistent/systemctl");
+        engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
+        engine.setInitialProperties({{QStringLiteral("backend"), QVariant::fromValue(&backend)}, {QStringLiteral("daemon"), QVariant::fromValue(&daemon)}});
         engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
         QVERIFY(!engine.rootObjects().isEmpty());
         QObject *window = engine.rootObjects().constFirst();
-        QCOMPARE(window->property("tabs").toList().size(), 2 + 3); // themes, keyboard, wallpapers, screensavers
+        QCOMPARE(window->property("tabs").toList().size(), 2 + 4); // themes, the new tab, keyboard, wallpapers, screensavers
         QCOMPARE(window->property("keys").toList().size(), 12);
         QVERIFY(window->property("selected").toMap().isEmpty()); // nothing chosen yet
         window->setProperty("selectedKey", 0);
@@ -546,7 +627,7 @@ private Q_SLOTS:
         window->setProperty("currentTab", 1);
         QCOMPARE(window->property("selectedKey").toInt(), -1);
         QCOMPARE(window->property("keys").toList().size(), 12);
-        window->setProperty("currentTab", 4);
+        window->setProperty("currentTab", 5);
         QVERIFY(window->property("keys").toList().isEmpty());
         // A window that is not shown has no picture, but a shown one grabs: the pictures load.
         window->setProperty("currentTab", 0);

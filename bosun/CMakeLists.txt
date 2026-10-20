@@ -5,16 +5,19 @@
 add_library(bosun_core STATIC
     BosunBackend.h BosunBackend.cpp
     CropMath.h CropMath.cpp
+    DaemonStatus.h DaemonStatus.cpp
+    PageName.h PageName.cpp
     VideoAdvice.h VideoAdvice.cpp
     VideoConverter.h VideoConverter.cpp
 )
 target_include_directories(bosun_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(bosun_core PUBLIC galleond_core Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick PRIVATE galleon_warnings)
+target_link_libraries(bosun_core PUBLIC galleond_core Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::DBus PRIVATE galleon_warnings)
 set_target_properties(bosun_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 qt_add_resources(bosun_core "bosun_ui"
     PREFIX "/bosun"
-    FILES qml/Bosun.qml icons/galleon-bosun.svg
+    FILES qml/Bosun.qml qml/Pill.qml qml/Stepper.qml qml/Field.qml qml/Swatches.qml qml/KeyEditor.qml qml/TabEditor.qml qml/NewTab.qml
+          icons/galleon-bosun.svg
 )
 
 add_executable(galleon-bosun main.cpp)

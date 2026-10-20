@@ -14,6 +14,25 @@ struct EditResult
     QStringList errors; // one line each; empty when ok
 };
 
+// What a key does and shows, as the settings window describes it. Only the fields of its
+// `type` are used: "app" (desktop), "media" (command, and step for volume or seconds for seek),
+// "page" (page), "back", "key" (keyName: a key of the keypad) or "steam" (appid).
+struct KeySpec
+{
+    QString type;
+    QString desktop;
+    QString command;
+    int step = 0;
+    int seconds = 0;
+    QString page;
+    QString keyName;
+    int appid = 0;
+    QString label; // empty: the default (an application's own name)
+    QString icon;  // empty: the default (an application's own icon)
+
+    friend bool operator==(const KeySpec &, const KeySpec &) = default;
+};
+
 // Changes one key of the pages file for the user, so that putting an
 // application on a key needs no JSON. A running galleond reads the change by
 // itself.
@@ -33,6 +52,18 @@ public:
 
     // Empties key `key` of page `page`.
     static EditResult clearKey(const QString &file, const QString &page, int key);
+    // Puts on key `key` of `page` what `spec` says, whatever was there (the old label and icon
+    // go; the words of a shuffle or repeat key stay when it stays one).
+    static EditResult setKey(const QString &file, const QString &page, int key, const KeySpec &spec);
+
+    // The themes (the tabs of the window). `page` is the name of the page a new theme opens: it is
+    // made, empty. A theme that is gone takes its page with it unless something still leads there.
+    static EditResult addTheme(const QString &file, const QString &name, const QString &color, const QString &page);
+    static EditResult setTheme(const QString &file, int index, const QString &name, const QString &color);
+    // The theme of the home page cannot be removed (it is where the module starts), nor can the last one.
+    static EditResult removeTheme(const QString &file, int index);
+    // Moves theme `index` by `delta` places in the list (the order of the tabs).
+    static EditResult moveTheme(const QString &file, int index, int delta);
 
     // The screensaver. Each change is validated like any pages file before it is written,
     // and leaves the rest of the file (the geometry, the other videos) as it was.

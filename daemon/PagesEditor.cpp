@@ -88,6 +88,35 @@ void storeKeys(QJsonObject &root, const QString &page, QJsonArray keys)
 
 EditResult write(const QString &file, const QJsonObject &root, bool original);
 
+// The JSON action of a key from what the window says.
+QJsonObject actionOf(const KeySpec &spec)
+{
+    QJsonObject action{{QStringLiteral("type"), spec.type}};
+    if (spec.type == QLatin1String("app")) {
+        action.insert(QStringLiteral("desktop"), spec.desktop);
+    } else if (spec.type == QLatin1String("media")) {
+        action.insert(QStringLiteral("command"), spec.command);
+        if (spec.command == QLatin1String("volume"))
+            action.insert(QStringLiteral("step"), spec.step);
+        else if (spec.command == QLatin1String("seek"))
+            action.insert(QStringLiteral("seconds"), spec.seconds);
+    } else if (spec.type == QLatin1String("page")) {
+        action.insert(QStringLiteral("page"), spec.page);
+    } else if (spec.type == QLatin1String("key")) {
+        action.insert(QStringLiteral("key"), spec.keyName);
+    } else if (spec.type == QLatin1String("steam")) {
+        action.insert(QStringLiteral("appid"), spec.appid);
+    }
+    return action;
+}
+
+// The icon a key writes: nothing when there is none.
+void putIcon(QJsonObject &entry, const QString &icon)
+{
+    if (!icon.trimmed().isEmpty())
+        entry.insert(QStringLiteral("icon"), icon.trimmed());
+}
+
 // The videos of a "screensaver" object as a list of {file, title}, whichever way the
 // file wrote them: one path, one object, or a list of either.
 QJsonArray videoEntries(const QJsonObject &saver)
@@ -186,6 +215,120 @@ EditResult write(const QString &file, const QJsonObject &root, bool original)
 }
 
 } // namespace
+
+namespace {
+
+// Pages (other than `except`) that a key of any page opens.
+bool pageIsLinkedTo(const QJsonObject &root, const QString &page, const QString &except)
+{
+    const QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    for (auto it = pages.begin(); it != pages.end(); ++it) {
+        if (it.key() == except)
+            continue;
+        const QJsonArray keys = it.value().toObject().value(QStringLiteral("keys")).toArray();
+        for (const auto &key : keys) {
+            const QJsonObject action = key.toObject().value(QStringLiteral("action")).toObject();
+            if (action.value(QStringLiteral("type")).toString() == QLatin1String("page") && action.value(QStringLiteral("page")).toString() == page)
+                return true;
+        }
+    }
+    return false;
+}
+
+bool validThemeIndex(const QJsonArray &themes, int index, EditResult &error)
+{
+    if (index >= 0 && index < themes.size())
+        return true;
+    error = failure(QStringLiteral("there is no theme number %1").arg(index));
+    return false;
+}
+
+} // namespace
+
+EditResult PagesEditor::addTheme(const QString &file, const QString &name, const QString &color, const QString &page)
+{
+    QJsonObject root;
+    bool original = false;
+    EditResult error;
+    if (!load(file, root, original, error))
+        return error;
+    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    if (pages.contains(page))
+        return failure(QStringLiteral("there is already a page named '%1'").arg(page));
+    pages.insert(page, QJsonObject{{QStringLiteral("keys"), QJsonArray()}});
+    root.insert(QStringLiteral("pages"), pages);
+    QJsonArray themes = root.value(QStringLiteral("themes")).toArray();
+    themes.append(QJsonObject{{QStringLiteral("name"), name.trimmed()}, {QStringLiteral("page"), page}, {QStringLiteral("color"), color.trimmed().toLower()}});
+    root.insert(QStringLiteral("themes"), themes);
+    return write(file, root, original);
+}
+
+EditResult PagesEditor::setTheme(const QString &file, int index, const QString &name, const QString &color)
+{
+    QJsonObject root;
+    bool original = false;
+    EditResult error;
+    if (!load(file, root, original, error))
+        return error;
+    QJsonArray themes = root.value(QStringLiteral("themes")).toArray();
+    if (!validThemeIndex(themes, index, error))
+        return error;
+    QJsonObject theme = themes.at(index).toObject();
+    theme.insert(QStringLiteral("name"), name.trimmed());
+    theme.insert(QStringLiteral("color"), color.trimmed().toLower());
+    themes.replace(index, theme);
+    root.insert(QStringLiteral("themes"), themes);
+    return write(file, root, original);
+}
+
+EditResult PagesEditor::removeTheme(const QString &file, int index)
+{
+    QJsonObject root;
+    bool original = false;
+    EditResult error;
+    if (!load(file, root, original, error))
+        return error;
+    QJsonArray themes = root.value(QStringLiteral("themes")).toArray();
+    if (!validThemeIndex(themes, index, error))
+        return error;
+    if (themes.size() <= 1)
+        return failure(QStringLiteral("the last theme cannot be removed"));
+    const QString page = themes.at(index).toObject().value(QStringLiteral("page")).toString();
+    if (page == root.value(QStringLiteral("home")).toString())
+        return failure(QStringLiteral("this theme opens the home page, where the module starts: it cannot be removed"));
+    themes.removeAt(index);
+    root.insert(QStringLiteral("themes"), themes);
+    // The page goes with its theme, unless another theme or a key still leads to it.
+    bool otherTheme = false;
+    for (const auto &theme : std::as_const(themes))
+        otherTheme = otherTheme || theme.toObject().value(QStringLiteral("page")).toString() == page;
+    if (!otherTheme && !pageIsLinkedTo(root, page, page)) {
+        QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+        pages.remove(page);
+        root.insert(QStringLiteral("pages"), pages);
+    }
+    return write(file, root, original);
+}
+
+EditResult PagesEditor::moveTheme(const QString &file, int index, int delta)
+{
+    QJsonObject root;
+    bool original = false;
+    EditResult error;
+    if (!load(file, root, original, error))
+        return error;
+    QJsonArray themes = root.value(QStringLiteral("themes")).toArray();
+    if (!validThemeIndex(themes, index, error))
+        return error;
+    const int target = index + delta;
+    if (target < 0 || target >= themes.size())
+        return failure(QStringLiteral("there is no place to move it to"));
+    const QJsonValue moving = themes.at(index);
+    themes.removeAt(index);
+    themes.insert(target, moving);
+    root.insert(QStringLiteral("themes"), themes);
+    return write(file, root, original);
+}
 
 EditResult PagesEditor::setScreensaverIdleMinutes(const QString &file, int minutes)
 {
@@ -288,6 +431,45 @@ EditResult PagesEditor::assignApp(const QString &file, const QString &page, int 
     keys.append(QJsonObject{{QStringLiteral("key"), key},
                             {QStringLiteral("action"),
                              QJsonObject{{QStringLiteral("type"), QStringLiteral("app")}, {QStringLiteral("desktop"), desktop}}}});
+    storeKeys(root, page, keys);
+    return write(file, root, original);
+}
+
+EditResult PagesEditor::setKey(const QString &file, const QString &page, int key, const KeySpec &spec)
+{
+    static const QStringList types{QStringLiteral("app"), QStringLiteral("media"), QStringLiteral("page"), QStringLiteral("back"),
+                                   QStringLiteral("key"), QStringLiteral("steam")};
+    if (!types.contains(spec.type))
+        return failure(QStringLiteral("a key does one of: %1").arg(types.join(QStringLiteral(", "))));
+    if (spec.type == QLatin1String("app")) {
+        if (!DesktopEntries::isValidReference(spec.desktop))
+            return failure(QStringLiteral("'%1' is not a desktop file name (such as firefox.desktop)").arg(spec.desktop.left(80)));
+        if (!DesktopEntries::lookup(spec.desktop).isValid())
+            return failure(QStringLiteral("no application named '%1'").arg(spec.desktop));
+    }
+    QJsonObject root;
+    bool original = false;
+    EditResult error;
+    if (!load(file, root, original, error))
+        return error;
+    QJsonArray keys;
+    // Remember the words of the old key before it goes.
+    QJsonValue words;
+    const QJsonArray before = root.value(QStringLiteral("pages")).toObject().value(page).toObject().value(QStringLiteral("keys")).toArray();
+    for (const auto &entry : before) {
+        if (entry.toObject().value(QStringLiteral("key")).toInt(-1) == key)
+            words = entry.toObject().value(QStringLiteral("state_labels"));
+    }
+    if (!pageKeys(root, page, key, keys, error))
+        return error;
+    QJsonObject entry{{QStringLiteral("key"), key}, {QStringLiteral("action"), actionOf(spec)}};
+    if (!spec.label.trimmed().isEmpty())
+        entry.insert(QStringLiteral("label"), spec.label.trimmed());
+    putIcon(entry, spec.icon);
+    if (!words.isUndefined() && spec.type == QLatin1String("media")
+        && (spec.command == QLatin1String("shuffle") || spec.command == QLatin1String("repeat")))
+        entry.insert(QStringLiteral("state_labels"), words);
+    keys.append(entry);
     storeKeys(root, page, keys);
     return write(file, root, original);
 }

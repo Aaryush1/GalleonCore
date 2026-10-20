@@ -36,6 +36,11 @@ class BosunBackend : public QObject
     Q_PROPERTY(QString problem READ problem NOTIFY changed)
     // [{name, page, color}], in the order of the file; color is "#rrggbb".
     Q_PROPERTY(QVariantList themes READ themes NOTIFY changed)
+    // The names of all the pages (the pages of the themes, and the sub-pages they lead to).
+    Q_PROPERTY(QStringList pageNames READ pageNames NOTIFY changed)
+    // What a key can do: [{id, label}] for media, the names of the keys of the keypad.
+    Q_PROPERTY(QVariantList mediaCommands READ mediaCommands CONSTANT)
+    Q_PROPERTY(QStringList keypadKeys READ keypadKeys CONSTANT)
     // Goes up at each reading, to make the window ask for the pictures again.
     Q_PROPERTY(int revision READ revision NOTIFY changed)
     // The screensaver of the file, with what is known of each video (see screensaver()).
@@ -65,6 +70,11 @@ public:
     [[nodiscard]] QString file() const { return m_file; }
     [[nodiscard]] QString problem() const { return m_problem; }
     [[nodiscard]] QVariantList themes() const { return m_themes; }
+    [[nodiscard]] QStringList pageNames() const;
+    [[nodiscard]] static QVariantList mediaCommands();
+    [[nodiscard]] static QStringList keypadKeys();
+    // The installed applications, [{name, id, icon}] by name (read from the menu on the first call).
+    Q_INVOKABLE [[nodiscard]] QVariantList installedApps();
     [[nodiscard]] int revision() const { return m_revision; }
 
     // {enabled, hasGeometry, idleMinutes, fps, whilePlaying, probeMissing, canvas, videos}. `probeMissing`: ffprobe was not found,
@@ -81,13 +91,25 @@ public:
     [[nodiscard]] QVariantMap candidate() const { return m_candidate; }
     [[nodiscard]] QVariantMap conversion() const { return m_conversion; }
 
-    // The 12 keys of `page`, as written in the file: [{index, label, kind, detail, empty}].
+    // The 12 keys of `page`, as written in the file: [{index, label, kind, detail, empty}], and
+    // for an editor what is configured: type, command, step, seconds, pageTarget, desktop,
+    // keyName, appid, rawLabel, rawIcon.
     // Empty list for a page that does not exist.
     Q_INVOKABLE [[nodiscard]] QVariantList keys(const QString &page) const;
     // What the module adds on its own to `page` (applications by use, Steam games, menu
     // applications), in words; empty when it adds nothing.
     Q_INVOKABLE [[nodiscard]] QString autoFill(const QString &page) const;
     Q_INVOKABLE void reload();
+
+    // The edits of the keys and of the tabs. Each returns "" when it is done (the file is written
+    // with a backup and read again at once), else why it was refused; nothing is written then.
+    // `spec` holds: type, desktop, command, step, seconds, page, keyName, label, icon (see KeySpec).
+    Q_INVOKABLE [[nodiscard]] QString setKey(const QString &page, int key, const QVariantMap &spec);
+    Q_INVOKABLE [[nodiscard]] QString clearKey(const QString &page, int key);
+    Q_INVOKABLE [[nodiscard]] QString addTheme(const QString &name, const QString &color);
+    Q_INVOKABLE [[nodiscard]] QString setTheme(int index, const QString &name, const QString &color);
+    Q_INVOKABLE [[nodiscard]] QString removeTheme(int index);
+    Q_INVOKABLE [[nodiscard]] QString moveTheme(int index, int delta);
 
     // The edits of the screensaver tab. Each returns "" when it is done (the file is written
     // with a backup and read again at once), else why it was refused; nothing is written then.
@@ -110,8 +132,10 @@ public:
     Q_INVOKABLE [[nodiscard]] QString startConversion(int x, int y, int width, int height, const QString &title);
     Q_INVOKABLE void cancelConversion();
 
-    // The 160 x 160 picture of key `key` of `page`; a blank key when there is none.
-    [[nodiscard]] QPixmap tile(const QString &page, int key) const;
+    // The 160 x 160 picture of key `key` of `page`; a blank key when there is none. The keys are
+    // tinted with the colour of the theme of `themePage` (else of `page`): a sub-page takes the
+    // colour of the tab it is shown in.
+    [[nodiscard]] QPixmap tile(const QString &page, int key, const QString &themePage = {}) const;
 
 Q_SIGNALS:
     void changed();
@@ -130,6 +154,8 @@ private:
     QString m_file;
     QString m_problem;
     QVariantList m_themes;
+    QVariantList m_apps;
+    bool m_appsRead = false;
     int m_revision = 0;
     std::optional<galleond::PagesConfig> m_config;
     galleond::TileRenderer m_tiles;
