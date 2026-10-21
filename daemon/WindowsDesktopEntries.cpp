@@ -3,6 +3,8 @@
 
 #include "DesktopEntries.h"
 #include "InitialPages.h"
+#include "SteamLibrary.h"
+#include <QFile>
 
 #include <QCryptographicHash>
 #include <QDebug>
@@ -157,7 +159,7 @@ bool allowedFile(const QFileInfo &info)
 {
     const QString suffix = info.suffix().toLower();
     return info.isAbsolute() && info.isFile() && !info.isSymbolicLink()
-        && (suffix == QStringLiteral("lnk") || suffix == QStringLiteral("exe"));
+        && (suffix == QStringLiteral("lnk") || suffix == QStringLiteral("exe") || suffix == QStringLiteral("url"));
 }
 }
 
@@ -167,7 +169,7 @@ bool DesktopEntries::isValidReference(const QString &desktop)
         return false;
     const QFileInfo info(desktop);
     const QString suffix = info.suffix().toLower();
-    return info.isAbsolute() && (suffix == QStringLiteral("lnk") || suffix == QStringLiteral("exe"));
+    return info.isAbsolute() && (suffix == QStringLiteral("lnk") || suffix == QStringLiteral("exe") || suffix == QStringLiteral("url"));
 }
 
 DesktopApp DesktopEntries::read(const QString &file, const QString &id)
@@ -182,6 +184,17 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
     app.file = info.absoluteFilePath();
     app.id = id;
     app.name = info.completeBaseName();
+    if (info.suffix().compare(QStringLiteral("url"), Qt::CaseInsensitive) == 0) {
+        QFile shortcut(file);
+        if (!shortcut.open(QIODevice::ReadOnly))
+            return {};
+        app.steamAppId = SteamLibrary::shortcutAppId(shortcut.read(8193));
+        if (app.steamAppId <= 0)
+            return {};
+        app.categories = {QStringLiteral("Game")};
+        app.iconPath = SteamLibrary::coverImage(app.steamAppId);
+        return app;
+    }
     const ShortcutInfo shortcut = info.suffix().compare(QStringLiteral("lnk"), Qt::CaseInsensitive) == 0
         ? shortcutInfo(file) : ShortcutInfo{app.file, {}, {}};
     if (!usefulShortcut(app.name, shortcut.target))
@@ -205,7 +218,7 @@ QList<DesktopApp> DesktopEntries::list()
 {
     QList<DesktopApp> apps;
     for (const QString &root : startMenuRoots()) {
-        QDirIterator files(root, {QStringLiteral("*.lnk")}, QDir::Files,
+        QDirIterator files(root, {QStringLiteral("*.lnk"), QStringLiteral("*.url")}, QDir::Files,
                            QDirIterator::Subdirectories);
         while (files.hasNext() && apps.size() < MaxApps) {
             const QString path = files.next();
@@ -234,6 +247,13 @@ QList<DesktopApp> DesktopEntries::list()
     }
     QSet<QString> seen;
     apps.removeIf([&seen](const DesktopApp &app) {
+        if (app.steamAppId > 0) {
+            const QString identity = QStringLiteral("steam:%1").arg(app.steamAppId);
+            if (seen.contains(identity))
+                return true;
+            seen.insert(identity);
+            return false;
+        }
         const ShortcutInfo shortcut = app.file.endsWith(QStringLiteral(".lnk"), Qt::CaseInsensitive)
             ? shortcutInfo(app.file) : ShortcutInfo{app.file, {}, {}};
         // Same browser + distinct app/profile arguments are distinct launchers.
@@ -260,6 +280,13 @@ bool DesktopEntries::launch(const DesktopApp &app)
 {
     if (!isValidReference(app.file) || !allowedFile(QFileInfo(app.file)))
         return false;
+    if (QFileInfo(app.file).suffix().compare(QStringLiteral("url"), Qt::CaseInsensitive) == 0) {
+        QFile shortcut(app.file);
+        if (!shortcut.open(QIODevice::ReadOnly))
+            return false;
+        const int id = SteamLibrary::shortcutAppId(shortcut.read(8193));
+        return id > 0 && QDesktopServices::openUrl(QUrl(QStringLiteral("steam://rungameid/%1").arg(id)));
+    }
     if (QFileInfo(app.file).suffix().compare(QStringLiteral("exe"), Qt::CaseInsensitive) == 0)
         return QProcess::startDetached(app.file, {});
     return QDesktopServices::openUrl(QUrl::fromLocalFile(app.file));

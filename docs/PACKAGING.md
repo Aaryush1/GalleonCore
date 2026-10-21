@@ -176,3 +176,11 @@ Native app icons are extracted on the user's machine; they are not redistributed
 inside the installer. The owner traced the ring conflict to Windows Dynamic Lighting being enabled.
 No installer change claims exclusive RGB ownership. Bosun also starts a missing
 daemon once when opened with its default profile; installed CI tests this path.
+
+Windows page stability follow-up: initial launcher themes have at most 12 items;
+existing explicit edits/empty slots are not auto-filled or reordered. The installed
+galleond also provides `--launcher-info` for its own bounded metadata children;
+that mode never opens HID. It uses the same Qt deployment as the daemon, without
+an additional runtime helper binary. Test helper executables are not installed.
+The application picker accepts validated Steam `.url` shortcuts, not generic URLs.
+See `docs/WINDOWS.md` for current limits and hardware validation still outstanding.

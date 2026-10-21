@@ -42,6 +42,9 @@ struct SteamGame
 class SteamLibrary
 {
 public:
+    // A bounded Steam InternetShortcut, never an arbitrary URI or command. Zero means invalid.
+    [[nodiscard]] static int shortcutAppId(const QByteArray &bytes);
+
     static constexpr qint64 MaxVdfBytes = 8LL * 1024 * 1024;
     static constexpr int MaxDepth = 16;
     static constexpr int MaxLibraryFolders = 16;

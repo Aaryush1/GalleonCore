@@ -98,8 +98,18 @@ for a decoder process; test an ignored termination request as well as consumed
 wake input. Official OpenRGB ring ownership remains a hardware integration item;
 do not claim priority from repeated color writes.
 
-Windows automatic launcher themes are bounded to two pages and 22 launchers.
-Keep navigation on key 11 (Plus/Back), preserve custom navigation, and use the
-same expansion when the daemon, Bosun and editor read a configuration. Discover
-initial Shell launchers before opening HID; keep repeated discovery cached.
-The owner identified Windows Dynamic Lighting as the ring conflict source.
+Windows defaults are capped at 12 launchers per theme, with no generated Plus
+page, auto-refill or usage reordering on reload/edit. Existing Windows page files
+are normalized without Shell discovery; explicit empty slots remain empty.
+Linux keeps its auto-fill behavior. Keep launcher/Shell/Steam artwork I/O outside
+the Windows device event loop: LauncherCache runs a bounded, timed metadata-only
+child (`galleond --launcher-info`), before any instance lock/HID opening. Draw one
+key per event-loop turn. Long image writes refresh the existing host keep-alive
+between reports without processing nested events. Cover both with slow-I/O tests;
+do not claim a hardware reset fixed from synthetic tests alone.
+Steam `.url` imports accept only bounded InternetShortcut files containing one
+`steam://rungameid/<positive int>` URL. Ignore external icon paths and reconstruct
+the validated Steam URI when launching. Other URL schemes remain rejected.
+The owner identified Windows Dynamic Lighting and OpenRGB's `Dynamic Light`
+LampArray device (1b1c:2b18, MI_03) as competing ring controllers. Do not invent
+ownership commands or persistent RGB reports.

@@ -3,6 +3,7 @@
 
 # The daemon's logic, as a library so that the tests can use it.
 add_library(galleond_core STATIC
+    LauncherCache.h LauncherCache.cpp
     AppsBackend.h AppsBackend.cpp
     CoverLoader.h CoverLoader.cpp
     KeyInjector.h PlatformBackends.h

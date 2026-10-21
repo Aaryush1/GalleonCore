@@ -214,13 +214,13 @@ does not establish priority. No global RGB configuration is changed by GalleonCo
 
 ## Windows feedback: bounded launcher themes and sign-in
 
-Automatic launcher themes show up to 12 items on one page. Above that, they use
-11 launchers plus a bottom-right `<theme>-Plus` key, then at most 11 launchers
-plus a bottom-right Back key. The combined Steam/menu limit is 22, with duplicate
-Steam shortcuts excluded. Existing automatic pages are expanded in memory on
-load and use the normal backed-up editor save; pages with custom navigation are
-left alone. Linux keeps its existing page configuration and navigation actions.
-Shell discovery is cached for five minutes and warmed before HID is opened.
+Windows initial launcher themes are capped at 12 items, with no automatically
+created Plus page. Existing files keep explicit positions and empty keys: menu,
+Steam auto-fill and usage sorting are disabled on Windows load/edit. Recognizable
+old generated Plus links are removed; the first extra launcher can take slot 11,
+and the extra page data stays in the file for recovery. Custom navigation stays.
+The normal editor save keeps a backup. Linux retains its existing behavior.
+Initial catalog discovery occurs only for the built-in fallback before HID opens.
 
 Setup registers quoted per-user HKCU Run commands for galleond and minimized
 Bosun, enabled by default; it removes its old Startup shortcuts. Deselecting the
@@ -232,7 +232,7 @@ the IPC probe. Screenshots and explicit `--pages` profiles do not start a daemon
 
 The owner identified enabled Windows Dynamic Lighting as the cause of the ring
 color conflict. No repeated RGB writes or claim of priority over OpenRGB is added.
-Physical confirmation of pagination, wake and sign-in remains required.
+Physical confirmation of stable page switching, edits, wake and sign-in remains required.
 
 ## Installed browser apps and PWAs
 
@@ -244,4 +244,29 @@ A shortcut's local, regular ICO file (at most 4 MiB, index zero) supplies its ow
 icon; remote icon paths and custom Shell handlers are not used. Otherwise the
 executable icon remains the fallback. This covers installed shortcuts in the
 scanned Start Menu/Desktop locations, not arbitrary bookmarks or every site
-stored inside a browser profile. The automatic theme limit remains 22 launchers.
+stored inside a browser profile. The Windows initial theme limit is 12 launchers.
+
+## Slow metadata and USB host mode
+
+Windows resolves app icons and Steam artwork in a metadata-only child process,
+not in the device event loop. `LauncherCache` runs one child at a time, with a
+2.5-second deadline, 64 KiB combined output limit, 12 pending requests and 64
+cached results. Changing pages cancels obsolete requests; failures are cached
+until reload. The child exits before any HID open or instance lock. Labels can
+appear before icons. A slow/failing icon does not prevent launching the local
+configured shortcut. Only owned metadata children are killed on timeout.
+The page renderer yields between keys; image transfers refresh the documented
+host keep-alive between reports when needed, without nested event processing.
+These prevent known event-loop stalls; physical USB reset recovery still needs
+the owner's test. No guarantee is made against a single OS HID call that hangs.
+
+The manual application picker also accepts Steam `.url` launchers. It reads at
+most 8 KiB and accepts only one InternetShortcut URL of the exact form
+`steam://rungameid/<positive signed-32-bit integer>`. Generic web/file/command URLs
+and other Steam actions are rejected. IconFile fields are ignored; local Steam
+artwork is used. Launching reparses the file and reconstructs the validated URI.
+
+The owner's OpenRGB screenshot identifies the ring controller as `Dynamic Light`,
+a Corsair HID LampArray at VID 1B1C/PID 2B18, interface MI_03. The full keyboard RGB
+is separate. Keep real-device testing with competing ring writers stopped; this
+build does not configure OpenRGB or establish an automatic priority policy.

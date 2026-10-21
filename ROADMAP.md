@@ -194,7 +194,7 @@ du keep-alive a été retiré ; il n’est pas publié comme solution. Le révei
 veille prolongée reste à confirmer. La nouvelle correction asynchrone traite le
 délai d’arrêt du décodeur ; ses tests incluent un faux décodeur console natif.
 
-### Troisième retour Windows : pagination et ouverture de session
+### Troisième retour Windows : pagination et ouverture de session (pagination abandonnée au quatrième essai)
 
 Le propriétaire identifie l’Éclairage dynamique de Windows comme cause du conflit
 d’éclairage. Il signale une perte de contrôle avec plus de 12 lanceurs et l’absence
@@ -223,3 +223,27 @@ Les PWA doivent disposer d’un raccourci installé dans les emplacements Window
 parcourus ; les favoris et sites non installés ne sont pas inventoriés. Le test
 Windows crée deux applications et deux profils partageant un faux navigateur,
 contrôle leurs icônes, sans les lancer. Validation en cours.
+
+### Quatrième retour Windows : pages fixes, blocage et raccourcis Steam
+
+Le propriétaire observe des modifications/retraits ignorés et le retour au logo
+Corsair lors d’un changement de page chargé, avec le même PID et une reprise
+après environ une minute. Il demande une version limitée à 12 icônes. Le code
+pouvait remplir à nouveau les cases vides, réordonner les raccourcis et faire des
+recherches Shell/Steam dans la boucle du démon avant d’envoyer toute une page.
+La correction remplace la pagination automatique Windows par 12 lanceurs initiaux
+fixes. Chargement et édition ne redécouvrent ni ne remplissent les applications ;
+les positions et retraits sont conservés. Les liens Plus générés sont retirés,
+avec conservation des pages supplémentaires dans le fichier pour récupération.
+Linux conserve sa configuration/remplissage habituel.
+Les métadonnées/icônes sont recherchées dans un enfant limité (2,5 s, 64 Kio,
+12 requêtes en attente, 64 résultats), annulé lors d’un changement de page ; le
+dessin des touches est échelonné. Les transferts JPEG envoient le keep-alive déjà
+documenté entre rapports si nécessaire, sans nouvelle commande de protocole ni
+traitement récursif des événements. Les tests simulent une recherche lente et des
+écritures USB bloquantes ; cela ne vaut pas confirmation matérielle de la reprise.
+Le sélecteur accepte les `.url` Steam validés, sans accepter des URL arbitraires.
+La capture OpenRGB nomme les anneaux « Dynamic Light » : LampArray Corsair
+VID 1B1C/PID 2B18, MI_03. Aucun arbitrage automatique avec OpenRGB n’est revendiqué.
+Sept suites ciblées Linux réussies ; validation complète et Windows en cours.
+Aucun tag, aucune publication avant nouvel essai matériel réussi.

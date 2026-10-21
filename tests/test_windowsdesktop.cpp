@@ -3,6 +3,11 @@
 #include "DaemonStatus.h"
 #include "DesktopEntries.h"
 #include "AppsBackend.h"
+#include "PagesEditor.h"
+#include "InitialPages.h"
+#include "LauncherCache.h"
+#include <QJsonDocument>
+#include <QJsonArray>
 #include "LocalControl.h"
 #include <QImage>
 #include <QFile>
@@ -98,6 +103,65 @@ private slots:
         }
         QCOMPARE(count, 4); // one browser, two app IDs, plus the same app in a different profile
         QCOMPARE(webApps, 3);
+    }
+
+    void manualSteamUrlIsRecognizedAndArbitraryUrlsAreRefused()
+    {
+        const QTemporaryDir folder;
+        const QString path = folder.filePath(QStringLiteral("My Steam game.url"));
+        QFile shortcut(path);
+        QVERIFY(shortcut.open(QIODevice::WriteOnly));
+        shortcut.write("[InternetShortcut]\r\nURL=steam://rungameid/570\r\n");
+        shortcut.close();
+        const auto app = galleond::DesktopEntries::lookup(path);
+        QVERIFY(app.isValid());
+        QCOMPARE(app.steamAppId, 570);
+        QVERIFY(app.categories.contains(QStringLiteral("Game")));
+        QVERIFY(shortcut.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        shortcut.write("[InternetShortcut]\nURL=https://example.com\n");
+        shortcut.close();
+        QVERIFY(!galleond::DesktopEntries::lookup(path).isValid());
+    }
+    void changingAndClearingDefaultWindowsKeysSurvivesRepeatedEdits()
+    {
+        const QTemporaryDir folder;
+        const QString executable = QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32/notepad.exe"));
+        const QString path = folder.filePath(QStringLiteral("pages.json"));
+        auto root = QJsonDocument::fromJson(galleond::windowsInitialPagesJson(QStringLiteral("/absent"), folder.path())).object();
+        auto pages = root.value("pages").toObject();
+        auto media = pages.value("multimedia").toObject();
+        media.insert("keys", QJsonArray{QJsonObject{{"key", 0}, {"action", QJsonObject{{"type", "app"}, {"desktop", executable}}}}});
+        pages.insert("multimedia", media);
+        root.insert("pages", pages);
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QJsonDocument(root).toJson());
+        file.close();
+        QVERIFY(galleond::PagesEditor::clearKey(path, QStringLiteral("multimedia"), 0).ok);
+        galleond::KeySpec replacement;
+        replacement.type = QStringLiteral("app");
+        replacement.desktop = executable;
+        replacement.label = QStringLiteral("My choice");
+        QVERIFY(galleond::PagesEditor::setKey(path, QStringLiteral("multimedia"), 7, replacement).ok);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const auto saved = QJsonDocument::fromJson(file.readAll()).object().value("pages").toObject().value("multimedia").toObject();
+        QVERIFY(!saved.contains("menu"));
+        QVERIFY(!saved.contains("sort"));
+        const auto keys = saved.value("keys").toArray();
+        QCOMPARE(keys.size(), 1);
+        QCOMPARE(keys.at(0).toObject().value("key").toInt(), 7);
+        QCOMPARE(keys.at(0).toObject().value("label").toString(), QStringLiteral("My choice"));
+    }
+
+    void installedMetadataHelperWorksWithoutOpeningTheDeck()
+    {
+        const QString path = QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32/notepad.exe"));
+        galleond::LauncherCache cache(QStringLiteral(GALLEON_TEST_METADATA_DAEMON));
+        QVERIFY(cache.lookup(path).isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(cache.contains(path), 5000);
+        const auto metadata = cache.lookup(path);
+        QVERIFY(!metadata.value("name").toString().isEmpty());
+        QVERIFY(!QImage(metadata.value("icon").toString()).isNull());
     }
 
     void windowsExecutableHasANativeCachedIcon()

@@ -43,13 +43,13 @@ private Q_SLOTS:
         QCOMPARE(required(parsed.config).screensaver.videos.size(), 2);
         QVERIFY(required(parsed.config).screensaver.hasGeometry);
     }
-    void automaticLaunchersUseAtMostTwoPages_data()
+    void automaticLaunchersStayOnOneTwelveKeyPage_data()
     {
         QTest::addColumn<int>("count");
         for (const int count : {0, 1, 12, 13, 22, 23, 80})
             QTest::newRow(qPrintable(QString::number(count))) << count;
     }
-    void automaticLaunchersUseAtMostTwoPages()
+    void automaticLaunchersStayOnOneTwelveKeyPage()
     {
         QFETCH(const int, count);
         QList<DesktopApp> apps;
@@ -61,11 +61,11 @@ private Q_SLOTS:
             apps.append(app);
         }
         const auto original = QJsonDocument::fromJson(windowsInitialPagesJson(QStringLiteral("/absent"), QStringLiteral("/videos"))).object();
-        const auto expanded = paginateWindowsLaunchers(original, apps, {});
+        const auto expanded = seedWindowsLaunchers(original, apps, {});
         const auto parsed = parsePagesConfig(QJsonDocument(expanded).toJson());
         QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
         const auto &pages = required(parsed.config).pages;
-        QCOMPARE(pages.contains(QStringLiteral("multimedia-plus")), count > 12);
+        QVERIFY(!pages.contains(QStringLiteral("multimedia-plus")));
         QSet<QString> references;
         for (const QString &name : {QStringLiteral("multimedia"), QStringLiteral("multimedia-plus")}) {
             if (!pages.contains(name))
@@ -78,17 +78,11 @@ private Q_SLOTS:
                 }
             }
         }
-        QCOMPARE(references.size(), qMin(count, 22));
-        if (count > 12) {
-            const auto more = required(pages.value("multimedia").keys[11]);
-            QCOMPARE(more.action.type, ActionType::Page);
-            QCOMPARE(more.action.page, QStringLiteral("multimedia-plus"));
-            QCOMPARE(more.label, QStringLiteral("Multimédia-Plus"));
-            QCOMPARE(required(pages.value("multimedia-plus").keys[11]).action.type, ActionType::Back);
-            // A persisted generated pair is not expanded into a third page on the next edit.
-            QCOMPARE(paginateWindowsLaunchers(expanded, apps, {}), expanded);
-        }
+        QCOMPARE(references.size(), qMin(count, 12));
+        QCOMPARE(pages.size(), 5);
+        QCOMPARE(fixedWindowsPages(expanded), expanded);
     }
+
     void existingNavigationAndCustomLabelsArePreserved()
     {
         auto root = QJsonDocument::fromJson(windowsInitialPagesJson(QStringLiteral("/absent"), QStringLiteral("/videos"))).object();
@@ -98,9 +92,12 @@ private Q_SLOTS:
         media.insert("keys", QJsonArray{key});
         pages.insert("multimedia", media);
         root.insert("pages", pages);
-        QCOMPARE(paginateWindowsLaunchers(root, {}, {}).value("pages").toObject().value("multimedia"), QJsonValue(media));
+        const auto frozen = fixedWindowsPages(root).value("pages").toObject().value("multimedia").toObject();
+        QCOMPARE(frozen.value("keys"), media.value("keys"));
+        QVERIFY(!frozen.contains("menu"));
+        QVERIFY(!frozen.contains("sort"));
     }
-    void gamesFromSteamAndMenuShareTheTwentyTwoLauncherLimit()
+    void gamesFromSteamAndMenuShareTheTwelveLauncherLimit()
     {
         const auto root = QJsonDocument::fromJson(windowsInitialPagesJson(QStringLiteral("/absent"), QStringLiteral("/videos"))).object();
         QList<SteamGame> games;
@@ -115,17 +112,58 @@ private Q_SLOTS:
             app.steamAppId = id;
             apps.append(app);
         }
-        const auto parsed = parsePagesConfig(QJsonDocument(paginateWindowsLaunchers(root, apps, games)).toJson());
+        const auto parsed = parsePagesConfig(QJsonDocument(seedWindowsLaunchers(root, apps, games)).toJson());
         QVERIFY(parsed.config.has_value());
         int count = 0;
-        for (const QString &name : {QStringLiteral("jeux"), QStringLiteral("jeux-plus")}) {
+        for (const QString &name : {QStringLiteral("jeux")}) {
             const Page page = required(parsed.config).pages.value(name);
             for (const auto &key : page.keys) {
                 if (key && (key->action.type == ActionType::App || key->action.type == ActionType::Steam))
                     ++count;
             }
         }
-        QCOMPARE(count, 22);
+        QCOMPARE(count, 12);
+    }
+    void reloadingNeverRefillsAnEmptySlotOrMovesACustomKey()
+    {
+        auto root = QJsonDocument::fromJson(windowsInitialPagesJson(QStringLiteral("/absent"), QStringLiteral("/videos"))).object();
+        auto pages = root.value("pages").toObject();
+        auto page = pages.value("multimedia").toObject();
+        const QJsonObject key{{"key", 7}, {"label", "My launcher"},
+            {"action", QJsonObject{{"type", "app"}, {"desktop", applicationPath(7)}}}};
+        page.insert("keys", QJsonArray{key});
+        pages.insert("multimedia", page);
+        root.insert("pages", pages);
+        const auto frozen = fixedWindowsPages(root);
+        const auto parsed = parsePagesConfig(QJsonDocument(frozen).toJson());
+        QVERIFY(parsed.config.has_value());
+        const Page result = required(parsed.config).pages.value("multimedia");
+        QVERIFY(!result.keys[0]);
+        QCOMPARE(required(result.keys[7]).label, QStringLiteral("My launcher"));
+        QCOMPARE(result.menuMax, 0);
+        QCOMPARE(result.steamMax, 0);
+        QCOMPARE(result.sort, PageSort::None);
+        QCOMPARE(fixedWindowsPages(frozen), frozen);
+    }
+    void theGeneratedPlusLinkIsRemovedWithoutDeletingItsStoredLaunchers()
+    {
+        auto root = QJsonDocument::fromJson(windowsInitialPagesJson(QStringLiteral("/absent"), QStringLiteral("/videos"))).object();
+        auto pages = root.value("pages").toObject();
+        auto media = pages.value("multimedia").toObject();
+        media.insert("keys", QJsonArray{QJsonObject{{"key", 11}, {"label", "Multimédia-Plus"},
+            {"action", QJsonObject{{"type", "page"}, {"page", "multimedia-plus"}}}}});
+        const QJsonObject extra{{"key", 0}, {"label", "Preserved"},
+            {"action", QJsonObject{{"type", "app"}, {"desktop", applicationPath(0)}}}};
+        pages.insert("multimedia", media);
+        pages.insert("multimedia-plus", QJsonObject{{"keys", QJsonArray{extra}}});
+        root.insert("pages", pages);
+        const auto frozen = fixedWindowsPages(root);
+        const auto parsed = parsePagesConfig(QJsonDocument(frozen).toJson());
+        QVERIFY(parsed.config.has_value());
+        const Page parent = required(parsed.config).pages.value("multimedia");
+        QCOMPARE(required(parent.keys[11]).action.type, ActionType::App);
+        QCOMPARE(required(parent.keys[11]).label, QStringLiteral("Preserved"));
+        QCOMPARE(frozen.value("pages").toObject().value("multimedia-plus").toObject().value("keys").toArray(), QJsonArray{extra});
     }
     void mediaAndGamesHaveUsefulCategories()
     {

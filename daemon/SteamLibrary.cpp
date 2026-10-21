@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "SteamLibrary.h"
+#include <limits>
 #ifdef Q_OS_WIN
 #include <QSettings>
 #endif
@@ -20,6 +21,39 @@
 #include <cstdint>
 
 namespace galleond {
+int SteamLibrary::shortcutAppId(const QByteArray &bytes)
+{
+    if (bytes.isEmpty() || bytes.size() > 8192 || bytes.contains('\0'))
+        return 0;
+    QString text = QString::fromUtf8(bytes);
+    if (text.startsWith(QChar(0xfeff)))
+        text.remove(0, 1);
+    bool inShortcut = false;
+    bool found = false;
+    int result = 0;
+    static const QRegularExpression game(QStringLiteral("^steam://rungameid/([1-9][0-9]{0,9})$"), QRegularExpression::CaseInsensitiveOption);
+    for (const QString &raw : text.split(QLatin1Char('\n'))) {
+        const QString line = raw.trimmed();
+        if (line.startsWith(QLatin1Char('['))) {
+            inShortcut = line.compare(QStringLiteral("[InternetShortcut]"), Qt::CaseInsensitive) == 0;
+            continue;
+        }
+        const qsizetype equal = line.indexOf(QLatin1Char('='));
+        if (!inShortcut || equal < 0 || line.left(equal).trimmed().compare(QStringLiteral("URL"), Qt::CaseInsensitive) != 0)
+            continue;
+        if (found)
+            return 0;
+        found = true;
+        const auto match = game.match(line.mid(equal + 1).trimmed());
+        bool valid = false;
+        const qlonglong id = match.captured(1).toLongLong(&valid);
+        if (!match.hasMatch() || !valid || id > std::numeric_limits<int>::max())
+            return 0;
+        result = static_cast<int>(id);
+    }
+    return result;
+}
+
 
 namespace {
 

@@ -78,6 +78,28 @@ class TestUsage : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void steamInternetShortcutsAcceptOnlyBoundedGameLaunches_data()
+    {
+        QTest::addColumn<QByteArray>("bytes");
+        QTest::addColumn<int>("expected");
+        QTest::newRow("game") << QByteArray("[InternetShortcut]\r\nURL=steam://rungameid/1091500\r\n") << 1091500;
+        QTest::newRow("bom") << QByteArray("\xef\xbb\xbf[InternetShortcut]\nURL=steam://rungameid/570\nIconFile=remote.ico\n") << 570;
+        QTest::newRow("https") << QByteArray("[InternetShortcut]\nURL=https://example.com\n") << 0;
+        QTest::newRow("file") << QByteArray("[InternetShortcut]\nURL=file:///C:/bad.exe\n") << 0;
+        QTest::newRow("command") << QByteArray("[InternetShortcut]\nURL=steam://rungameid/570 --bad\n") << 0;
+        QTest::newRow("other-steam-action") << QByteArray("[InternetShortcut]\nURL=steam://install/570\n") << 0;
+        QTest::newRow("overflow") << QByteArray("[InternetShortcut]\nURL=steam://rungameid/9999999999\n") << 0;
+        QTest::newRow("duplicate") << QByteArray("[InternetShortcut]\nURL=steam://rungameid/570\nURL=steam://rungameid/730\n") << 0;
+        QTest::newRow("wrong-section") << QByteArray("[other]\nURL=steam://rungameid/570\n") << 0;
+        QTest::newRow("huge") << QByteArray(8193, 'x') << 0;
+    }
+    void steamInternetShortcutsAcceptOnlyBoundedGameLaunches()
+    {
+        QFETCH(const QByteArray, bytes);
+        QFETCH(const int, expected);
+        QCOMPARE(SteamLibrary::shortcutAppId(bytes), expected);
+    }
+
     void steamCoversSupportOldAndHashedCacheLayouts()
     {
         for (const QString &relative : {QStringLiteral("appcache/librarycache/123_header.jpg"),

@@ -24,6 +24,9 @@
 #include <galleon/StreamDeck.h>
 
 #include <QCommandLineParser>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <cstdio>
 #ifdef Q_OS_WIN
 #include "LocalControl.h"
 #include <QLockFile>
@@ -495,7 +498,29 @@ int main(int argc, char *argv[])
     parser.addOptions({previewOption, wallpapersOption, widgetsOption, wallpaperOption, renderOption, traceOption, testKeysOption,
                        pagesOption, noPagesOption, renderKeysOption, stateOption, renderNowPlayingOption, appsOption,
                        listAppsOption, filterOption, assignOption, keyOption, pageOption, clearKeyOption, measureOption, displayLagOption, renderSaverOption, saverVideoOption, saverAtOption, calibrationOption});
+    const QCommandLineOption launcherInfo(QStringLiteral("launcher-info"),
+        QStringLiteral("Read bounded launcher metadata and exit without opening HID."), QStringLiteral("reference"));
+    parser.addOption(launcherInfo);
     parser.process(app);
+    if (parser.isSet(launcherInfo)) {
+        const QString reference = parser.value(launcherInfo);
+        QJsonObject result;
+        if (reference.startsWith(QStringLiteral("steam:"))) {
+            bool valid = false;
+            const int id = reference.mid(6).toInt(&valid);
+            if (valid && id > 0)
+                result = {{QStringLiteral("name"), QString()}, {QStringLiteral("icon"), galleond::SteamLibrary::coverImage(id).left(4096)}};
+        } else {
+            const auto entry = galleond::DesktopEntries::lookup(reference);
+            if (entry.isValid())
+                result = {{QStringLiteral("name"), entry.name.left(galleond::MaxLabelLength)}, {QStringLiteral("icon"), entry.iconPath.left(4096)}};
+        }
+        QFile output;
+        if (!output.open(stdout, QIODevice::WriteOnly))
+            return 1;
+        const QByteArray bytes = QJsonDocument(result).toJson(QJsonDocument::Compact);
+        return output.write(bytes) == bytes.size() && output.flush() ? 0 : 1;
+    }
 
     const QStringList wallpaperRoots = defaultWallpaperRoots(parser.value(wallpapersOption));
     const QString widgetFile = defaultWidgetFile(parser.value(widgetsOption));

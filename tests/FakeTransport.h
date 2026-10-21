@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <vector>
 
 // In-memory transport: records what the deck sends, replays queued reports.
@@ -34,6 +35,8 @@ public:
 
     bool write(std::span<const std::uint8_t> report) override
     {
+        if (beforeWrite)
+            beforeWrite();
         writes.emplace_back(report.begin(), report.end());
         return m_open;
     }
@@ -51,6 +54,7 @@ public:
         return static_cast<int>(size);
     }
 
+    std::function<void()> beforeWrite;
     bool openSucceeds = true;
     bool disconnected = false;
     std::vector<Report> featureReports;

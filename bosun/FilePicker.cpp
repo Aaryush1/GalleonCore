@@ -25,7 +25,7 @@ QString FilePicker::video() // NOLINT(readability-convert-member-functions-to-st
 QString FilePicker::application() // NOLINT(readability-convert-member-functions-to-static): QML invokes this QObject method.
 {
 #ifdef Q_OS_WIN
-    const QString filter = tr("Applications (*.exe *.lnk)");
+    const QString filter = tr("Applications (*.exe *.lnk *.url)");
 #else
     const QString filter = tr("Applications (*.desktop)");
 #endif
