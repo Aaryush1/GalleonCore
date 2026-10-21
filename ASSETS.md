@@ -18,6 +18,11 @@ The default license for images and videos is **CC-BY-SA-4.0**. Declare it in `RE
 - **Extracts of films, series, trailers or games**, however short.
 - Sexual content, and anything depicting a person who could be a minor in a suggestive way.
 
+An instructional screenshot of a third-party settings interface may show its
+product names and interface marks solely to identify the control being
+documented. Keep its provenance and purpose next to the file; this exception
+does not apply to wallpapers, screensavers, branding or promotional art.
+
 Styles are free to use: manga, cyberpunk, space western, cinematic lighting. Characters, logos and footage are not.
 
 ## Where they go
