@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: PPA v0.1.0 Debian revision 2
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ppa-v0.1.0-revision-2
+  cancel-in-progress: false
+jobs:
+  upload:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - series: noble
+            image: ubuntu:24.04
+          - series: resolute
+            image: ubuntu:26.04
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install package and upload tools
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y git build-essential debhelper devscripts \
+            cmake pkg-config qt6-base-dev qt6-declarative-dev libhidapi-dev dbus \
+            qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml \
+            qml6-module-qtqml-workerscript curl ca-certificates dput gnupg openssh-client
+      - name: Fetch and verify the unchanged v0.1.0 source archive
+        run: |
+          set -euo pipefail
+          mkdir -p build-deb/released-source
+          cd build-deb/released-source
+          base=https://github.com/Paullux/GalleonCore/releases/download/v0.1.0
+          curl -fsSL --retry 3 "$base/galleoncore-0.1.0.tar.gz" -o galleoncore-0.1.0.tar.gz
+          curl -fsSL --retry 3 "$base/SHA256SUMS" -o SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - name: Build, test and check the revision 2 binary and source
+        env:
+          SERIES: ${{ matrix.series }}
+        run: |
+          set -euo pipefail
+          bash tools/packaging/debian-build.sh build-deb/released-source/galleoncore-0.1.0.tar.gz \
+            build-deb/ppa-repair "$SERIES" binary 2
+          python3 tools/packaging/check-deb-timestamps.py build-deb/ppa-repair/*.deb
+          bash tools/packaging/debian-build.sh build-deb/released-source/galleoncore-0.1.0.tar.gz \
+            build-deb/ppa-repair "$SERIES" source 2
+      - name: Sign and upload the source to Launchpad
+        env:
+          PPA_GPG_PRIVATE_KEY: ${{ secrets.PPA_GPG_PRIVATE_KEY }}
+          PPA_SSH_PRIVATE_KEY: ${{ secrets.PPA_SSH_PRIVATE_KEY }}
+          PPA_OWNER: ${{ vars.PPA_OWNER || 'paulwoisard' }}
+          PPA_NAME: ${{ vars.PPA_NAME || 'galleoncore' }}
+        run: |
+          set -euo pipefail
+          test -n "$PPA_GPG_PRIVATE_KEY" && test -n "$PPA_SSH_PRIVATE_KEY"
+          GNUPGHOME=$(mktemp -d)
+          export GNUPGHOME
+          trap 'gpgconf --kill gpg-agent || true; rm -rf "$GNUPGHOME"; ssh-agent -k || true' EXIT
+          printf '%s\n' "$PPA_GPG_PRIVATE_KEY" | gpg --batch --import
+          fingerprint=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+          test -n "$fingerprint"
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$PPA_SSH_PRIVATE_KEY" | ssh-add -
+          mkdir -p ~/.ssh
+          ssh-keyscan ppa.launchpad.net >> ~/.ssh/known_hosts
+          cat > ~/.dput.cf <<CONFIG
+          [galleoncore]
+          fqdn = ppa.launchpad.net
+          method = sftp
+          incoming = ~$PPA_OWNER/ubuntu/$PPA_NAME/
+          login = $PPA_OWNER
+          allow_unsigned_uploads = 0
+          CONFIG
+          debsign -k"$fingerprint" build-deb/ppa-repair/*_source.changes
+          timeout 2700 dput galleoncore build-deb/ppa-repair/*_source.changes < /dev/null

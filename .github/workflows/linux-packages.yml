@@ -72,6 +72,7 @@ jobs:
           SERIES: ${{ matrix.series }}
         run: |
           bash tools/packaging/debian-build.sh build-deb/dist/*.tar.gz build-deb/debian "$SERIES" binary
+          python3 tools/packaging/check-deb-timestamps.py build-deb/debian/*.deb
           bash tools/packaging/debian-build.sh build-deb/dist/*.tar.gz build-deb/debian "$SERIES" source
       - name: Install and smoke-test
         run: |

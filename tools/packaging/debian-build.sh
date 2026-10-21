@@ -6,8 +6,11 @@ archive=$(realpath "${1:?source archive}")
 out=$(realpath -m "${2:?output directory}")
 series=${3:-noble}
 mode=${4:-binary}
+revision=${5:-1}
 case "$series" in noble|resolute) ;; *) echo 'Unsupported Ubuntu series' >&2; exit 1;; esac
 case "$mode" in binary|source) ;; *) exit 1;; esac
+[[ "$revision" =~ ^[1-9][0-9]*$ ]] || { echo 'Invalid Debian revision' >&2; exit 1; }
+packaging_dir=$(dirname "$(realpath "$0")")
 version=$(basename "$archive" .tar.gz)
 version=${version#galleoncore-}
 mkdir -p "$out"
@@ -16,10 +19,15 @@ trap 'rm -rf "$work"' EXIT
 cp "$archive" "$work/galleoncore_${version}.orig.tar.gz"
 tar -xzf "$archive" -C "$work"
 cd "$work/galleoncore-$version"
-cp -r tools/packaging/debian .
+if [ "$revision" = 1 ]; then
+    cp -r tools/packaging/debian .
+else
+    # Keep the released orig tarball byte-for-byte; only Debian packaging changes.
+    cp -r "$packaging_dir/debian" .
+fi
 # Version and series come from the same tested source artifact for every target.
 export DEBFULLNAME='Paul Woisard' DEBEMAIL='paulwoisard@gmail.com'
-dch -b --newversion "$version-1~$series" --distribution "$series" --force-distribution 'Linux distribution release.'
+dch -b --newversion "$version-$revision~$series" --distribution "$series" --force-distribution 'Linux distribution release.'
 if [ "$mode" = source ]; then
     dpkg-buildpackage -S -sa -us -uc -d
 else

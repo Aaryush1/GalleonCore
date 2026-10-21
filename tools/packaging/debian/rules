@@ -14,6 +14,11 @@ override_dh_auto_test:
 override_dh_auto_install:
 	dh_auto_install
 	sh tools/packaging/install-extras.sh . debian/galleoncore
+	# The v0.1.0 source tarball has epoch-zero member dates. Launchpad rejects
+	# binary packages containing those dates, so use the Debian changelog date.
+	stamp=$$(date -d "$$(dpkg-parsechangelog -S Date)" +%s); \
+		test "$$stamp" -ge 946684800; \
+		find debian/galleoncore -type f -exec touch -d "@$$stamp" {} +
 
 # Keep service activation an explicit choice of the logged-in user.
 override_dh_installsystemduser:

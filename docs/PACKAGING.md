@@ -102,7 +102,8 @@ Runtime:
   `--talk-name=org.galleoncore.Deck` and `--filesystem=xdg-config/galleoncore`, `xdg-data/galleoncore`.
 - AppImage: now built by CI with separate host integration helpers for udev and the user service; see `tools/packaging/README.md`.
 - Qt 6.4 is the oldest supported Qt (Ubuntu 24.04); the project's CI builds and tests on it.
-- The version is `0.1.0` (`project(GalleonCore VERSION 0.1.0)` in `CMakeLists.txt`); there are no release tags yet.
+- The version is `0.1.0` (`project(GalleonCore VERSION 0.1.0)` in `CMakeLists.txt`);
+  the source archive is published under the `v0.1.0` tag.
 
 ## Build the Debian package
 
@@ -138,6 +139,14 @@ in [the distribution guide](../tools/packaging/README.md). Builds run on Ubuntu
 `paullux/GalleonCore` on COPR and `galleoncore` on AUR. Native source builds
 run ctest before packaging; no development/test files are installed. Account
 creation and publication credentials are separate from recipe validation.
+
+The first PPA source uploads (`0.1.0-1~noble` and `0.1.0-1~resolute`) built and
+passed CTest, but Launchpad rejected the binary uploads because 46 installed
+files retained 1970 timestamps from the release tarball. The Debian revision 2
+repair keeps that upstream tarball unchanged and stamps the staged files with
+the Debian changelog date. Its manual workflow builds and checks both Ubuntu
+packages before uploading `0.1.0-2~noble` and `0.1.0-2~resolute`; check the
+actual Launchpad build and publication results separately from the workflow.
 
 ## First release gate
 
