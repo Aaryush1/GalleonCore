@@ -2,7 +2,7 @@
 
 Référence pour reprendre le développement à tout moment, y compris dans une nouvelle session Claude Code. À mettre à jour après chaque fonctionnalité terminée **et** testée (voir « Règle de mise à jour » en bas). Les notes de conception détaillées (protocole, RGB, OpenRGB, Windows) sont dans [docs/ROADMAP.md](docs/ROADMAP.md) ; les règles de code dans [CLAUDE.md](CLAUDE.md).
 
-État au 20 octobre 2026 : PR #19 à #27 fusionnées ; CI de main vertes pour Linux et Windows. Premier essai Windows effectué : pages initiales et fonds présents, problèmes de réveil, icônes et démarrage relevés. Corrections sur `codex/windows-shell-and-wake` ; conflit des anneaux avec OpenRGB officiel encore à résoudre/valider. Aucun premier tag avant validation matérielle réussie par le propriétaire.
+État au 21 octobre 2026 : socle Linux/Windows et Setup NSIS fusionnés (PR #19 à #27). Les correctifs de stabilité, pages fixes à 12 lanceurs, icônes/PWA, Steam `.url`, réveil et démarrage sont regroupés dans la [PR #28](https://github.com/Paullux/GalleonCore/pull/28). Validation complète Ubuntu 24.04/Qt 6.4 réussie (38 suites sous GCC et ASan/UBSan, fuzzing, lint et REUSE) et [CI Windows du correctif réussie](https://github.com/Paullux/GalleonCore/actions/runs/39523931081). Les nouveaux essais matériels restent à faire ; aucun premier tag avant confirmation du propriétaire.
 
 ## 1. Implémenté et testé
 
@@ -53,6 +53,10 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
 | **Galleon Bosun, onglet Clavier** : bouton qui ouvre le Web Hub de Corsair (`https://www.corsair.com/web-hub`, page officielle de l'aide Corsair) dans le navigateur de l'utilisateur, avec ce qu'il faut savoir (navigateur Chromium, rien n'est écrit dans la mémoire du clavier par cette application). Pas de webview : lien seul | sans objet (lien) | à essayer |
 | **Galleon Bosun, icône dans la zone de notification** : fermer la fenêtre la masque (si la zone existe), clic gauche affiche ou masque, clic droit : Afficher/Masquer, « Quitter et arrêter galleond » (le module repasse en pavé numérique) et « Quitter » (galleond continue), ou « Démarrer galleond » quand il ne tourne pas ; menu refait selon l'état. Sans zone de notification, fenêtre ordinaire. Le contenu du menu est une fonction pure | oui (`test_traymenu`, fermeture = masquage dans `test_bosun`) ; l'icône elle-même ne se teste pas hors bureau | à essayer |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
+| **Bureau Windows** : SMTC, Core Audio, SendInput, IPC/verrou par utilisateur, Chrome/App Paths/PWA distinctes, icônes natives, Setup NSIS UTF-8, démarrage de galleond et Bosun minimisé par HKCU Run ; Bosun lance le démon absent | oui (tests natifs, déploiement, installation/mise à niveau/désinstallation avec applications ouvertes et données conservées) | partiel : fonds et pages présents ; stabilité et ouverture de session à revalider |
+| **Pages Windows fixes** : au plus 12 lanceurs initiaux, sans pagination/remplissage/réordonnancement automatiques ; retraits et positions conservés ; `.url` Steam bornés et validés | oui (`test_initialpages`, `test_usage`, `test_windowsdesktop`) | non confirmé après ce correctif |
+| **Réactivité Windows** : recherche d’icônes/jaquettes dans un enfant limité, annulation des requêtes périmées, dessin échelonné des 12 touches ; keep-alive connu servi entre rapports JPEG longs | oui (`test_launchercache`, `test_streamdeck`, `test_windowsdesktop`) | retour au logo Corsair et longues sessions à revalider |
+| **Réveil sans attente du décodeur** : arrêt asynchrone FFmpeg et nettoyage borné, première action consommée | oui (`test_screensaver`, `test_windowswake`, `test_modes_flow`) | réveil court Linux observé avant ce correctif ; réveil prolongé Linux/Windows à confirmer |
 
 ## 2. En cours
 
@@ -82,7 +86,7 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
    À trancher : aperçu en direct sur le module pendant l'édition (demande une commande de plus au démon).
 2. **Profils** : plusieurs fichiers de pages et bascule (changement de profil selon l'application active ou au choix) ; le fichier JSON unique actuel est le profil de base.
 3. **Sous-menus** (pages « Applications » avec touche Retour : `page` et `back` existent déjà dans le format), Discord, autres raccourcis clavier (l'action `key` existe, liste de touches limitée au pavé numérique : à étendre avec validation) ; opérateurs du pavé (+ − × ÷) : pas de place sur 12 touches, à placer sur une seconde page ou les molettes.
-4. **Windows** : séparation initiale des fabriques de backends Linux et construction de `libgalleon` seule sous Windows fusionnées ; suite sur `codex/windows-desktop` (voir `docs/WINDOWS.md`). Backend SMTC C++/WinRT derrière `MediaController` fusionné : worker, métadonnées et commandes ; tests avec faux lecteur et CI Windows, Core Audio volume/muet fusionné avec tests sur faux périphérique ; validation interactive encore requise (MPRIS reste Linux seulement) ; portage hidapi déjà couvert par `Transport`.
+4. **Windows : validation matérielle** — les backends et le bureau sont implémentés et testés automatiquement ; la suite porte sur les essais du propriétaire (stabilité, pages à 12 lanceurs, retraits/modifications, réveil prolongé, ouverture de session, lancement réel de jeux/PWA et coexistence RGB). Voir `docs/WINDOWS.md`.
 5. **Plasmoids KDE** réutilisant `widgets/` (aperçu de l'écran du clavier sur le bureau).
 6. **RVB du clavier** : reste côté fork d'OpenRGB, bloqué tant que le protocole d'écriture non persistant n'est pas trouvé.
 
@@ -124,7 +128,7 @@ Décisions à ne pas perdre :
 
 1. (fait) Reprise du module après une veille de l'ordinateur : confirmée. Le réglage NVIDIA de l'utilisateur est un sujet système, hors du projet.
 2. (fait) Branche `galleond-wallpaper-clock` fusionnée dans `main` (pull request 5, 19 octobre) ; la CI passe (GCC, Clang + sanitizers, lint).
-3. Confirmer sur le module les pages remplies, le classement par usage, les nouvelles touches média et le lancement de BIT SCRIPTS Musique.
+3. Tester le dernier Setup Windows validé : pages fixes à 12, modifications/retraits conservés, lanceurs Steam/PWA, réveil après attente longue et démarrage de session. Faire le premier essai avec les autres contrôleurs des anneaux arrêtés ; relever toute reprise du logo Corsair. Confirmer séparément la veille prolongée Linux et les pages Linux remplies/classées par usage.
 4. **Galleon Bosun** : (fait : maquette ; écrans de veille : lecture puis réglages et retrait) sélecteur de fichier natif images/vidéos et découverte du premier fond personnel après démarrage corrigés ; validation sur le module confirmée par le propriétaire ; démarrage de Bosun avec la session (option) ; distribution Linux : recettes PPA (Ubuntu 24.04/26.04), COPR (Fedora 43/44/45/rawhide), AUR et AppImage, CI de construction et publication sur tags dans `tools/packaging/` et `.github/workflows/linux-*.yml` (voir `tools/packaging/README.md` ; PPA et COPR ouverts, secrets requis pour publier, validation matérielle et CI de l’arbre fusionné à confirmer ; badges README/site et documents de contribution, conduite, licences et sécurité ajoutés), puis édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
 5. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
 
@@ -132,121 +136,39 @@ Décisions à ne pas perdre :
 
 Avant de la déplacer, les tests ciblés suffisent pour avancer, mais la case « Tests : oui » ne vaut qu'avec une validation complète (`tools/check.py full`) de l'arbre fusionné. Après chaque fonctionnalité terminée et testée : la déplacer vers « Implémenté et testé » (avec ses tests et, si confirmé, « sur le module »), retirer ses lignes de « En cours » ou « À développer », et mettre à jour « Prochaines étapes » et la date. Ne pas marquer « sur le module » sans retour de l'utilisateur. Garder ce fichier court : le détail de conception va dans `docs/ROADMAP.md`.
 
-### Portage Windows : exécutables et Setup validés sans matériel
+## 7. État du portage Windows et prochain essai matériel
 
-La PR #25 fusionnée apporte le clavier SendInput avec identifiants communs (validation
-complète Ubuntu 24.04 et compilation native Windows réussies). La branche
-`codex/windows-desktop` (PR #26, fusionnée) apporte galleond et Bosun : communication locale
-par utilisateur, verrou avant accès HID, lancement des raccourcis Windows,
-contrôle des ACL du fichier de pages et archive déployée en CI. La CI Windows a validé la compilation native, les tests sans matériel et
-le lancement des applications depuis leur archive déployée. Les vérifications de cette PR et de main ont réussi avant les essais interactifs. Les essais interactifs Windows sont
-réservés au propriétaire ; aucun premier tag n'est autorisé avant son retour.
+Le code commun reste dans `main`, avec des backends Linux/Windows séparés.
+La [PR #28](https://github.com/Paullux/GalleonCore/pull/28) regroupe les derniers
+correctifs ; les [CI et artefacts courants](https://github.com/Paullux/GalleonCore/actions)
+font foi pour le commit à essayer. Les détails et limites sont dans
+[docs/WINDOWS.md](docs/WINDOWS.md), le packaging dans
+[docs/PACKAGING.md](docs/PACKAGING.md).
 
-La PR #26 inclut désormais la préparation d'un Setup NSIS Windows : identité
-visuelle et icône Bosun, raccourcis, démarrage optionnel du démon à l'ouverture de
-session et désinstallation par utilisateur. Les mises à niveau et la
-désinstallation demandent l'arrêt explicite de Bosun **et** de galleond et
-attendent leur sortie. Le 20 octobre 2026, la CI Windows a validé l’installation,
-la mise à niveau et la désinstallation avec les deux applications ouvertes, ainsi
-que la conservation des données personnelles et des réglages. Le mode capture de Bosun capture
-maintenant ses valeurs par copie, pour éviter des références détruites au
-moment où le minuteur s'exécute.
+Le quatrième retour matériel signale un retour au logo Corsair sur les pages
+chargées, puis une reprise après environ une minute, sans changement du PID.
+Les retraits/modifications pouvaient être annulés par le remplissage automatique.
+La tentative de pagination à 22 est donc remplacée par **12 lanceurs initiaux
+fixes**, sans découverte sur rechargement/édition. Les anciens liens Plus générés
+sont retirés ; les pages supplémentaires restent dans le fichier pour récupération.
+Les raccourcis `.url` Steam sont désormais acceptés avec validation stricte.
 
-### Retour du premier essai Windows et correction des contenus initiaux
+Les recherches Shell/Steam sont isolées dans un enfant limité (2,5 s, 64 Kio,
+12 requêtes en attente, 64 résultats), le dessin cède la main entre touches et les
+transferts longs servent le keep-alive existant. Les tests simulent des recherches
+et écritures lentes ; ils ne prouvent pas à eux seuls la résolution matérielle.
+La découverte initiale ne charge pas les icônes/jaquettes avant l’ouverture HID.
 
-Le propriétaire confirme le 20 octobre 2026 que les fonds d’écran fonctionnent
-sous Windows. Il signale les pages initiales manquantes et demande les deux
-vidéos du dépôt par défaut. Correction fusionnée dans la PR #27 (`codex/windows-default-content`) :
-cinq thèmes initiaux, découverte des navigateurs/lecteurs du menu Démarrer,
-jeux Steam installés et raccourcis de jeux du menu, utilitaires Windows et
-pavé numérique. Les deux vidéos sont installées avec le Setup ; la géométrie
-reprend celle de la configuration Linux du propriétaire (écran 62,6 × 33 mm,
-touches 13,7 × 13,7 mm, espacements 5,4 mm). Les configurations personnelles
-existantes ne sont pas remplacées. Validation complète et CI de main réussies ;
-aucun tag avant nouvel essai Windows réussi.
+La capture du propriétaire identifie les anneaux comme `Dynamic Light` dans
+OpenRGB officiel : Corsair LampArray VID 1B1C/PID 2B18, MI_03. L’Éclairage dynamique
+Windows et OpenRGB peuvent concurrencer galleond ; aucun arbitrage automatique
+ni nouvelle commande RGB persistante n’est ajouté. Tester d’abord sans ces autres
+écrivains, puis évaluer leur coexistence séparément.
 
-Le même essai signale des accents corrompus dans les textes français du Setup :
-le script et les manifestes NSIS sont explicitement UTF-8 (BOM), et le compilateur
-reçoit `/INPUTCHARSET UTF8`, indépendamment de la page de codes du runner Windows.
+Le diagnostic Linux précédent a montré une déconnexion USB spontanée, puis un
+réveil court réussi après réénumération. L’ancien patch expérimental avait été
+retiré : ne pas le présenter comme une correction matériellement confirmée.
+Le réveil prolongé et le nouveau transfert avec keep-alive restent à vérifier.
 
-### Deuxième essai Windows : réveil, Shell et démarrage de session
-
-Retour du propriétaire : réveil demandant plusieurs touches ; icônes d’applications
-absentes ; catalogue incomplet (Chrome), entrées WSL et désinstalleurs ; démarrage
-automatique absent. Correction sur `codex/windows-shell-and-wake` : arrêt asynchrone
-du décodeur au réveil (la première action reste consommée), extraction des icônes
-natives et utilisation des icônes avec un libellé personnalisé, menu Démarrer
-commun/personnel et applications enregistrées dans App Paths, bouton Parcourir,
-anciens emplacements des jaquettes Steam. Au démarrage de session, galleond et
-Bosun sont activés par défaut dans le Setup ; Bosun utilise `--minimized` pour
-la zone de notification. Le test du Setup vérifie ces raccourcis et leur retrait.
-
-Anneaux : le propriétaire utilise OpenRGB officiel ; le périphérique « Keyboard »
-commande les anneaux, « Corsair Galleon 100 SD » désigne le clavier RGB. Le conflit
-provenait, selon le nouvel essai du propriétaire, de l’option « Éclairage dynamique »
-de Windows activée. Ne pas ajouter de course de réécriture des couleurs ; aucune
-priorité sur les autres contrôleurs n’est revendiquée. Réveil prolongé
-et rendu Windows à confirmer sur le module ; pas de premier tag.
-
-Le diagnostic Linux précédent a montré une déconnexion USB spontanée puis un
-réveil court réussi après réénumération. Le correctif expérimental d’entrelacement
-du keep-alive a été retiré ; il n’est pas publié comme solution. Le réveil après
-veille prolongée reste à confirmer. La nouvelle correction asynchrone traite le
-délai d’arrêt du décodeur ; ses tests incluent un faux décodeur console natif.
-
-### Troisième retour Windows : pagination et ouverture de session (pagination abandonnée au quatrième essai)
-
-Le propriétaire identifie l’Éclairage dynamique de Windows comme cause du conflit
-d’éclairage. Il signale une perte de contrôle avec plus de 12 lanceurs et l’absence
-de démarrage automatique (Bosun ouvert manuellement demande encore « Start it »).
-Correction en préparation : les thèmes automatiques Windows utilisent au plus
-22 lanceurs, répartis en deux pages de 11 avec « Nom Onglet-Plus » puis « Retour »
-sur la touche en bas à droite. Jusqu’à 12 lanceurs, une seule page. Les thèmes
-avec navigation personnalisée sont conservés ; aucun troisième écran automatique.
-La préparation est commune au démon et à Bosun, y compris lors de l’édition d’un
-fichier existant ; sa sauvegarde habituelle conserve la copie `.bak`.
-Le Setup utilise des entrées HKCU Run sélectionnées par défaut, retire les anciens
-raccourcis de démarrage et nettoie ses propres entrées à la désinstallation.
-Bosun tente de lancer une fois le démon absent (hors capture et profil `--pages`
-explicite). La découverte initiale se fait avant l’ouverture HID, avec cache de
-cinq minutes. Validation en cours ; essai matériel et premier tag toujours en attente.
-
-### Applications Chrome et PWA Windows
-
-Retour du propriétaire : inclure aussi les applications Chrome et PWA installées.
-La découverte fusionnait les raccourcis partageant le même exécutable : Chrome,
-plusieurs PWA et leurs profils pouvaient devenir une seule entrée. La correction
-utilise la cible et les arguments du raccourci pour distinguer les lanceurs, et
-préfère son icône ICO locale bornée à l’icône générique du navigateur. Le lancement
-continue à ouvrir le raccourci original, sans réinterpréter ses arguments.
-Les PWA doivent disposer d’un raccourci installé dans les emplacements Windows
-parcourus ; les favoris et sites non installés ne sont pas inventoriés. Le test
-Windows crée deux applications et deux profils partageant un faux navigateur,
-contrôle leurs icônes, sans les lancer. Validation en cours.
-
-### Quatrième retour Windows : pages fixes, blocage et raccourcis Steam
-
-Le propriétaire observe des modifications/retraits ignorés et le retour au logo
-Corsair lors d’un changement de page chargé, avec le même PID et une reprise
-après environ une minute. Il demande une version limitée à 12 icônes. Le code
-pouvait remplir à nouveau les cases vides, réordonner les raccourcis et faire des
-recherches Shell/Steam dans la boucle du démon avant d’envoyer toute une page.
-La correction remplace la pagination automatique Windows par 12 lanceurs initiaux
-fixes. Chargement et édition ne redécouvrent ni ne remplissent les applications ;
-les positions et retraits sont conservés. Les liens Plus générés sont retirés,
-avec conservation des pages supplémentaires dans le fichier pour récupération.
-Linux conserve sa configuration/remplissage habituel.
-Les métadonnées/icônes sont recherchées dans un enfant limité (2,5 s, 64 Kio,
-12 requêtes en attente, 64 résultats), annulé lors d’un changement de page ; le
-dessin des touches est échelonné. Les transferts JPEG envoient le keep-alive déjà
-documenté entre rapports si nécessaire, sans nouvelle commande de protocole ni
-traitement récursif des événements. Les tests simulent une recherche lente et des
-écritures USB bloquantes ; cela ne vaut pas confirmation matérielle de la reprise.
-Le sélecteur accepte les `.url` Steam validés, sans accepter des URL arbitraires.
-La capture OpenRGB nomme les anneaux « Dynamic Light » : LampArray Corsair
-VID 1B1C/PID 2B18, MI_03. Aucun arbitrage automatique avec OpenRGB n’est revendiqué.
-Sept suites ciblées et 38 suites complètes Linux (GCC et ASan/UBSan) réussies.
-Les tests Windows couvrent aussi le dessin en plusieurs tours de boucle et le
-mode métadonnées réel sans accès HID. La découverte initiale évite l’extraction
-d’icônes/jaquettes. Validation finale et CI Windows en cours.
-Aucun tag, aucune publication avant nouvel essai matériel réussi.
+**Verrou de publication inchangé** : aucun tag/release ni publication PPA/COPR/AUR
+avant un retour matériel Windows explicitement concluant du propriétaire.

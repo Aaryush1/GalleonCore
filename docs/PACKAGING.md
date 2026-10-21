@@ -184,3 +184,10 @@ that mode never opens HID. It uses the same Qt deployment as the daemon, without
 an additional runtime helper binary. Test helper executables are not installed.
 The application picker accepts validated Steam `.url` shortcuts, not generic URLs.
 See `docs/WINDOWS.md` for current limits and hardware validation still outstanding.
+
+The fixed-page Windows application/test sources at `5591b28` passed native build,
+metadata/launcher tests and installed Setup lifecycle checks in
+[run 39523931081](https://github.com/Paullux/GalleonCore/actions/runs/39523931081),
+as well as full Ubuntu 24.04/Qt 6.4 validation (38 suites under both compilers,
+sanitizers, fuzzing and reuse lint). Follow PR #28/main CI for the final merged
+artifact. These checks do not lift the interactive hardware release gate.

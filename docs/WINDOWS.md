@@ -271,3 +271,23 @@ The owner's OpenRGB screenshot identifies the ring controller as `Dynamic Light`
 a Corsair HID LampArray at VID 1B1C/PID 2B18, interface MI_03. The full keyboard RGB
 is separate. Keep real-device testing with competing ring writers stopped; this
 build does not configure OpenRGB or establish an automatic priority policy.
+
+## Validation checkpoint — 21 October 2026
+
+Application/test sources at `5591b28` passed full Ubuntu 24.04/Qt 6.4 validation:
+38 ctest suites with GCC and Clang ASan/UBSan, 60-second protocol fuzzing,
+clang-tidy, qmllint, tool tests and reuse lint. The
+[native Windows run](https://github.com/Paullux/GalleonCore/actions/runs/39523931081)
+also passed, including persistent key replacement/removal, initial discovery
+without icons, separate browser apps/profiles, Steam shortcut validation, the
+real metadata-only subprocess, and twelve key images drawn across event-loop
+turns. Installed smoke/lifecycle tests cover upgrade/uninstall with both apps
+running, sign-in registration and preservation of personal files/settings.
+
+These are automated checks. The owner still needs to validate long idle wake,
+stable hardware control across page changes, actual app/Steam/PWA launching and
+Windows sign-in. The OpenRGB/Dynamic Lighting conflict has no automatic ownership
+solution. PR/main CI status and latest download are available through
+[GitHub Actions](https://github.com/Paullux/GalleonCore/actions); use an artifact
+whose workflow completed successfully. Do not create the first release tag before
+explicitly successful owner feedback.
