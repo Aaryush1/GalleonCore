@@ -13,7 +13,68 @@
 #include <QJsonObject>
 #include <QSet>
 
+#include <algorithm>
+
 namespace galleond {
+namespace {
+bool containsAny(const QString &text, const QStringList &words)
+{
+    return std::ranges::any_of(words, [&text](const QString &word) { return text.contains(word); });
+}
+
+QString browserBrand(const DesktopApp &app)
+{
+    const QString name = app.name.toLower();
+    for (const QString &brand : {QStringLiteral("firefox"), QStringLiteral("chromium"),
+             QStringLiteral("brave"), QStringLiteral("vivaldi"), QStringLiteral("opera")}) {
+        if (name == brand || name.startsWith(brand + QLatin1Char(' ')) || name.contains(QLatin1Char(' ') + brand))
+            return brand;
+    }
+    if (name == QStringLiteral("chrome") || name.startsWith(QStringLiteral("chrome "))
+        || name.contains(QStringLiteral("google chrome")))
+        return QStringLiteral("chrome");
+    if (name == QStringLiteral("edge") || name.contains(QStringLiteral("microsoft edge")))
+        return QStringLiteral("edge");
+    return app.categories.contains(QStringLiteral("WebBrowser")) ? name : QString();
+}
+
+// First-run suggestions should be useful even when the desktop menu contains
+// many editors, conversion tools and utilities. An absent suggestion leaves an
+// empty key; users can still choose any installed application in Bosun.
+int launcherPriority(const DesktopApp &app, const QString &category)
+{
+    const QString text = (app.name + QLatin1Char(' ') + app.id).toLower();
+    if (category == QStringLiteral("AudioVideo")) {
+        if (!browserBrand(app).isEmpty())
+            return 0;
+        if (containsAny(text, {QStringLiteral("vlc"), QStringLiteral("spotify"), QStringLiteral("mpv"),
+                QStringLiteral("foobar"), QStringLiteral("clementine"), QStringLiteral("strawberry"),
+                QStringLiteral("audacious"), QStringLiteral("rhythmbox"), QStringLiteral("amarok"),
+                QStringLiteral("kodi"), QStringLiteral("plex"), QStringLiteral("deezer"),
+                QStringLiteral("tidal"), QStringLiteral("winamp"), QStringLiteral("itunes"),
+                QStringLiteral("media player"), QStringLiteral("music player"), QStringLiteral("jellyfin")}))
+            return 1;
+        if (containsAny(text, {QStringLiteral("youtube"), QStringLiteral("netflix")}))
+            return 2;
+        return app.categories.contains(QStringLiteral("Player")) ? 3 : 100;
+    }
+    if (category == QStringLiteral("Utility")) {
+        if (containsAny(text, {QStringLiteral("system settings"), QStringLiteral("systemsettings"),
+                QStringLiteral("control panel"), QStringLiteral("task manager"),
+                QStringLiteral("system monitor"), QStringLiteral("systemmonitor")}))
+            return 0;
+        if (containsAny(text, {QStringLiteral("file manager"), QStringLiteral("dolphin"),
+                QStringLiteral("nautilus"), QStringLiteral("thunar"), QStringLiteral("terminal"),
+                QStringLiteral("konsole"), QStringLiteral("disk usage"), QStringLiteral("partition"),
+                QStringLiteral("resource monitor"), QStringLiteral("printers"),
+                QStringLiteral("system information")}))
+            return 1;
+        return 100;
+    }
+    return 0;
+}
+} // namespace
+
 QStringList windowsAppCategories(const QString &name, const QString &folder)
 {
     const QString lower = name.toLower();
@@ -192,6 +253,7 @@ QJsonObject seedWindowsLaunchers(QJsonObject root, const QList<DesktopApp> &apps
             continue;
         QJsonArray keys = page.value(QStringLiteral("keys")).toArray();
         QSet<int> seenGames;
+        QSet<QString> seenLaunchers;
         const auto append = [&](const QString &label, const QJsonObject &action) {
             if (keys.size() < galleon::protocol::KeyCount)
                 keys.append(QJsonObject{{QStringLiteral("key"), static_cast<int>(keys.size())},
@@ -205,13 +267,46 @@ QJsonObject seedWindowsLaunchers(QJsonObject root, const QList<DesktopApp> &apps
                 append(game.name, QJsonObject{{QStringLiteral("type"), QStringLiteral("steam")}, {QStringLiteral("appid"), game.appid}});
             }
         }
-        for (const DesktopApp &app : apps) {
+        QList<DesktopApp> suggested = apps;
+        std::stable_sort(suggested.begin(), suggested.end(), [&category](const DesktopApp &a, const DesktopApp &b) {
+            const int left = launcherPriority(a, category);
+            const int right = launcherPriority(b, category);
+            if (left != right)
+                return left < right;
+            // Two shortcuts for the same browser often have different artwork.
+            if (category == QStringLiteral("AudioVideo") && !browserBrand(a).isEmpty()
+                && browserBrand(a) == browserBrand(b)) {
+                const bool aBrowser = a.categories.contains(QStringLiteral("WebBrowser"));
+                const bool bBrowser = b.categories.contains(QStringLiteral("WebBrowser"));
+                if (aBrowser != bBrowser)
+                    return aBrowser;
+                const bool aHasIcon = !a.icon.isEmpty() || !a.iconPath.isEmpty();
+                const bool bHasIcon = !b.icon.isEmpty() || !b.iconPath.isEmpty();
+                return aHasIcon && !bHasIcon;
+            }
+            return false;
+        });
+        for (const DesktopApp &app : suggested) {
             const bool browser = category == QStringLiteral("AudioVideo") && !app.categories.contains(QStringLiteral("Game"))
                 && (app.categories.contains(QStringLiteral("WebBrowser"))
                     || windowsAppCategories(app.name, QString()).contains(QStringLiteral("AudioVideo")));
-            if ((!app.categories.contains(category) && !browser)
+            const bool system = category == QStringLiteral("Utility")
+                && (app.categories.contains(QStringLiteral("System")) || app.categories.contains(QStringLiteral("Settings")));
+            QString identity = app.name.toCaseFolded();
+            if (category == QStringLiteral("AudioVideo")) {
+                const QString brand = browserBrand(app);
+                if (!brand.isEmpty())
+                    identity = brand;
+            } else if (category == QStringLiteral("Utility")
+                && containsAny(identity, {QStringLiteral("system settings"), QStringLiteral("systemsettings")})) {
+                identity = QStringLiteral("system-settings");
+            }
+            if ((!app.categories.contains(category) && !browser && !system)
+                || launcherPriority(app, category) >= 100
+                || seenLaunchers.contains(identity)
                 || (app.steamAppId > 0 && seenGames.contains(app.steamAppId)))
                 continue;
+            seenLaunchers.insert(identity);
             if (app.steamAppId > 0)
                 seenGames.insert(app.steamAppId);
             append(app.name, QJsonObject{{QStringLiteral("type"), QStringLiteral("app")}, {QStringLiteral("desktop"), app.file}});

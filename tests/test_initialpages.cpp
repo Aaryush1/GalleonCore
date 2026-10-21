@@ -57,7 +57,7 @@ private Q_SLOTS:
             DesktopApp app;
             app.file = applicationPath(index);
             app.name = QStringLiteral("Player %1").arg(index);
-            app.categories = {QStringLiteral("AudioVideo")};
+            app.categories = {QStringLiteral("AudioVideo"), QStringLiteral("Player")};
             apps.append(app);
         }
         const auto original = QJsonDocument::fromJson(windowsInitialPagesJson(QStringLiteral("/absent"), QStringLiteral("/videos"))).object();
@@ -173,6 +173,36 @@ private Q_SLOTS:
         QVERIFY(windowsAppCategories(QStringLiteral("Game"), QStringLiteral("C:/Programs/Jeux")).contains(QStringLiteral("Game")));
         QCOMPARE(windowsAppCategories(QStringLiteral("Notepad"), QStringLiteral("C:/Programs")), QStringList{QStringLiteral("Utility")});
     }
+    void firstRunPrefersUsefulLaunchersAndLeavesUnrelatedUtilitiesOut()
+    {
+        const auto app = [](int index, const QString &name, const QStringList &categories) {
+            DesktopApp result;
+            result.file = applicationPath(index);
+            result.name = name;
+            result.categories = categories;
+            return result;
+        };
+        const DesktopApp converter = app(1, QStringLiteral("Add Face To Video"), {QStringLiteral("AudioVideo")});
+        const DesktopApp player = app(2, QStringLiteral("VLC media player"), {QStringLiteral("AudioVideo"), QStringLiteral("Player")});
+        const DesktopApp browser = app(3, QStringLiteral("Firefox"), {QStringLiteral("Network"), QStringLiteral("WebBrowser")});
+        const DesktopApp unrelated = app(4, QStringLiteral("Caffeine"), {QStringLiteral("Utility")});
+        const DesktopApp terminal = app(5, QStringLiteral("Terminal"), {QStringLiteral("System"), QStringLiteral("TerminalEmulator")});
+        const DesktopApp settings = app(6, QStringLiteral("System Settings"), {QStringLiteral("Settings")});
+        const DesktopApp chrome = app(7, QStringLiteral("Chrome"), {QStringLiteral("AudioVideo")});
+        DesktopApp googleChrome = app(8, QStringLiteral("Google Chrome"), {QStringLiteral("WebBrowser")});
+        googleChrome.icon = QStringLiteral("google-chrome");
+        const auto parsed = parsePagesConfig(linuxInitialPagesJson(
+            {converter, unrelated, terminal, player, settings, browser, chrome, googleChrome}, {}));
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        const auto &pages = required(parsed.config).pages;
+        QCOMPARE(required(pages.value(QStringLiteral("multimedia")).keys[0]).action.desktop, browser.file);
+        QCOMPARE(required(pages.value(QStringLiteral("multimedia")).keys[1]).action.desktop, googleChrome.file);
+        QCOMPARE(required(pages.value(QStringLiteral("multimedia")).keys[2]).action.desktop, player.file);
+        QVERIFY(!pages.value(QStringLiteral("multimedia")).keys[3]);
+        QCOMPARE(required(pages.value(QStringLiteral("systeme")).keys[0]).action.desktop, settings.file);
+        QCOMPARE(required(pages.value(QStringLiteral("systeme")).keys[1]).action.desktop, terminal.file);
+        QVERIFY(!pages.value(QStringLiteral("systeme")).keys[2]);
+    }
     void missingWindowsUtilitiesAreNotOffered()
     {
         const QJsonObject root = QJsonDocument::fromJson(windowsInitialPagesJson(QStringLiteral("/absent"), QStringLiteral("/videos"))).object();
@@ -194,7 +224,7 @@ private Q_SLOTS:
             DesktopApp media;
             media.file = applicationPath(index);
             media.name = QStringLiteral("Player %1").arg(index);
-            media.categories = {QStringLiteral("AudioVideo")};
+            media.categories = {QStringLiteral("AudioVideo"), QStringLiteral("Player")};
             apps.append(media);
         }
         DesktopApp browser;
@@ -205,8 +235,8 @@ private Q_SLOTS:
         for (int index = 0; index < 18; ++index) {
             DesktopApp utility;
             utility.file = QStringLiteral("/apps/utility-%1.desktop").arg(index);
-            utility.name = QStringLiteral("Utility %1").arg(index);
-            utility.categories = {QStringLiteral("Utility")};
+            utility.name = QStringLiteral("System Monitor %1").arg(index);
+            utility.categories = {QStringLiteral("System"), QStringLiteral("Monitor")};
             apps.append(utility);
         }
         QList<SteamGame> games;
@@ -248,7 +278,7 @@ private Q_SLOTS:
         DesktopApp player;
         player.file = applicationPath(1);
         player.name = QStringLiteral("Player");
-        player.categories = {QStringLiteral("AudioVideo")};
+        player.categories = {QStringLiteral("AudioVideo"), QStringLiteral("Player")};
         QJsonObject root = QJsonDocument::fromJson(linuxInitialPagesJson({player}, {})).object();
         QJsonObject editedPages = root.value(QStringLiteral("pages")).toObject();
         QJsonObject media = editedPages.value(QStringLiteral("multimedia")).toObject();

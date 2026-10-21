@@ -48,6 +48,20 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 | OpenRGB plugin | Dial rings implemented in the separate plugin; keyboard RGB remains under investigation |
 | Windows | Desktop preview; native CI and interactive validation tracked in [WINDOWS.md](docs/WINDOWS.md) |
 
+### Galleon Bosun screenshots
+
+The five default pages below show applications installed on one Linux desktop; the apps and icons vary by computer. The last two pictures show the wallpaper and screensaver selectors. [Open the full gallery on the website](https://paullux.github.io/GalleonCore/#previews).
+
+| Control | Multimedia |
+|---|---|
+| ![Bosun Control page with media keys](site/screenshots/control.png) | ![Bosun Multimedia page with browsers and media players](site/screenshots/multimedia.png) |
+| Games | System |
+| ![Bosun Games page with installed games](site/screenshots/games.png) | ![Bosun System page with useful tools](site/screenshots/system.png) |
+| Numeric keypad | Wallpaper choice |
+| ![Bosun numeric keypad](site/screenshots/numpad.png) | ![Bosun wallpaper collection](site/screenshots/wallpapers.png) |
+| Screensaver choice | |
+| ![Bosun screensaver selector with the two bundled videos](site/screenshots/screensavers.png) | |
+
 ### Windows: Stream Deck input does not respond
 
 On the owner's Galleon 100 SD, images updated but the LCD keys and dials did not
@@ -158,7 +172,7 @@ Only the images found in the wallpaper folder can be chosen, and each one is che
 
 ## Button pages
 
-The 12 keys and the 2 dials run the actions of a JSON file, `~/.config/galleoncore/pages.json` (or `--pages file`). On a fresh Linux or Windows profile, the five built-in tabs are Contrôle, Multimédia, Jeu Vidéo, Système and Pavé Numérique. Available applications and Steam games are selected once for the initial pages, with at most 12 keys on each page; an unavailable launcher leaves its slot empty. Removing or changing a key in Bosun does not refill or reorder it. Existing personal pages are left as they are. The file is read again when it changes; a file with an error is refused as a whole and the previous pages stay (the errors are in the log).
+The 12 keys and the 2 dials run the actions of a JSON file, `~/.config/galleoncore/pages.json` (or `--pages file`). On a fresh Linux or Windows profile, the five built-in tabs are Contrôle, Multimédia, Jeu Vidéo, Système and Pavé Numérique. Multimedia prioritizes browsers and players, System suggests administration tools, and Video Games starts with installed Steam games. Suggestions are selected once, with at most 12 keys on each page; unrelated or unavailable launchers leave their slots empty. Removing or changing a key in Bosun does not refill or reorder it. Existing personal pages are left as they are. The file is read again when it changes; a file with an error is refused as a whole and the previous pages stay (the errors are in the log).
 
 ```json
 {

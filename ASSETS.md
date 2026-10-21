@@ -23,6 +23,11 @@ product names and interface marks solely to identify the control being
 documented. Keep its provenance and purpose next to the file; this exception
 does not apply to wallpapers, screensavers, branding or promotional art.
 
+Documentary screenshots of Galleon Bosun may likewise show icons of applications
+and games discovered on the author's desktop. They illustrate the selector and
+are not standalone art assets or endorsements. Keep provenance with the captures;
+third-party icon and trademark rights remain with their respective owners.
+
 Styles are free to use: manga, cyberpunk, space western, cinematic lighting. Characters, logos and footage are not.
 
 ## Where they go

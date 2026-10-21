@@ -223,6 +223,11 @@ h3 { font: 600 1.25rem/1.25 var(--display); margin: 0 0 8px; }
 .firmware-figure { margin: 24px 0 0; max-width: 742px; }
 .firmware-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
 .firmware-figure figcaption { color: var(--muted); font-size: 0.875rem; margin-top: 8px; }
+.preview-grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); margin-top: 28px; }
+.preview-grid figure { margin: 0; min-width: 0; }
+.preview-grid a { display: block; }
+.preview-grid img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+.preview-grid figcaption { color: var(--muted); font-size: 0.875rem; margin-top: 8px; }
 
 .goals { display: grid; gap: 32px; margin-top: 32px; }
 @media (min-width: 900px) { .goals { grid-template-columns: repeat(3, 1fr); gap: 40px; } }
@@ -362,6 +367,20 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
     </nav>
   </section>
 
+  <section class="wrap" id="previews">
+    <h2><span lang="en">Galleon Bosun in pictures</span><span lang="fr">Galleon Bosun en images</span></h2>
+    <p class="prose"><span lang="en">The five default pages are shown with applications found on one Linux desktop; installed apps and icons vary by computer. Wallpapers and screensavers are selected in their own tabs. Click a picture to view it at full size.</span><span lang="fr">Les cinq pages par défaut sont montrées avec les applications trouvées sur un poste Linux ; les applications et icônes varient selon l’ordinateur. Les fonds d’écran et écrans de veille se choisissent dans leurs onglets. Clique sur une image pour l’agrandir.</span></p>
+    <div class="preview-grid">
+      <figure><a href="screenshots/control.png"><img src="screenshots/control.png" width="1240" height="740" loading="lazy" alt="Galleon Bosun: media controls on the Control page"></a><figcaption><span lang="en">Control</span><span lang="fr">Contrôle</span></figcaption></figure>
+      <figure><a href="screenshots/multimedia.png"><img src="screenshots/multimedia.png" width="1240" height="740" loading="lazy" alt="Galleon Bosun: browsers and media players on the Multimedia page"></a><figcaption><span lang="en">Multimedia</span><span lang="fr">Multimédia</span></figcaption></figure>
+      <figure><a href="screenshots/games.png"><img src="screenshots/games.png" width="1240" height="740" loading="lazy" alt="Galleon Bosun: installed games on the Games page"></a><figcaption><span lang="en">Games</span><span lang="fr">Jeu Vidéo</span></figcaption></figure>
+      <figure><a href="screenshots/system.png"><img src="screenshots/system.png" width="1240" height="740" loading="lazy" alt="Galleon Bosun: system tools on the System page"></a><figcaption><span lang="en">System</span><span lang="fr">Système</span></figcaption></figure>
+      <figure><a href="screenshots/numpad.png"><img src="screenshots/numpad.png" width="1240" height="740" loading="lazy" alt="Galleon Bosun: virtual numeric keypad"></a><figcaption><span lang="en">Numeric keypad</span><span lang="fr">Pavé numérique</span></figcaption></figure>
+      <figure><a href="screenshots/wallpapers.png"><img src="screenshots/wallpapers.png" width="1240" height="740" loading="lazy" alt="Galleon Bosun: choosing a wallpaper from the repository collection"></a><figcaption><span lang="en">Choose a wallpaper</span><span lang="fr">Choisir un fond d’écran</span></figcaption></figure>
+      <figure><a href="screenshots/screensavers.png"><img src="screenshots/screensavers.png" width="1240" height="900" loading="lazy" alt="Galleon Bosun: choosing from two bundled screensaver videos"></a><figcaption><span lang="en">Choose a screensaver video</span><span lang="fr">Choisir une vidéo de veille</span></figcaption></figure>
+    </div>
+  </section>
+
   <section class="wrap" id="firmware">
     <h2><span lang="en">Windows: unresponsive Stream Deck keys</span><span lang="fr">Windows : touches Stream Deck sans réponse</span></h2>
     <div class="prose">
@@ -400,6 +419,14 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
           <span lang="fr">Couleurs par touche, barre d'ambiance et anneaux des molettes, via OpenRGB, pour que tous ses utilisateurs en profitent.</span>
         </p>
       </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="initial-pages">
+    <h2><span lang="en">The first five pages</span><span lang="fr">Les cinq pages initiales</span></h2>
+    <div class="prose">
+      <p><span lang="en">A fresh Linux or Windows profile starts with Control, Multimedia, Video Games, System and Numeric Keypad. Each page holds at most 12 fixed keys. Multimedia suggests browsers and players first; System suggests administration tools; Video Games starts with installed Steam games. Labels and icons depend on what is installed on your computer. Unrelated applications do not fill empty slots, and editing or removing a key does not refill it.</span><span lang="fr">Un profil neuf sous Linux ou Windows commence avec Contrôle, Multimédia, Jeu Vidéo, Système et Pavé Numérique. Chaque page contient au plus 12 touches fixes. Multimédia propose d'abord les navigateurs et lecteurs ; Système, les outils d'administration ; Jeu Vidéo commence par les jeux Steam installés. Les noms et icônes dépendent de ce qui est installé sur ton ordinateur. Les applications sans rapport ne remplissent pas les places libres, et modifier ou retirer une touche ne la remplit pas à nouveau.</span></p>
+      <p><span lang="en">Existing personal profiles are preserved.</span><span lang="fr">Les profils personnels existants sont conservés.</span></p>
     </div>
   </section>
 

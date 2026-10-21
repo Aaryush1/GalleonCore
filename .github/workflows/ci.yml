@@ -7,7 +7,9 @@ on:
   workflow_call:
   push:
     branches: [main]
+    paths-ignore: ["site/**"]
   pull_request:
+    paths-ignore: ["site/**"]
 
 concurrency:
   group: galleon-ci-${{ github.event.pull_request.number || github.ref }}

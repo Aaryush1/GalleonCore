@@ -48,6 +48,20 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 | Plugin OpenRGB | Anneaux des molettes implémentés dans le plugin séparé ; RVB du clavier toujours en investigation |
 | Windows | Préversion desktop ; CI native et essais interactifs suivis dans [WINDOWS.md](docs/WINDOWS.md) |
 
+### Captures de Galleon Bosun
+
+Les cinq pages par défaut montrent les applications installées sur un poste Linux ; les applications et leurs icônes varient selon l’ordinateur. Les deux dernières captures montrent le choix des fonds d’écran et des vidéos de veille. [Voir la galerie sur le site](https://paullux.github.io/GalleonCore/#previews).
+
+| Contrôle | Multimédia |
+|---|---|
+| ![Page Contrôle de Bosun avec les touches multimédias](site/screenshots/control.png) | ![Page Multimédia de Bosun avec navigateurs et lecteurs](site/screenshots/multimedia.png) |
+| Jeu vidéo | Système |
+| ![Page Jeu Vidéo de Bosun avec les jeux installés](site/screenshots/games.png) | ![Page Système de Bosun avec les outils utiles](site/screenshots/system.png) |
+| Pavé numérique | Choix du fond d’écran |
+| ![Pavé numérique dans Bosun](site/screenshots/numpad.png) | ![Catalogue de fonds d’écran dans Bosun](site/screenshots/wallpapers.png) |
+| Choix de la veille | |
+| ![Choix des deux vidéos de veille du dépôt dans Bosun](site/screenshots/screensavers.png) | |
+
 ### Windows : les touches du Stream Deck ne répondent pas
 
 Sur le Galleon 100 SD du propriétaire, les images se mettaient à jour mais les
@@ -161,7 +175,7 @@ Seules les images du dossier des fonds peuvent être choisies, et chacune est v�
 
 ## Pages de boutons
 
-Les 12 touches et les 2 molettes exécutent les actions d'un fichier JSON, `~/.config/galleoncore/pages.json` (ou `--pages fichier`). Sur un profil neuf, sous Linux comme sous Windows, les cinq onglets intégrés sont Contrôle, Multimédia, Jeu Vidéo, Système et Pavé Numérique. Les applications disponibles et les jeux Steam sont choisis une seule fois pour les pages initiales, avec au plus 12 touches par page ; un lanceur absent laisse une place vide. Supprimer ou modifier une touche dans Bosun ne la remplit ni ne la déplace ensuite. Les pages personnelles existantes restent intactes. Le fichier est relu quand il change ; un fichier avec une erreur est refusé en entier et les pages précédentes restent (les erreurs sont dans le journal).
+Les 12 touches et les 2 molettes exécutent les actions d'un fichier JSON, `~/.config/galleoncore/pages.json` (ou `--pages fichier`). Sur un profil neuf, sous Linux comme sous Windows, les cinq onglets intégrés sont Contrôle, Multimédia, Jeu Vidéo, Système et Pavé Numérique. Multimédia privilégie les navigateurs et lecteurs, Système propose des outils d'administration et Jeu Vidéo commence par les jeux Steam installés. Les suggestions sont choisies une seule fois, avec au plus 12 touches par page ; un lanceur absent ou sans rapport laisse sa place vide. Supprimer ou modifier une touche dans Bosun ne la remplit ni ne la déplace ensuite. Les pages personnelles existantes restent intactes. Le fichier est relu quand il change ; un fichier avec une erreur est refusé en entier et les pages précédentes restent (les erreurs sont dans le journal).
 
 ```json
 {
