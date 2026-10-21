@@ -6,16 +6,21 @@
 #include "FakeTransport.h"
 
 #include <PagesConfig.h>
+#include <ScreenController.h>
+#include <ScreenRenderer.h>
 #include <ScreensaverController.h>
 #include <ScreensaverSplitter.h>
+#include <WallpaperCatalog.h>
 #include <galleon/StreamDeck.h>
 
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPainter>
 #include <QProcess>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -318,6 +323,32 @@ private Q_SLOTS:
         QTRY_VERIFY_WITH_TIMEOUT(!f.controller->isActive(), 3000);
         QCOMPARE(active.count(), 2);
         QVERIFY(!active.last().first().toBool());
+    }
+
+    void choosingAWallpaperWakesTheModule()
+    {
+        Fixture f;
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, f.dir.path());
+        const QString wallpaperRoot = f.dir.filePath(QStringLiteral("wallpapers"));
+        QVERIFY(QDir().mkpath(wallpaperRoot + QStringLiteral("/style")));
+        QImage picture(32, 32, QImage::Format_RGB32);
+        picture.fill(Qt::green);
+        QVERIFY(picture.save(wallpaperRoot + QStringLiteral("/style/green.png")));
+        const QString widget = QStringLiteral(GALLEON_SOURCE_WIDGETS) + QStringLiteral("/WallpaperClock.qml");
+        ScreenRenderer renderer(widget);
+        ScreenController screen(f.deck.get(), &renderer, WallpaperCatalog(wallpaperRoot), widget);
+        QObject::connect(f.controller.get(), &ScreensaverController::activeChanged,
+                         &screen, &ScreenController::setSuspended);
+        QObject::connect(&screen, &ScreenController::wallpaperChanged,
+                         f.controller.get(), &ScreensaverController::notifyActivity);
+
+        f.configure(f.config);
+        f.controller->setIdleTimeoutMs(100);
+        QTRY_VERIFY_WITH_TIMEOUT(f.controller->isActive(), 3000);
+        QVERIFY(!screen.SetWallpaper(QStringLiteral("style/green.png")));
+        QTRY_VERIFY_WITH_TIMEOUT(!f.controller->isActive(), 3000);
+        QCOMPARE(screen.wallpaper(), QStringLiteral("style/green.png"));
     }
 
     void aTrackPlayingKeepsTheScreensaverAway()
