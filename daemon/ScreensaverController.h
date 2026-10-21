@@ -68,7 +68,7 @@ Q_SIGNALS:
 private:
     void onIdle();
     void start();
-    void stop();
+    void stop(bool wait = true);
     void restartIdleTimer();
     void onReadyRead();
     void onFinished(int exitCode, QProcess::ExitStatus status);

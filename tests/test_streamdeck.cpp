@@ -8,6 +8,7 @@
 
 #include <QSignalSpy>
 #include <QTest>
+#include <QThread>
 
 #include <memory>
 #include <utility>
@@ -58,6 +59,25 @@ private Q_SLOTS:
         f.deck->setKeepAliveInterval(10);
         QVERIFY(f.deck->open());
         QTRY_VERIFY_WITH_TIMEOUT(f.transport->featureReports.size() >= 4, 2000);
+    }
+
+    void slowImageTransfersDoNotWaitForTheEventLoopToKeepHostMode()
+    {
+        Fixture f;
+        f.deck->setKeepAliveInterval(40);
+        QVERIFY(f.deck->open());
+        std::size_t keepAlivesBeforeLastWrite = 0;
+        f.transport->beforeWrite = [&] {
+            QThread::msleep(10); // Blocking USB writes: Qt's keep-alive timer cannot run here.
+            keepAlivesBeforeLastWrite = f.transport->featureReports.size();
+        };
+        QImage image(160, 160, QImage::Format_RGB32);
+        for (int y = 0; y < image.height(); ++y) {
+            for (int x = 0; x < image.width(); ++x)
+                image.setPixel(x, y, qRgb((x * 17 + y * 13) % 256, (x * 11 + y * 29) % 256, (x * 31 + y * 7) % 256));
+        }
+        QVERIFY(f.deck->setKeyImage(0, image));
+        QVERIFY(keepAlivesBeforeLastWrite > 1); // A keep-alive was sent inside the transfer, without qWait/processEvents.
     }
 
     void keepAliveStopsAfterClose()

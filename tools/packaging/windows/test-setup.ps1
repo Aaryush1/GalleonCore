@@ -31,7 +31,7 @@ function Run-Installer([string]$Program, [string]$Arguments) {
 }
 function Start-Applications {
     $daemon = Start-Process (Join-Path $root 'bin/galleond.exe') -ArgumentList "--pages `"$pages`"" -PassThru
-    $bosun = Start-Process (Join-Path $root 'bin/galleon-bosun.exe') -ArgumentList "--pages `"$pages`"" -PassThru
+    $bosun = Start-Process (Join-Path $root 'bin/galleon-bosun.exe') -ArgumentList "--minimized --pages `"$pages`"" -PassThru
     $script:processes = @($daemon, $bosun)
     $ready = $false
     for ($attempt = 0; $attempt -lt 20; $attempt++) {
@@ -44,13 +44,32 @@ function Start-Applications {
 function Assert-Closed {
     foreach ($child in $script:processes) {
         if (-not $child.WaitForExit(10000)) { throw 'Setup left an application running.' }
-        if ($child.ExitCode -ne 0) { throw 'Application did not shut down cleanly.' }
+        if ($child.ExitCode -ne 0) { throw "Application $($child.Id) did not shut down cleanly (exit: $($child.ExitCode))." }
     }
 }
 try {
     # First installation, then upgrade while both applications are running.
     Run-Installer (Resolve-Path $Setup).Path "/S /D=$root"
-    Start-Applications
+    $startup = [System.Environment]::GetFolderPath('Startup')
+    $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $daemonCommand = '"' + (Join-Path $root 'bin/galleond.exe') + '"'
+    $bosunCommand = '"' + (Join-Path $root 'bin/galleon-bosun.exe') + '" --minimized'
+    if ((Get-ItemPropertyValue $runKey GalleonCore) -ne $daemonCommand) { throw 'Daemon sign-in command missing or incorrectly quoted.' }
+    if ((Get-ItemPropertyValue $runKey GalleonBosun) -ne $bosunCommand) { throw 'Bosun tray sign-in command missing or incorrectly quoted.' }
+    # Launch Bosun alone, as from the Start menu: it must start its missing daemon.
+    $bosun = Start-Process (Join-Path $root 'bin/galleon-bosun.exe') -ArgumentList '--minimized' -PassThru
+    $script:processes = @($bosun)
+    $ready = $false
+    for ($attempt = 0; $attempt -lt 40; $attempt++) {
+        & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper -InstallDir $root -Mode Probe
+        if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+        Start-Sleep -Milliseconds 300
+    }
+    $daemon = @(Get-Process galleond -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq (Join-Path $root 'bin/galleond.exe') })
+    $script:processes += $daemon
+    if (-not $ready -or $daemon.Count -ne 1) { throw 'Bosun did not automatically start one installed daemon.' }
+    # Get-Process returns a snapshot; retain its native handle before exit so ExitCode remains readable.
+    $null = $daemon[0].Handle
     Run-Installer (Resolve-Path $Setup).Path "/S /D=$root"
     Assert-Closed
     if (-not (Test-Path $sentinel)) { throw 'Upgrade removed personal data.' }
@@ -58,11 +77,19 @@ try {
     Start-Applications
     Run-Installer (Join-Path $root 'Uninstall.exe') '/S'
     Assert-Closed
+    # NSIS launches a temporary uninstaller copy; its launcher can exit before cleanup ends.
+    $markers = @((Join-Path $root 'bin/galleond.exe'), (Join-Path $root 'Uninstall.exe'),
+        (Join-Path $startup 'GalleonCore.lnk'), (Join-Path $startup 'Galleon Bosun.lnk'))
     $deadline = [System.DateTime]::UtcNow.AddSeconds(20)
-    while ((Test-Path (Join-Path $root 'bin/galleond.exe')) -and [System.DateTime]::UtcNow -lt $deadline) {
+    do {
+        $remaining = @($markers | Where-Object { Test-Path -LiteralPath $_ })
+        if ($remaining.Count -eq 0) { break }
         Start-Sleep -Milliseconds 100
+    } while ([System.DateTime]::UtcNow -lt $deadline)
+    if ($remaining.Count -gt 0) { throw "Uninstall left files: $($remaining -join ', ')" }
+    foreach ($name in @('GalleonCore', 'GalleonBosun')) {
+        if ($null -ne (Get-ItemProperty $runKey -Name $name -ErrorAction SilentlyContinue)) { throw 'Uninstall left a sign-in command.' }
     }
-    if (Test-Path (Join-Path $root 'bin/galleond.exe')) { throw 'Uninstall left application binaries.' }
     if (-not (Test-Path $sentinel)) { throw 'Uninstall removed personal data.' }
     if ((Get-ItemPropertyValue $settingsKey SetupPreservationTest) -ne 'Keep settings') { throw 'Uninstall removed settings.' }
 } finally {

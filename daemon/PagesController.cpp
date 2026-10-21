@@ -35,7 +35,9 @@ namespace {
 
 constexpr int ReloadDelayMs = 250; // editors write a file in several steps
 constexpr int MinLaunchIntervalMs = 700; // a double press must not start an application twice
+#ifndef Q_OS_WIN
 constexpr int MaxLookedUpApps = 64;
+#endif
 
 bool isMediaPresent(MediaController::State state)
 {
@@ -78,6 +80,37 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
         return sources;
     })
 {
+#ifdef Q_OS_WIN
+    m_launcherCache = std::make_unique<LauncherCache>();
+    connect(m_launcherCache.get(), &LauncherCache::ready, this, [this](const QString &reference) {
+        if (m_suspended)
+            return;
+        for (std::size_t index = 0; index < m_dirty.size(); ++index) {
+            const auto *key = keyConfig(static_cast<int>(index));
+            if (key && ((key->action.type == ActionType::App && key->action.desktop == reference)
+                || (key->action.type == ActionType::Steam && reference == QStringLiteral("steam:%1").arg(key->action.appid))))
+                m_dirty.at(index) = true;
+        }
+        if (!m_drawTimer.isActive() && std::ranges::any_of(m_dirty, [](bool dirty) { return dirty; }))
+            m_drawTimer.start();
+    });
+    m_drawTimer.setSingleShot(true);
+    m_drawTimer.setInterval(1);
+    connect(&m_drawTimer, &QTimer::timeout, this, [this] {
+        if (m_suspended)
+            return;
+        for (std::size_t key = 0; key < m_dirty.size(); ++key) {
+            if (!m_dirty.at(key))
+                continue;
+            m_dirty.at(key) = false;
+            const bool force = std::exchange(m_forceDraw.at(key), false);
+            drawKey(static_cast<int>(key), force);
+            break; // Yield to keep-alive/input between keys, not after an entire page.
+        }
+        if (std::ranges::any_of(m_dirty, [](bool dirty) { return dirty; }))
+            m_drawTimer.start();
+    });
+#endif
     m_clock.start();
     m_lastPressAt.fill(-static_cast<qint64>(ClickAfterMs) * 4);
     
@@ -138,6 +171,12 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
 void PagesController::setConfig(const PagesConfig &config)
 {
     m_apps.clear();
+#ifdef Q_OS_WIN
+    m_launcherCache->clear();
+    m_drawTimer.stop();
+    m_dirty.fill(false);
+    m_forceDraw.fill(false);
+#endif
     const bool screenChanged = !(config.screen == m_config.screen);
     const bool saverChanged = !(config.screensaver == m_config.screensaver);
     m_config = config;
@@ -217,7 +256,7 @@ void PagesController::reload()
     if (!owned && m_appsAllowed)
         qWarning() << "galleond: the pages file" << m_file << "is not owned by you or is writable by others: its application keys are disabled";
     m_appsAllowed = owned;
-    const QByteArray bytes = file.read(MaxPagesFileBytes + 1);
+    const QByteArray bytes = preparePagesJson(file.read(MaxPagesFileBytes + 1));
     const PagesParseResult result = parsePagesConfig(bytes);
     if (!result.config) {
         qWarning() << "galleond: the pages file" << m_file << "has errors and is not used:";
@@ -263,6 +302,9 @@ void PagesController::recordUse(const QString &id)
 
 void PagesController::rebuildPage()
 {
+#ifdef Q_OS_WIN
+    m_launcherCache->cancelPending();
+#endif
     m_dynamic.reset();
     m_highlightKey = -1;
     const auto found = m_config.pages.constFind(currentPage());
@@ -298,8 +340,13 @@ void PagesController::drawKey(int key, bool force)
         QString iconFile; // an application's icon given by path
         const KeyConfig effective = TileRenderer::effectiveKey(
             *configured, configured->action.type == ActionType::App ? appFor(configured->action.desktop) : DesktopApp{}, iconFile);
-        if (configured->action.type == ActionType::Steam && configured->icon.name.isEmpty())
-            iconFile = SteamLibrary::coverImage(configured->action.appid); // the game's cover from Steam's own cache
+        if (configured->action.type == ActionType::Steam && configured->icon.name.isEmpty()) {
+#ifdef Q_OS_WIN
+            iconFile = m_launcherCache->lookup(QStringLiteral("steam:%1").arg(configured->action.appid)).value(QStringLiteral("icon")).toString();
+#else
+            iconFile = SteamLibrary::coverImage(configured->action.appid);
+#endif
+        }
         // Shuffle and repeat show their state in words, and a lighter key when it is on.
         KeyConfig shown = effective;
         bool active = false;
@@ -357,8 +404,16 @@ void PagesController::redraw(bool force)
 {
     if (m_suspended)
         return;
+#ifdef Q_OS_WIN
+    m_dirty.fill(true);
+    for (auto &pending : m_forceDraw)
+        pending = pending || force;
+    if (!m_drawTimer.isActive())
+        m_drawTimer.start();
+#else
     for (int key = 0; key < galleon::protocol::KeyCount; ++key)
         drawKey(key, force);
+#endif
 }
 
 void PagesController::perform(const Action &action, int times)
@@ -583,12 +638,14 @@ void PagesController::applyRings()
     // white, for the music player control.
     const Theme *theme = currentTheme();
     const std::uint32_t rgb = theme ? theme->rgb : 0;
-    m_deck->setDialRing(0, static_cast<std::uint8_t>(rgb >> 16), static_cast<std::uint8_t>(rgb >> 8),
-                        static_cast<std::uint8_t>(rgb));
+    if (!m_deck->setDialRing(0, static_cast<std::uint8_t>(rgb >> 16), static_cast<std::uint8_t>(rgb >> 8),
+                            static_cast<std::uint8_t>(rgb)))
+        qWarning() << "galleond: could not update the left dial ring";
     // The right ring: white for the player control, magenta while it chooses the wallpaper.
     const std::uint32_t right = wallpaperMode() ? WallpaperModeRgb : 0xffffff;
-    m_deck->setDialRing(1, static_cast<std::uint8_t>(right >> 16), static_cast<std::uint8_t>(right >> 8),
-                        static_cast<std::uint8_t>(right));
+    if (!m_deck->setDialRing(1, static_cast<std::uint8_t>(right >> 16), static_cast<std::uint8_t>(right >> 8),
+                            static_cast<std::uint8_t>(right)))
+        qWarning() << "galleond: could not update the right dial ring";
 }
 
 void PagesController::setWallpaperMode(int dial)
@@ -617,6 +674,19 @@ void PagesController::setWallpaperMode(int dial)
 
 DesktopApp PagesController::appFor(const QString &desktop)
 {
+#ifdef Q_OS_WIN
+    const auto data = m_launcherCache->lookup(desktop);
+    if (!DesktopEntries::isValidReference(desktop))
+        return {};
+    DesktopApp app;
+    app.file = desktop; // Launch validates the local file; it never needs a Shell icon lookup.
+    app.id = desktop;
+    app.name = data.value(QStringLiteral("name")).toString();
+    if (app.name.isEmpty())
+        app.name = QFileInfo(desktop).completeBaseName();
+    app.iconPath = data.value(QStringLiteral("icon")).toString();
+    return app;
+#else
     if (const auto known = m_apps.constFind(desktop); known != m_apps.constEnd())
         return known.value();
     if (m_apps.size() >= MaxLookedUpApps)
@@ -624,6 +694,7 @@ DesktopApp PagesController::appFor(const QString &desktop)
     const DesktopApp app = DesktopEntries::lookup(desktop);
     m_apps.insert(desktop, app);
     return app;
+#endif
 }
 
 void PagesController::launchApp(const QString &desktop)

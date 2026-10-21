@@ -7,6 +7,7 @@
 #include "galleon/Transport.h"
 
 #include <QImage>
+#include <QElapsedTimer>
 #include <QObject>
 #include <QTimer>
 
@@ -65,12 +66,14 @@ Q_SIGNALS:
 
 private:
     void sendKeepAlive();
+    bool writeReports(const std::vector<std::vector<std::uint8_t>> &reports);
     void pollInput();
     bool pollOneReport(); // false when there is nothing more to read (or the module is gone)
     void dispatch(const protocol::InputEvent &event);
 
     std::unique_ptr<Transport> m_transport;
     QTimer m_keepAliveTimer;
+    QElapsedTimer m_sinceKeepAlive;
     QTimer m_inputTimer;
     protocol::InputState m_inputState;
     int m_invalidReports = 0;

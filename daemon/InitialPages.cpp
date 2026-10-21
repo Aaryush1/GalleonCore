@@ -11,11 +11,16 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSet>
 
 namespace galleond {
 QStringList windowsAppCategories(const QString &name, const QString &folder)
 {
     const QString lower = name.toLower();
+    for (const QString &helper : {QStringLiteral("software center"), QStringLiteral("removable drives"), QStringLiteral("icon mode"), QStringLiteral("video capture")}) {
+        if (lower.contains(helper))
+            return {QStringLiteral("Utility")};
+    }
     const QString path = QString(folder).replace(QLatin1Char('\\'), QLatin1Char('/')).toLower();
     const QStringList mediaNames{QStringLiteral("firefox"), QStringLiteral("chrome"), QStringLiteral("edge"),
         QStringLiteral("brave"), QStringLiteral("opera"), QStringLiteral("vivaldi"), QStringLiteral("chromium"),
@@ -126,36 +131,113 @@ QByteArray windowsInitialPagesJson(const QString &systemFolder, const QString &s
     return QJsonDocument(root).toJson();
 }
 
+QJsonObject fixedWindowsPages(QJsonObject root)
+{
+    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    const QJsonArray themes = root.value(QStringLiteral("themes")).toArray();
+    for (const auto &themeValue : themes) {
+        const auto theme = themeValue.toObject();
+        const QString name = theme.value(QStringLiteral("page")).toString();
+        QJsonObject page = pages.value(name).toObject();
+        // Migrate the recognizable auto-generated Plus link without deleting the extra page's data.
+        if (page.contains(QStringLiteral("menu"))) {
+            QJsonArray keys = page.value(QStringLiteral("keys")).toArray();
+            const QString moreName = name + QStringLiteral("-plus");
+            const QString label = (theme.value(QStringLiteral("name")).toString() + QStringLiteral("-Plus")).left(MaxLabelLength);
+            for (qsizetype index = 0; index < keys.size(); ++index) {
+                const auto key = keys.at(index).toObject();
+                const auto action = key.value(QStringLiteral("action")).toObject();
+                if (key.value(QStringLiteral("key")).toInt(-1) != 11 || key.value(QStringLiteral("label")).toString() != label
+                    || action.value(QStringLiteral("type")) != QStringLiteral("page")
+                    || action.value(QStringLiteral("page")) != moreName)
+                    continue;
+                keys.removeAt(index);
+                const auto extras = pages.value(moreName).toObject().value(QStringLiteral("keys")).toArray();
+                for (const auto &extra : extras) {
+                    QJsonObject replacement = extra.toObject();
+                    const auto type = replacement.value(QStringLiteral("action")).toObject().value(QStringLiteral("type")).toString();
+                    if (replacement.value(QStringLiteral("key")).toInt(-1) == 0 && (type == QStringLiteral("app") || type == QStringLiteral("steam"))) {
+                        replacement.insert(QStringLiteral("key"), 11);
+                        keys.append(replacement);
+                        break;
+                    }
+                }
+                break;
+            }
+            page.insert(QStringLiteral("keys"), keys);
+            pages.insert(name, page);
+        }
+    }
+    for (auto it = pages.begin(); it != pages.end(); ++it) {
+        QJsonObject page = it.value().toObject();
+        // Existing files keep their explicit positions and empty keys. Never rediscover on reload/edit.
+        page.remove(QStringLiteral("menu"));
+        page.remove(QStringLiteral("steam"));
+        page.remove(QStringLiteral("sort"));
+        it.value() = page;
+    }
+    root.insert(QStringLiteral("pages"), pages);
+    return root;
+}
+
+QJsonObject seedWindowsLaunchers(QJsonObject root, const QList<DesktopApp> &apps, const QList<SteamGame> &games)
+{
+    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    for (auto it = pages.begin(); it != pages.end(); ++it) {
+        QJsonObject page = it.value().toObject();
+        const QString category = page.value(QStringLiteral("menu")).toObject().value(QStringLiteral("category")).toString();
+        if (category.isEmpty())
+            continue;
+        QJsonArray keys = page.value(QStringLiteral("keys")).toArray();
+        QSet<int> seenGames;
+        const auto append = [&](const QString &label, const QJsonObject &action) {
+            if (keys.size() < galleon::protocol::KeyCount)
+                keys.append(QJsonObject{{QStringLiteral("key"), static_cast<int>(keys.size())},
+                    {QStringLiteral("label"), label.left(MaxLabelLength)}, {QStringLiteral("action"), action}});
+        };
+        if (page.contains(QStringLiteral("steam"))) {
+            for (const SteamGame &game : games) {
+                if (SteamLibrary::isTool(game) || seenGames.contains(game.appid))
+                    continue;
+                seenGames.insert(game.appid);
+                append(game.name, QJsonObject{{QStringLiteral("type"), QStringLiteral("steam")}, {QStringLiteral("appid"), game.appid}});
+            }
+        }
+        for (const DesktopApp &app : apps) {
+            if (!app.categories.contains(category) || (app.steamAppId > 0 && seenGames.contains(app.steamAppId)))
+                continue;
+            if (app.steamAppId > 0)
+                seenGames.insert(app.steamAppId);
+            append(app.name, QJsonObject{{QStringLiteral("type"), QStringLiteral("app")}, {QStringLiteral("desktop"), app.file}});
+        }
+        page.insert(QStringLiteral("keys"), keys);
+        it.value() = page;
+    }
+    root.insert(QStringLiteral("pages"), pages);
+    return fixedWindowsPages(root);
+}
+
+QByteArray preparePagesJson(const QByteArray &bytes)
+{
+#ifdef Q_OS_WIN
+    if (!parsePagesConfig(bytes).config)
+        return bytes;
+    return QJsonDocument(fixedWindowsPages(QJsonDocument::fromJson(bytes).object())).toJson();
+#else
+    return bytes;
+#endif
+}
+
 QByteArray initialPagesJson()
 {
 #ifdef Q_OS_WIN
-    QJsonObject root = QJsonDocument::fromJson(windowsInitialPagesJson(
-        QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32")),
-        QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../share/galleoncore/screensavers")))).object();
-    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
-    for (const QString &pageName : {QStringLiteral("multimedia"), QStringLiteral("jeux")}) {
-        QJsonObject page = pages.value(pageName).toObject();
-        QJsonArray keys;
-        if (pageName == QStringLiteral("jeux")) {
-            for (const SteamGame &game : SteamLibrary::installedGames()) {
-                if (keys.size() >= 12)
-                    break;
-                keys.append(QJsonObject{{QStringLiteral("key"), static_cast<int>(keys.size())}, {QStringLiteral("label"), game.name.left(MaxLabelLength)},
-                    {QStringLiteral("action"), QJsonObject{{QStringLiteral("type"), QStringLiteral("steam")}, {QStringLiteral("appid"), game.appid}}}});
-            }
-        }
-        const QString category = page.value(QStringLiteral("menu")).toObject().value(QStringLiteral("category")).toString();
-        for (const DesktopApp &app : DesktopEntries::listCategory(category)) {
-            if (keys.size() >= 12)
-                break;
-            keys.append(QJsonObject{{QStringLiteral("key"), static_cast<int>(keys.size())}, {QStringLiteral("label"), app.name.left(MaxLabelLength)},
-                {QStringLiteral("action"), QJsonObject{{QStringLiteral("type"), QStringLiteral("app")}, {QStringLiteral("desktop"), app.file}}}});
-        }
-        page.insert(QStringLiteral("keys"), keys);
-        pages.insert(pageName, page);
-    }
-    root.insert(QStringLiteral("pages"), pages);
-    return QJsonDocument(root).toJson();
+    // Warmed before opening HID. Used only as fallback, never to refill an existing file.
+    static const QByteArray initial = QJsonDocument(seedWindowsLaunchers(
+        QJsonDocument::fromJson(windowsInitialPagesJson(
+            QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32")),
+            QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../share/galleoncore/screensavers")))).object(),
+        DesktopEntries::list(false), SteamLibrary::installedGames())).toJson();
+    return initial;
 #else
     return defaultPagesJson();
 #endif

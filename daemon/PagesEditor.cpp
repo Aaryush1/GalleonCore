@@ -31,7 +31,7 @@ EditResult failure(const QString &message)
 // hands back its JSON. `original` tells whether a file existed.
 bool load(const QString &file, QJsonObject &root, bool &original, EditResult &error)
 {
-    QByteArray bytes = initialPagesJson();
+    QByteArray bytes;
     original = QFileInfo::exists(file);
     if (original) {
         QFile in(file);
@@ -41,6 +41,9 @@ bool load(const QString &file, QJsonObject &root, bool &original, EditResult &er
         }
         bytes = in.read(MaxPagesFileBytes + 1);
     }
+    if (!original)
+        bytes = initialPagesJson();
+    bytes = preparePagesJson(bytes);
     const PagesParseResult parsed = parsePagesConfig(bytes);
     if (!parsed.config) {
         // Never rewrite a file we do not understand: the user fixes it first.

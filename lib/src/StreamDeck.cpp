@@ -42,17 +42,6 @@ QByteArray encodeJpeg(const QImage &image, int width, int height, int quality = 
     return bytes;
 }
 
-bool writeAll(Transport &transport, const std::vector<std::vector<std::uint8_t>> &reports)
-{
-    if (reports.empty())
-        return false;
-    for (const auto &report : reports) {
-        if (!transport.write(report))
-            return false;
-    }
-    return true;
-}
-
 // Bytes of a Qt buffer as the unsigned bytes the protocol layer takes (a copy:
 // no cast of the buffer's pointer, no pointer arithmetic).
 std::vector<std::uint8_t> toBytes(const QByteArray &data)
@@ -134,7 +123,7 @@ bool StreamDeck::setKeyImage(int key, const QImage &image, bool flush)
     const std::vector<std::uint8_t> bytes = toBytes(jpeg);
     const auto reports = protocol::keyImageReports(key, bytes);
     // Twice: the module shows a picture when the next transfer follows it (measured, see StreamDeck.h).
-    return writeAll(*m_transport, reports) && (!flush || writeAll(*m_transport, reports));
+    return writeReports(reports) && (!flush || writeReports(reports));
 }
 
 bool StreamDeck::setScreenImage(const QImage &image, int quality, bool flush)
@@ -147,7 +136,7 @@ bool StreamDeck::setScreenImage(const QImage &image, int quality, bool flush)
     const std::vector<std::uint8_t> bytes = toBytes(jpeg);
     const auto reports = protocol::screenImageReports(bytes, 0, 0, protocol::ScreenWidth, protocol::ScreenHeight);
     // Twice: the module shows a picture when the next transfer follows it (measured, see StreamDeck.h).
-    return writeAll(*m_transport, reports) && (!flush || writeAll(*m_transport, reports));
+    return writeReports(reports) && (!flush || writeReports(reports));
 }
 
 bool StreamDeck::setBrightness(int percent)
@@ -182,12 +171,29 @@ void StreamDeck::setKeepAliveInterval(int ms)
 
 bool StreamDeck::sendKeepAliveNow()
 {
-    return isOpen() && m_transport->sendFeatureReport(protocol::keepAliveReport());
+    if (!isOpen() || !m_transport->sendFeatureReport(protocol::keepAliveReport()))
+        return false;
+    m_sinceKeepAlive.start();
+    return true;
 }
 
 void StreamDeck::sendKeepAlive()
 {
-    m_transport->sendFeatureReport(protocol::keepAliveReport());
+    (void)sendKeepAliveNow();
+}
+
+bool StreamDeck::writeReports(const std::vector<std::vector<std::uint8_t>> &reports)
+{
+    if (reports.empty())
+        return false;
+    return std::ranges::all_of(reports, [this](const auto &report) {
+        // The already documented host keep-alive (Protocol.h) must not wait for a whole JPEG/page.
+        // No nested event processing: input/page changes cannot interleave image transfers.
+        if ((!m_sinceKeepAlive.isValid() || m_sinceKeepAlive.elapsed() >= qMax(1, m_keepAliveTimer.interval() / 2))
+            && !sendKeepAliveNow())
+            return false;
+        return m_transport->write(report);
+    });
 }
 
 void StreamDeck::pollInput()

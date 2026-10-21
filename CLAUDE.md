@@ -89,3 +89,27 @@ fixture and Linux fallback. Never overwrite customized pages to deliver new
 Windows defaults. Start Menu classification is a heuristic; Steam discovery uses
 its installed library metadata. No arbitrary shell commands or URI schemes are
 accepted as Windows app references.
+
+Windows follow-up: application icons are extracted from Shell metadata and cached
+as PNG; a custom label must not suppress its app icon. Keep the icon loader's file
+size/dimension limits. Startup uses per-user HKCU Run commands (Bosun `--minimized`),
+never a Session 0 media controller. Screensaver wake must not wait synchronously
+for a decoder process; test an ignored termination request as well as consumed
+wake input. Official OpenRGB ring ownership remains a hardware integration item;
+do not claim priority from repeated color writes.
+
+Windows defaults are capped at 12 launchers per theme, with no generated Plus
+page, auto-refill or usage reordering on reload/edit. Existing Windows page files
+are normalized without Shell discovery; explicit empty slots remain empty.
+Linux keeps its auto-fill behavior. Keep launcher/Shell/Steam artwork I/O outside
+the Windows device event loop: LauncherCache runs a bounded, timed metadata-only
+child (`galleond --launcher-info`), before any instance lock/HID opening. Draw one
+key per event-loop turn. Long image writes refresh the existing host keep-alive
+between reports without processing nested events. Cover both with slow-I/O tests;
+do not claim a hardware reset fixed from synthetic tests alone.
+Steam `.url` imports accept only bounded InternetShortcut files containing one
+`steam://rungameid/<positive int>` URL. Ignore external icon paths and reconstruct
+the validated Steam URI when launching. Other URL schemes remain rejected.
+The owner identified Windows Dynamic Lighting and OpenRGB's `Dynamic Light`
+LampArray device (1b1c:2b18, MI_03) as competing ring controllers. Do not invent
+ownership commands or persistent RGB reports.

@@ -66,11 +66,25 @@ endfunction()
 
 galleond_add_test(test_initialpages)
 
+add_executable(galleon_test_decoder FakeDecoder.cpp)
+target_link_libraries(galleon_test_decoder PRIVATE Qt6::Core galleon_warnings)
+galleond_add_test(test_windowswake)
+target_compile_definitions(test_windowswake PRIVATE GALLEON_TEST_DECODER="$<TARGET_FILE:galleon_test_decoder>")
+add_dependencies(test_windowswake galleon_test_decoder)
+
+add_executable(galleon_test_launcher FakeLauncher.cpp)
+target_link_libraries(galleon_test_launcher PRIVATE Qt6::Core galleon_warnings)
+galleond_add_test(test_launchercache)
+target_compile_definitions(test_launchercache PRIVATE GALLEON_TEST_LAUNCHER="$<TARGET_FILE:galleon_test_launcher>")
+add_dependencies(test_launchercache galleon_test_launcher)
+
 if(WIN32)
     # Native desktop smoke rendering; Linux service/launcher tests stay on Linux.
     galleond_add_test(test_screenrenderer)
     galleon_add_test(test_windowsdesktop)
     target_link_libraries(test_windowsdesktop PRIVATE bosun_core)
+    target_compile_definitions(test_windowsdesktop PRIVATE GALLEON_TEST_METADATA_DAEMON="$<TARGET_FILE:galleond>")
+    add_dependencies(test_windowsdesktop galleond)
     return()
 endif()
 

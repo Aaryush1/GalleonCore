@@ -4,6 +4,9 @@
 #pragma once
 
 #include "DesktopEntries.h"
+#ifdef Q_OS_WIN
+#include "LauncherCache.h"
+#endif
 #include "KeyInjector.h"
 #include "PageOrder.h"
 #include "MediaController.h"
@@ -211,6 +214,12 @@ private:
     std::array<bool, galleon::protocol::KeyCount> m_pressed{};
     std::array<QImage, galleon::protocol::KeyCount> m_sent; // what the keys show now
 
+#ifdef Q_OS_WIN
+    std::unique_ptr<LauncherCache> m_launcherCache;
+    QTimer m_drawTimer;
+    std::array<bool, galleon::protocol::KeyCount> m_dirty{};
+    std::array<bool, galleon::protocol::KeyCount> m_forceDraw{};
+#endif
     AppLauncher m_launcher;
     SteamLauncher m_steamLauncher;
     Sources m_sourceProvider;

@@ -26,6 +26,7 @@ Window {
     property bool cropOpen: false // only for a picture of the crop window (--crop)
     // With the icon in the notification area, closing the window only hides it.
     property bool hideOnClose: false
+    property bool startMinimized: false
     // The page shown inside a theme's tab: its own, or one of the sub-pages it leads to.
     property string shownPage: ""
     // What the last edit said, in the status bar.
@@ -46,7 +47,7 @@ Window {
     height: 740
     minimumWidth: 1000
     minimumHeight: 700
-    visible: true
+    visible: !startMinimized
     color: "#1b1c1f"
 
     // One tab per theme, a tab to add one, then the fixed ones.
@@ -253,6 +254,7 @@ Window {
                 spacing: 22
 
                 KeyEditor {
+                    filePicker: win.filePicker
                     visible: win.selected !== null
                     width: parent.width
                     backend: win.backend

@@ -29,7 +29,7 @@ QPixmap ThemeIconProvider::requestPixmap(const QString &id, QSize *size, const Q
     // application's own image (checked like any picture); anything that is
     // neither gives the generic application icon.
     QPixmap pixmap;
-    if (id.startsWith(QLatin1Char('/'))) {
+    if (QFileInfo(id).isAbsolute()) {
         pixmap = QPixmap::fromImage(TileRenderer::loadIconFile(id, side));
     } else {
         QIcon icon = QIcon::fromTheme(id);

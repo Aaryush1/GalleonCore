@@ -5,8 +5,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Windows port: incremental backend separation
 
-Linux and Windows share `main`. The temporary `codex/windows-desktop` branch prepares
-small changes for review; it is not a second product branch.
+Linux and Windows share `main`. The desktop port and default content were merged
+in PRs #26 and #27. Follow-up fixes use `codex/windows-shell-and-wake`; no separate
+long-lived Windows product branch is maintained.
 
 ## First stage
 
@@ -17,8 +18,9 @@ core is static, so it does not claim a public DLL ABI yet. No protocol bytes or 
 
 `GALLEON_BUILD_DESKTOP` defaults to ON on Linux and OFF elsewhere. With it OFF,
 the portable library and backend tests are built. Windows desktop builds are explicit opt-in while native integration is being validated.
-The Windows CI builds this portable subset with MSVC and tests fake transport,
-protocol and geometry. It does not test a physical keyboard or ship an installer.
+The Windows CI now explicitly enables the desktop build with MSVC, tests fake
+transport, protocol, media and desktop integration, and builds ZIP/NSIS artifacts.
+It does not validate a physical keyboard.
 
 The daemon creates media and keyboard services through `PlatformBackends.h`.
 `LinuxPlatformBackends.cpp` supplies MPRIS and uinput. `MediaController` and
@@ -38,12 +40,12 @@ DLLs must be on PATH when running tests. Use `GALLEON_BUILD_DESKTOP=OFF` to buil
 - Validate the C++/WinRT SMTC backend with real interactive players.
   The Python backend in [MusicLocal-Discord-Presence](https://github.com/Bit-Scripts/MusicLocal-Discord-Presence/blob/HEAD/backends/smtc.py)
   is a reference; no code from it has been copied in this stage.
-- Complete native Windows CI and interactive validation of the new keyboard
-  backend; key identifiers are now platform independent.
+- Confirm the keyboard backend interactively; native CI passes and key identifiers
+  are platform independent.
 - Validate Windows application discovery, launching and file ACL checks.
 - Validate the local Windows IPC and executable lifecycle for Bosun.
 - Validate native HID access and coexistence with other device software on real
-  hardware, then add Windows deployment and packaging.
+  hardware. ZIP/NSIS deployment and installer lifecycle tests already run in CI.
 
 These features are not implemented by the portable-library build.
 
@@ -184,3 +186,108 @@ video decoding, probing and conversion, as described above.
 
 Existing customized pages are preserved. Initial contents apply only when there
 is no pages.json; copying the user's Linux configuration is not required.
+
+## Follow-up: native icons, waking, and sign-in
+
+The shell integration extracts application icons into a per-user PNG cache,
+resolves local shortcut targets without executing them, omits uninstall/help/WSL
+shortcuts, and includes common/user Start Menus, Desktop shortcuts and App Paths
+registrations. Browse also accepts an explicit executable or shortcut. It does
+not claim to enumerate every packaged Store app. User labels no longer suppress
+the application's icon. Steam artwork also checks older flat cache layouts.
+
+Setup enables per-user HKCU Run commands for galleond and Bosun by default.
+Bosun receives `--minimized`; with a notification area it hides its window and
+keeps the tray icon. Without a tray the window remains accessible. Clearing the
+component during an upgrade removes previous sign-in commands. Uninstall removes
+both. These are interactive user-session processes, not Session 0 services.
+
+Waking a screensaver now releases the display without synchronously waiting for
+FFmpeg to terminate. An unresponsive decoder is killed asynchronously after its
+grace period. The wake gesture is still consumed. Interactive immediate and long
+idle wake tests remain required.
+
+With official OpenRGB the owner reports the dial LampArray as `Keyboard` and the
+keyboard RGB separately as `Corsair Galleon 100 SD`. The owner traced the conflict
+to Windows Dynamic Lighting being enabled. Repeatedly fighting another RGB writer
+does not establish priority. No global RGB configuration is changed by GalleonCore.
+
+## Windows feedback: bounded launcher themes and sign-in
+
+Windows initial launcher themes are capped at 12 items, with no automatically
+created Plus page. Existing files keep explicit positions and empty keys: menu,
+Steam auto-fill and usage sorting are disabled on Windows load/edit. Recognizable
+old generated Plus links are removed; the first extra launcher can take slot 11,
+and the extra page data stays in the file for recovery. Custom navigation stays.
+The normal editor save keeps a backup. Linux retains its existing behavior.
+Initial catalog discovery occurs only for the built-in fallback before HID opens,
+without extracting Shell icons or searching Steam artwork.
+
+Setup registers quoted per-user HKCU Run commands for galleond and minimized
+Bosun, enabled by default; it removes its old Startup shortcuts. Deselecting the
+component or uninstalling removes only these two Run values. This is an
+interactive sign-in startup, not a Session 0 service. Windows Startup settings
+can disable these applications; the installer does not clear that user choice.
+Opening Bosun with its default profile also starts a missing daemon once after
+the IPC probe. Screenshots and explicit `--pages` profiles do not start a daemon.
+
+The owner identified enabled Windows Dynamic Lighting as the cause of the ring
+color conflict. No repeated RGB writes or claim of priority over OpenRGB is added.
+Physical confirmation of stable page switching, edits, wake and sign-in remains required.
+
+## Installed browser apps and PWAs
+
+Installed Chrome/Edge app shortcuts are distinct launchers when they share a
+browser executable but carry different app/profile arguments. Discovery reads
+those arguments as bounded metadata; launching still opens the original `.lnk`
+through Windows Shell. True duplicate target-and-argument shortcuts are merged.
+A shortcut's local, regular ICO file (at most 4 MiB, index zero) supplies its own
+icon; remote icon paths and custom Shell handlers are not used. Otherwise the
+executable icon remains the fallback. This covers installed shortcuts in the
+scanned Start Menu/Desktop locations, not arbitrary bookmarks or every site
+stored inside a browser profile. The Windows initial theme limit is 12 launchers.
+
+## Slow metadata and USB host mode
+
+Windows resolves app icons and Steam artwork in a metadata-only child process,
+not in the device event loop. `LauncherCache` runs one child at a time, with a
+2.5-second deadline, 64 KiB combined output limit, 12 pending requests and 64
+cached results. Changing pages cancels obsolete requests; failures are cached
+until reload. The child exits before any HID open or instance lock. Labels can
+appear before icons. A slow/failing icon does not prevent launching the local
+configured shortcut. Only owned metadata children are killed on timeout.
+The page renderer yields between keys; image transfers refresh the documented
+host keep-alive between reports when needed, without nested event processing.
+These prevent known event-loop stalls; physical USB reset recovery still needs
+the owner's test. No guarantee is made against a single OS HID call that hangs.
+
+The manual application picker also accepts Steam `.url` launchers. It reads at
+most 8 KiB and accepts only one InternetShortcut URL of the exact form
+`steam://rungameid/<positive signed-32-bit integer>`. Generic web/file/command URLs
+and other Steam actions are rejected. IconFile fields are ignored; local Steam
+artwork is used. Launching reparses the file and reconstructs the validated URI.
+
+The owner's OpenRGB screenshot identifies the ring controller as `Dynamic Light`,
+a Corsair HID LampArray at VID 1B1C/PID 2B18, interface MI_03. The full keyboard RGB
+is separate. Keep real-device testing with competing ring writers stopped; this
+build does not configure OpenRGB or establish an automatic priority policy.
+
+## Validation checkpoint — 21 October 2026
+
+Application/test sources at `5591b28` passed full Ubuntu 24.04/Qt 6.4 validation:
+38 ctest suites with GCC and Clang ASan/UBSan, 60-second protocol fuzzing,
+clang-tidy, qmllint, tool tests and reuse lint. The
+[native Windows run](https://github.com/Paullux/GalleonCore/actions/runs/39523931081)
+also passed, including persistent key replacement/removal, initial discovery
+without icons, separate browser apps/profiles, Steam shortcut validation, the
+real metadata-only subprocess, and twelve key images drawn across event-loop
+turns. Installed smoke/lifecycle tests cover upgrade/uninstall with both apps
+running, sign-in registration and preservation of personal files/settings.
+
+These are automated checks. The owner still needs to validate long idle wake,
+stable hardware control across page changes, actual app/Steam/PWA launching and
+Windows sign-in. The OpenRGB/Dynamic Lighting conflict has no automatic ownership
+solution. PR/main CI status and latest download are available through
+[GitHub Actions](https://github.com/Paullux/GalleonCore/actions); use an artifact
+whose workflow completed successfully. Do not create the first release tag before
+explicitly successful owner feedback.

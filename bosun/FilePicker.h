@@ -17,6 +17,7 @@ public:
     using QObject::QObject;
     Q_INVOKABLE QString picture();
     Q_INVOKABLE QString video();
+    Q_INVOKABLE QString application();
 };
 
 } // namespace bosun

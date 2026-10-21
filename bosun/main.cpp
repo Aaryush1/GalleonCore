@@ -57,6 +57,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption cropOption(QStringLiteral("crop"), QStringLiteral("With --inspect: open the crop window on the video."));
     const QCommandLineOption pictureOption(QStringLiteral("inspect-picture"),
                                            QStringLiteral("Open the Wallpapers tab with this picture file chosen (to be added)."), QStringLiteral("file"));
+    const QCommandLineOption minimizedOption(QStringLiteral("minimized"), QStringLiteral("Start in the notification area when available."));
+    parser.addOption(minimizedOption);
     parser.addOption(pagesOption);
     parser.addOption(pictureOption);
     parser.addOption(cropOption);
@@ -87,6 +89,15 @@ int main(int argc, char *argv[])
                                         + QStringLiteral("/galleoncore/pages.json");
     bosun::BosunBackend backend(pagesFile);
     bosun::DaemonStatus daemon;
+#ifdef Q_OS_WIN
+    if (!parser.isSet(shotOption) && !parser.isSet(pagesOption)) {
+        // Let the asynchronous IPC probe finish before starting a missing daemon.
+        QTimer::singleShot(1000, &daemon, [&daemon] {
+            if (const QString error = daemon.start(); !error.isEmpty())
+                qWarning().noquote() << error;
+        });
+    }
+#endif
 #ifdef GALLEON_SOURCE_WALLPAPERS
     bosun::WallpaperLibrary library(bosun::WallpaperLibrary::defaultPlaces(QStringLiteral(GALLEON_SOURCE_WALLPAPERS))); // and the source tree, when running from the build
 #else
@@ -99,7 +110,8 @@ int main(int argc, char *argv[])
     engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
     engine.addImageProvider(QStringLiteral("wallpapers"), new bosun::WallpaperThumbnails(&library));
     engine.addImageProvider(QStringLiteral("wallpaperpreview"), new bosun::WallpaperPreview(&library));
-    engine.setInitialProperties({{QStringLiteral("filePicker"), QVariant::fromValue(filePicker.get())},
+    engine.setInitialProperties({{QStringLiteral("startMinimized"), parser.isSet(minimizedOption) && !parser.isSet(shotOption) && bosun::Tray::isAvailable()},
+                                 {QStringLiteral("filePicker"), QVariant::fromValue(filePicker.get())},
                                  {QStringLiteral("backend"), QVariant::fromValue(&backend)},
                                  {QStringLiteral("daemon"), QVariant::fromValue(&daemon)},
                                  {QStringLiteral("library"), QVariant::fromValue(&library)}});
@@ -165,6 +177,8 @@ int main(int argc, char *argv[])
                 break;
             }
         });
+        if (parser.isSet(minimizedOption))
+            window->hide();
         refresh();
         tray.show();
     }

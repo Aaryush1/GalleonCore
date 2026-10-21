@@ -203,7 +203,7 @@ void BosunBackend::reload()
     m_screensaver.clear();
     m_videoFiles.clear();
 
-    QByteArray json = galleond::initialPagesJson();
+    QByteArray json;
     if (QFileInfo::exists(m_file)) {
         QFile file(m_file);
         if (!file.open(QIODevice::ReadOnly)) {
@@ -213,6 +213,10 @@ void BosunBackend::reload()
         }
         json = file.read(galleond::MaxPagesFileBytes + 1);
     }
+    else {
+        json = galleond::initialPagesJson();
+    }
+    json = galleond::preparePagesJson(json);
     const galleond::PagesParseResult parsed = galleond::parsePagesConfig(json);
     if (!parsed.config) {
         m_problem = tr("The pages file has errors:\n%1").arg(parsed.errors.join(QLatin1Char('\n')));
@@ -764,7 +768,7 @@ QPixmap BosunBackend::tile(const QString &page, int key, const QString &themePag
             const galleond::KeyConfig effective = galleond::TileRenderer::effectiveKey(*configured, app, iconFile);
             if (configured->action.type == ActionType::Steam && configured->icon.name.isEmpty())
                 iconFile = galleond::SteamLibrary::coverImage(configured->action.appid);
-            image = m_tiles.render(effective, {}, false, iconFile, tint);
+            image = m_tiles.render(effective, QStringLiteral("stopped"), false, iconFile, tint);
         }
     }
     return QPixmap::fromImage(image);

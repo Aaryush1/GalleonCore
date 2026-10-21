@@ -166,3 +166,28 @@ Windows NSIS sources and generated manifests use UTF-8 with BOM. The builder
 also passes `/INPUTCHARSET UTF8` so French installer strings are independent
 of the build runner ANSI code page. Keep this separate from `Unicode true`,
 which selects the installer runtime encoding.
+
+Windows sign-in defaults enable galleond and Bosun for the current user through
+quoted HKCU Run entries. Bosun uses `--minimized` and starts hidden when a
+notification area exists. Legacy Startup shortcuts are removed. Both Run entries
+are removed on uninstall and can be deselected during upgrade. Windows can still
+disable a startup app through its own Startup settings; Setup does not override that choice.
+Native app icons are extracted on the user's machine; they are not redistributed
+inside the installer. The owner traced the ring conflict to Windows Dynamic Lighting being enabled.
+No installer change claims exclusive RGB ownership. Bosun also starts a missing
+daemon once when opened with its default profile; installed CI tests this path.
+
+Windows page stability follow-up: initial launcher themes have at most 12 items;
+existing explicit edits/empty slots are not auto-filled or reordered. The installed
+galleond also provides `--launcher-info` for its own bounded metadata children;
+that mode never opens HID. It uses the same Qt deployment as the daemon, without
+an additional runtime helper binary. Test helper executables are not installed.
+The application picker accepts validated Steam `.url` shortcuts, not generic URLs.
+See `docs/WINDOWS.md` for current limits and hardware validation still outstanding.
+
+The fixed-page Windows application/test sources at `5591b28` passed native build,
+metadata/launcher tests and installed Setup lifecycle checks in
+[run 39523931081](https://github.com/Paullux/GalleonCore/actions/runs/39523931081),
+as well as full Ubuntu 24.04/Qt 6.4 validation (38 suites under both compilers,
+sanitizers, fuzzing and reuse lint). Follow PR #28/main CI for the final merged
+artifact. These checks do not lift the interactive hardware release gate.

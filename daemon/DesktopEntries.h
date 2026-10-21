@@ -39,6 +39,10 @@ public:
     // Every application that wants to be listed (no Hidden, no NoDisplay), by
     // name, for a picker. A file counts only if it is an Application with an Exec.
     [[nodiscard]] static QList<DesktopApp> list();
+#ifdef Q_OS_WIN
+    // Initial button labels do not require Shell icon extraction or Steam artwork.
+    [[nodiscard]] static QList<DesktopApp> list(bool includeIcons);
+#endif
 
     // The listed applications of one menu category ("Game"): the same as list(), filtered.
     [[nodiscard]] static QList<DesktopApp> listCategory(const QString &category);
@@ -53,6 +57,9 @@ public:
 
 private:
     [[nodiscard]] static DesktopApp read(const QString &file, const QString &id);
+#ifdef Q_OS_WIN
+    [[nodiscard]] static DesktopApp read(const QString &file, const QString &id, bool includeIcons);
+#endif
 };
 
 } // namespace galleond
