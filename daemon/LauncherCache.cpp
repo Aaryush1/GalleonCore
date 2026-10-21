@@ -10,7 +10,7 @@ namespace galleond {
 namespace {
 constexpr int MaxPending = 12;
 constexpr int MaxCached = 64;
-constexpr qsizetype MaxOutput = 64 * 1024;
+constexpr qsizetype MaxOutput = qsizetype{64} * 1024;
 }
 LauncherCache::LauncherCache(QString program, int deadlineMs, QObject *parent)
     : QObject(parent), m_program(program.isEmpty() ? QCoreApplication::applicationFilePath() : std::move(program))

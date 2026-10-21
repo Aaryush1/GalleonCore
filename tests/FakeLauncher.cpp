@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
     if (!output.open(key == QStringLiteral("error-flood") ? stderr : stdout, QIODevice::WriteOnly))
         return 1;
     if (key == QStringLiteral("flood") || key == QStringLiteral("error-flood"))
-        output.write(QByteArray(128 * 1024, 'x'));
+        output.write(QByteArray(qsizetype{128} * 1024, 'x'));
     else
         output.write(QJsonDocument(QJsonObject{{QStringLiteral("name"), key}, {QStringLiteral("icon"), QString()}}).toJson());
     return output.flush() ? 0 : 1;

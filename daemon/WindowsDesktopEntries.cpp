@@ -60,7 +60,7 @@ QString expandedPath(const wchar_t *path)
     return QDir::fromNativeSeparators(QString::fromWCharArray(expanded.data()));
 }
 
-ShortcutInfo shortcutInfo(const QString &file)
+ShortcutInfo shortcutInfo(const QString &file, bool includeIcon = true)
 {
     const ComScope apartment;
     Microsoft::WRL::ComPtr<IShellLinkW> link;
@@ -82,6 +82,8 @@ ShortcutInfo shortcutInfo(const QString &file)
     if (args.size() >= static_cast<qsizetype>(arguments.size() - 1))
         return {};
     ShortcutInfo result{expandedPath(target.data()), args, {}};
+    if (!includeIcon)
+        return result;
     std::array<wchar_t, 32768> icon{};
     int iconIndex = 0;
     if (SUCCEEDED(link->GetIconLocation(icon.data(), static_cast<int>(icon.size()), &iconIndex)) && iconIndex == 0) {
@@ -174,6 +176,11 @@ bool DesktopEntries::isValidReference(const QString &desktop)
 
 DesktopApp DesktopEntries::read(const QString &file, const QString &id)
 {
+    return read(file, id, true);
+}
+
+DesktopApp DesktopEntries::read(const QString &file, const QString &id, bool includeIcons)
+{
     // Never resolve network targets or remote shortcut icon handlers during discovery.
     if (QDir::fromNativeSeparators(file).startsWith(QStringLiteral("//")))
         return {};
@@ -192,17 +199,20 @@ DesktopApp DesktopEntries::read(const QString &file, const QString &id)
         if (app.steamAppId <= 0)
             return {};
         app.categories = {QStringLiteral("Game")};
-        app.iconPath = SteamLibrary::coverImage(app.steamAppId);
+        if (includeIcons)
+            app.iconPath = SteamLibrary::coverImage(app.steamAppId);
         return app;
     }
     const ShortcutInfo shortcut = info.suffix().compare(QStringLiteral("lnk"), Qt::CaseInsensitive) == 0
-        ? shortcutInfo(file) : ShortcutInfo{app.file, {}, {}};
+        ? shortcutInfo(file, includeIcons) : ShortcutInfo{app.file, {}, {}};
     if (!usefulShortcut(app.name, shortcut.target))
         return {};
-    if (!shortcut.icon.isEmpty())
-        app.iconPath = cachedIcon(shortcut.icon);
-    if (app.iconPath.isEmpty())
-        app.iconPath = cachedIcon(shortcut.target);
+    if (includeIcons) {
+        if (!shortcut.icon.isEmpty())
+            app.iconPath = cachedIcon(shortcut.icon);
+        if (app.iconPath.isEmpty())
+            app.iconPath = cachedIcon(shortcut.target);
+    }
     app.categories = windowsAppCategories(app.name, info.absolutePath());
     return app;
 }
@@ -216,13 +226,18 @@ DesktopApp DesktopEntries::lookup(const QString &desktop)
 
 QList<DesktopApp> DesktopEntries::list()
 {
+    return list(true);
+}
+
+QList<DesktopApp> DesktopEntries::list(bool includeIcons)
+{
     QList<DesktopApp> apps;
     for (const QString &root : startMenuRoots()) {
         QDirIterator files(root, {QStringLiteral("*.lnk"), QStringLiteral("*.url")}, QDir::Files,
                            QDirIterator::Subdirectories);
         while (files.hasNext() && apps.size() < MaxApps) {
             const QString path = files.next();
-            DesktopApp app = read(path, path);
+            DesktopApp app = read(path, path, includeIcons);
             if (app.isValid())
                 apps.append(std::move(app));
         }
@@ -239,7 +254,7 @@ QList<DesktopApp> DesktopEntries::list()
                 QString path = registered.value(group + QStringLiteral("/.")).toString().trimmed();
                 if (path.startsWith(QLatin1Char('"')) && path.endsWith(QLatin1Char('"')))
                     path = path.mid(1, path.size() - 2);
-                DesktopApp app = read(path, path);
+                DesktopApp app = read(path, path, includeIcons);
                 if (app.isValid())
                     apps.append(std::move(app));
             }
@@ -255,7 +270,7 @@ QList<DesktopApp> DesktopEntries::list()
             return false;
         }
         const ShortcutInfo shortcut = app.file.endsWith(QStringLiteral(".lnk"), Qt::CaseInsensitive)
-            ? shortcutInfo(app.file) : ShortcutInfo{app.file, {}, {}};
+            ? shortcutInfo(app.file, false) : ShortcutInfo{app.file, {}, {}};
         // Same browser + distinct app/profile arguments are distinct launchers.
         const QString identity = shortcut.target.toCaseFolded() + QChar(QChar::Null) + shortcut.arguments;
         if (seen.contains(identity))

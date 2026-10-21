@@ -186,16 +186,14 @@ bool StreamDeck::writeReports(const std::vector<std::vector<std::uint8_t>> &repo
 {
     if (reports.empty())
         return false;
-    for (const auto &report : reports) {
+    return std::ranges::all_of(reports, [this](const auto &report) {
         // The already documented host keep-alive (Protocol.h) must not wait for a whole JPEG/page.
         // No nested event processing: input/page changes cannot interleave image transfers.
         if ((!m_sinceKeepAlive.isValid() || m_sinceKeepAlive.elapsed() >= qMax(1, m_keepAliveTimer.interval() / 2))
             && !sendKeepAliveNow())
             return false;
-        if (!m_transport->write(report))
-            return false;
-    }
-    return true;
+        return m_transport->write(report);
+    });
 }
 
 void StreamDeck::pollInput()

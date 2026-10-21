@@ -245,5 +245,8 @@ traitement récursif des événements. Les tests simulent une recherche lente et
 Le sélecteur accepte les `.url` Steam validés, sans accepter des URL arbitraires.
 La capture OpenRGB nomme les anneaux « Dynamic Light » : LampArray Corsair
 VID 1B1C/PID 2B18, MI_03. Aucun arbitrage automatique avec OpenRGB n’est revendiqué.
-Sept suites ciblées Linux réussies ; validation complète et Windows en cours.
+Sept suites ciblées et 38 suites complètes Linux (GCC et ASan/UBSan) réussies.
+Les tests Windows couvrent aussi le dessin en plusieurs tours de boucle et le
+mode métadonnées réel sans accès HID. La découverte initiale évite l’extraction
+d’icônes/jaquettes. Validation finale et CI Windows en cours.
 Aucun tag, aucune publication avant nouvel essai matériel réussi.

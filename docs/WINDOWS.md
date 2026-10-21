@@ -220,7 +220,8 @@ Steam auto-fill and usage sorting are disabled on Windows load/edit. Recognizabl
 old generated Plus links are removed; the first extra launcher can take slot 11,
 and the extra page data stays in the file for recovery. Custom navigation stays.
 The normal editor save keeps a backup. Linux retains its existing behavior.
-Initial catalog discovery occurs only for the built-in fallback before HID opens.
+Initial catalog discovery occurs only for the built-in fallback before HID opens,
+without extracting Shell icons or searching Steam artwork.
 
 Setup registers quoted per-user HKCU Run commands for galleond and minimized
 Bosun, enabled by default; it removes its old Startup shortcuts. Deselecting the

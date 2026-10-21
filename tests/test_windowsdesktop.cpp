@@ -6,6 +6,11 @@
 #include "PagesEditor.h"
 #include "InitialPages.h"
 #include "LauncherCache.h"
+#include "PagesController.h"
+#include "FakeTransport.h"
+#include <galleon/StreamDeck.h>
+#include <QThread>
+#include <QSet>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include "LocalControl.h"
@@ -24,6 +29,20 @@
 #include <shobjidl.h>
 #include <wrl/client.h>
 
+namespace {
+class SilentMedia final : public galleond::MediaController
+{
+public:
+    State state() const override { return State::NoPlayer; }
+    galleond::NowPlaying nowPlaying() const override { return {}; }
+    void playPause() override {}
+    void next() override {}
+    void previous() override {}
+    void stop() override {}
+    void changeVolume(int) override {}
+    void seek(int) override {}
+};
+}
 class TestWindowsDesktop : public QObject
 {
     Q_OBJECT
@@ -103,6 +122,14 @@ private slots:
         }
         QCOMPARE(count, 4); // one browser, two app IDs, plus the same app in a different profile
         QCOMPARE(webApps, 3);
+        int withoutIcons = 0;
+        for (const auto &app : galleond::DesktopEntries::list(false)) {
+            if (app.file.startsWith(menu.path() + QLatin1Char('/'))) {
+                ++withoutIcons;
+                QVERIFY(app.iconPath.isEmpty());
+            }
+        }
+        QCOMPARE(withoutIcons, 4);
     }
 
     void manualSteamUrlIsRecognizedAndArbitraryUrlsAreRefused()
@@ -151,6 +178,49 @@ private slots:
         QCOMPARE(keys.size(), 1);
         QCOMPARE(keys.at(0).toObject().value("key").toInt(), 7);
         QCOMPARE(keys.at(0).toObject().value("label").toString(), QStringLiteral("My choice"));
+    }
+
+    void twelveKeysAreDrawnAcrossEventLoopTurns()
+    {
+        (void)galleond::initialPagesJson(); // Production warms fallback discovery before opening HID.
+        auto fake = std::make_unique<FakeTransport>();
+        const auto *observed = fake.get();
+        fake->beforeWrite = [] { QThread::msleep(2); };
+        galleon::StreamDeck deck(std::move(fake));
+        deck.setKeepAliveInterval(20);
+        QVERIFY(deck.open());
+        SilentMedia media;
+        galleond::PagesController controller(&deck, &media, galleond::TileRenderer{});
+        galleond::PagesConfig config;
+        config.home = QStringLiteral("main");
+        galleond::Page page;
+        for (int index = 0; index < 12; ++index) {
+            galleond::KeyConfig key;
+            key.key = index;
+            key.label = QStringLiteral("Control %1").arg(index);
+            key.action.type = galleond::ActionType::Media;
+            key.action.command = galleond::MediaCommand::PlayPause;
+            page.keys.at(static_cast<std::size_t>(index)) = key;
+        }
+        config.pages.insert(config.home, page);
+        controller.setConfig(config);
+        QVERIFY(observed->writes.empty()); // A full page is not sent synchronously by setConfig.
+        QTimer pulse;
+        int ticks = 0;
+        connect(&pulse, &QTimer::timeout, this, [&] { ++ticks; });
+        pulse.start(5);
+        const auto keysDrawn = [&] {
+            QSet<int> keys;
+            for (const auto &report : observed->writes) {
+                // keyImageReports (Protocol.cpp) stores the key index at offset 2.
+                if (report.size() == galleon::protocol::OutputReportSize)
+                    keys.insert(report.at(2));
+            }
+            return keys.size();
+        };
+        QTRY_COMPARE_WITH_TIMEOUT(keysDrawn(), 12, 5000);
+        QVERIFY(ticks > 0);
+        QVERIFY(observed->featureReports.size() > 1);
     }
 
     void installedMetadataHelperWorksWithoutOpeningTheDeck()

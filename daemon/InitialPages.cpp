@@ -236,7 +236,7 @@ QByteArray initialPagesJson()
         QJsonDocument::fromJson(windowsInitialPagesJson(
             QDir(qEnvironmentVariable("SystemRoot")).filePath(QStringLiteral("System32")),
             QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../share/galleoncore/screensavers")))).object(),
-        DesktopEntries::list(), SteamLibrary::installedGames())).toJson();
+        DesktopEntries::list(false), SteamLibrary::installedGames())).toJson();
     return initial;
 #else
     return defaultPagesJson();
