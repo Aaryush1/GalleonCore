@@ -188,6 +188,11 @@ aucune publication avant acceptation matérielle du propriétaire.
 
 ### Nouvel essai matériel Windows du 21 octobre
 
+Le changement de fond dans Bosun réveille désormais la veille animée avant
+d'afficher l'image choisie. Le test de régression avec faux périphérique valide
+la transition veille → fond sous Qt ; l'effet sur le module Windows reste à
+confirmer lors du prochain essai matériel.
+
 Le propriétaire confirme que la PR #29 ne résout pas la première prise de
 contrôle : images et Bosun fonctionnent, mais les touches et molettes restent
 inactives même après dix minutes. Un lancement manuel après démarrage complet

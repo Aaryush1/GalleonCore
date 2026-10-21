@@ -830,6 +830,10 @@ int main(int argc, char *argv[])
                              pages->setSuspended(active);
                              controller.setSuspended(active);
                          });
+        // A wallpaper chosen in Bosun is user activity even while the video
+        // covers the screen. Stop the video so the selected picture can appear.
+        QObject::connect(&controller, &galleond::ScreenController::wallpaperChanged,
+                         screensaver.get(), &galleond::ScreensaverController::notifyActivity);
         const auto applySaver = [&screensaver, &pages, pagesFolder] {
             screensaver->setConfig(pages->screensaverConfig(), pagesFolder);
         };
