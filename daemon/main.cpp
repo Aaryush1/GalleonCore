@@ -53,6 +53,9 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QStandardPaths>
+#ifdef Q_OS_WIN
+#include <QTextStream>
+#endif
 
 #include <memory>
 
@@ -681,6 +684,31 @@ int main(int argc, char *argv[])
 #endif
     galleon::StreamDeck deck;
     deck.setTraceInput(parser.isSet(traceOption));
+#ifdef Q_OS_WIN
+    // A low-volume, per-process record survives a tray/session startup with no console.
+    // It only records counters and HID collection metadata, never report contents.
+    const QString diagnosticFolder = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+        + QStringLiteral("/GalleonCore/logs");
+    QDir().mkpath(diagnosticFolder);
+    QFile hidDiagnosticLog(diagnosticFolder + QStringLiteral("/hid-%1-%2.log")
+        .arg(QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMddTHHmmsszzz")))
+        .arg(QCoreApplication::applicationPid()));
+    (void)hidDiagnosticLog.open(QIODevice::WriteOnly | QIODevice::Text);
+    QElapsedTimer diagnosticClock;
+    diagnosticClock.start();
+    const auto recordHid = [&hidDiagnosticLog, &diagnosticClock](const QString &message) {
+        if (!hidDiagnosticLog.isOpen() || hidDiagnosticLog.size() >= 256 * 1024)
+            return;
+        const QByteArray line = QStringLiteral("t_ms=%1 %2\n").arg(diagnosticClock.elapsed()).arg(message).toUtf8();
+        hidDiagnosticLog.write(line);
+        hidDiagnosticLog.flush();
+    };
+    recordHid(QStringLiteral("start pid=%1 trace=%2")
+        .arg(QCoreApplication::applicationPid()).arg(parser.isSet(traceOption) ? 1 : 0));
+    QObject::connect(&deck, &galleon::StreamDeck::disconnected, &app, [&recordHid] {
+        recordHid(QStringLiteral("disconnected"));
+    });
+#endif
     // Normal Windows startup opens HID on the controller's timer after exec():
     // QML, Core Audio and SMTC setup must finish before host-mode timers start.
 #ifdef Q_OS_WIN
@@ -758,6 +786,12 @@ int main(int argc, char *argv[])
     galleond::ScreenController controller(&deck, &renderer, galleond::WallpaperCatalog(wallpaperRoots), widgetFile,
                                           media.get(), nowPlayingRenderer.isValid() ? &nowPlayingRenderer : nullptr,
                                           thumbnails.get());
+#ifdef Q_OS_WIN
+    QObject::connect(&controller, &galleond::ScreenController::deckAvailableChanged, &app, [&recordHid, &deck] {
+        recordHid(deck.isOpen() ? QStringLiteral("connected %1").arg(deck.hidCollection())
+                                : QStringLiteral("unavailable"));
+    });
+#endif
 
     if (!usePages)
         qInfo() << "galleond: no music player control (--no-pages or --test-keys): the screen keeps the wallpaper";
@@ -834,6 +868,25 @@ int main(int argc, char *argv[])
         sinceTick.restart();
     });
     stallWatch.start();
+#ifdef Q_OS_WIN
+    QTimer hidDiagnosticTimer;
+    hidDiagnosticTimer.setInterval(5000);
+    QObject::connect(&hidDiagnosticTimer, &QTimer::timeout, &app, [&recordHid, &deck] {
+        const auto d = deck.diagnostics();
+        QString summary;
+        QTextStream out(&summary);
+        out << "snapshot open=" << deck.isOpen() << " opens=" << d.opens << " closes=" << d.closes
+            << " polls=" << d.polls << " empty=" << d.emptyReads << " readErrors=" << d.readErrors
+            << " valid=" << d.validReports << " ignored=" << d.ignoredReports
+            << " invalid=" << d.invalidReports << " events=" << d.events
+            << " keepAlive=" << d.keepAlives << " keepAliveFailures=" << d.keepAliveFailures
+            << " imageReports=" << d.imageReports << " imageFailures=" << d.imageFailures
+            << " maxKeepAliveMs=" << d.longestKeepAliveMs
+            << " maxImageReportMs=" << d.longestImageReportMs;
+        recordHid(summary);
+    });
+    hidDiagnosticTimer.start();
+#endif
 
     QQmlApplicationEngine engine;
     if (parser.isSet(previewOption)) {

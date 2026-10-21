@@ -96,6 +96,36 @@ private Q_SLOTS:
         Fixture f;
         QVERIFY(f.deck->open());
         QCOMPARE(f.transport->featureReports.size(), std::size_t{1});
+        QCOMPARE(f.deck->diagnostics().opens, std::uint64_t{1});
+        QCOMPARE(f.deck->diagnostics().keepAlives, std::uint64_t{1});
+    }
+
+    void diagnosticsDistinguishMissingInputFromRejectedInput()
+    {
+        Fixture f;
+        const QSignalSpy pressed(f.deck.get(), &StreamDeck::keyPressed);
+        QVERIFY(f.deck->open());
+        QTRY_VERIFY_WITH_TIMEOUT(f.deck->diagnostics().emptyReads > 0, 1000);
+        QCOMPARE(f.deck->diagnostics().validReports, std::uint64_t{0});
+
+        f.transport->pendingReads.push_back({0x02}); // another report ID
+        f.transport->pendingReads.push_back({0x01, 0x00}); // malformed key report
+        std::vector<std::uint8_t> keyReport = {0x01, 0x00, 0x0c, 0x00};
+        keyReport.resize(4 + galleon::protocol::KeyCount, 0);
+        keyReport[4] = 1;
+        f.transport->pendingReads.push_back(keyReport);
+        QTRY_COMPARE_WITH_TIMEOUT(pressed.count(), 1, 1000);
+        QCOMPARE(f.deck->diagnostics().ignoredReports, std::uint64_t{1});
+        QCOMPARE(f.deck->diagnostics().invalidReports, std::uint64_t{1});
+        QCOMPARE(f.deck->diagnostics().validReports, std::uint64_t{1});
+        QCOMPARE(f.deck->diagnostics().events, std::uint64_t{1});
+
+        f.transport->disconnected = true;
+        QTRY_COMPARE_WITH_TIMEOUT(f.deck->diagnostics().readErrors, std::uint64_t{1}, 1000);
+        QCOMPARE(f.deck->diagnostics().closes, std::uint64_t{1});
+        f.transport->disconnected = false;
+        QVERIFY(f.deck->open());
+        QCOMPARE(f.deck->diagnostics().opens, std::uint64_t{2});
     }
 
     void keepAliveRepeatsWhileOpen()

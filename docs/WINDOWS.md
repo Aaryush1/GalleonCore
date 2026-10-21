@@ -326,3 +326,28 @@ keys/dials immediately, manual pagination, long idle wake and USB recovery.
 New manual subpages use literal `NEXT >` and `< BACK` labels. Existing customized
 navigation labels and pages are not rewritten. Each page still has twelve keys.
 No first release tag or PPA/COPR/AUR publication before owner hardware acceptance.
+
+## Windows HID diagnostic after the owner's 21 October retest
+
+The owner tested the merged PR #29 build without `--trace-input`. Initial images
+and Bosun wallpaper changes worked, but keys and dial input remained inactive
+for ten minutes. The same happened on a manual launch after Windows had fully
+started. After many physical presses, the Corsair logo appeared for 10–15 seconds;
+GalleonCore then regained input, with the **same galleond process ID**. This
+refutes an explanation based only on early session startup. A stable PID does
+not tell whether hidapi's handle was closed and reopened. The excerpts in the
+owner's external diagnostic report predate PR #29; current nonblocking checks
+and zero-timeout reads are already present. No physical root cause is established.
+
+A diagnostic build records one short sample every five seconds and every
+connection transition in
+`%LOCALAPPDATA%\GalleonCore\logs\hid-<UTC timestamp>-<PID>.log`.
+Each file stops at 256 KiB; it contains only uptime, status counters, operation
+latency maxima and the selected HID interface/usage. It does not record raw
+reports, key values, paths, serial numbers, media or user configuration. No new
+HID command or reset is sent. On the next cold boot, collect the newest file
+after the first inactive period and again after the Corsair-logo recovery.
+Compare `polls`, `empty`, `valid`, `ignored`, `invalid`, `events`, errors, opens,
+closes, keep-alives and the selected collection before/after the transition.
+A stable PID alone cannot distinguish those paths. The physical fix remains
+pending until these observations identify the failing layer.

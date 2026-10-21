@@ -185,3 +185,17 @@ ces chemins ; la cause matérielle et le démarrage à froid restent à confirme
 Les nouveaux liens de pagination Bosun sont `NEXT >` et `< BACK`, sans modifier les
 libellés personnels. Voir `docs/WINDOWS.md`. Validation complète exigée avant PR ;
 aucune publication avant acceptation matérielle du propriétaire.
+
+### Nouvel essai matériel Windows du 21 octobre
+
+Le propriétaire confirme que la PR #29 ne résout pas la première prise de
+contrôle : images et Bosun fonctionnent, mais les touches et molettes restent
+inactives même après dix minutes. Un lancement manuel après démarrage complet
+de Windows reproduit le défaut. Le PID de `galleond.exe` reste identique pendant
+le retour temporaire au logo Corsair, puis les commandes fonctionnent. Le PID
+stable ne permet pas de conclure sur la fermeture du handle HID. Une
+instrumentation bornée, sans contenu des rapports ni nouvelle commande HID,
+est préparée pour distinguer absence de lecture, rejet du décodage et vraie
+reconnexion ; voir `docs/WINDOWS.md`. La cause et la correction matérielles
+restent à établir après comparaison des journaux d'une première ouverture en
+échec et de la récupération.

@@ -120,3 +120,12 @@ accept an initial failed keep-alive or silently ignore nonblocking setup errors.
 Use explicit zero-timeout input reads. Publish disconnect before periodic reopen
 so recovery redraw cannot be lost; never retry directly inside the read callback.
 Manual Bosun pagination defaults to literal `NEXT >` / `< BACK`; retain user labels.
+
+Windows HID diagnostics: the owner reproduced initial inactive controls after
+PR #29, both after ten passive minutes and after manual start on a ready
+session; images still work and the PID remains stable through a temporary
+Corsair-logo recovery. Do not claim early startup ordering solved it or infer
+handle reopening from the PID. The bounded, local Windows counter log contains
+no report contents. Compare failing-first-open and recovered snapshots before
+changing protocol bytes, HID ownership or retry policy. Keep the publication
+gate until the owner confirms physical Windows behavior.
