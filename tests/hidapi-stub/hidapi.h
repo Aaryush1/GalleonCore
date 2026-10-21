@@ -9,6 +9,8 @@ struct hid_device_info {
     char *path;
     int interface_number;
     hid_device_info *next;
+    unsigned short usage_page;
+    unsigned short usage;
 };
 int hid_init();
 void hid_close(hid_device *device);

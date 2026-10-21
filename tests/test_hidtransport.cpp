@@ -10,7 +10,8 @@ struct FakeHid
 {
     hid_device device;
     std::array<char, 5> path{'f', 'a', 'k', 'e', '\0'};
-    hid_device_info info{.path = path.data(), .interface_number = 0, .next = nullptr};
+    hid_device_info info{.path = path.data(), .interface_number = 0, .next = nullptr,
+                         .usage_page = 0x000c, .usage = 0x0001};
     int nonblockingResult = 0;
     int closes = 0;
     int lastTimeout = -1;
@@ -59,10 +60,12 @@ private Q_SLOTS:
         state().nonblockingResult = -1;
         QVERIFY(!transport.open());
         QVERIFY(!transport.isOpen());
+        QVERIFY(transport.openedCollection().isEmpty());
         QCOMPARE(state().closes, 1);
         state().nonblockingResult = 0;
         QVERIFY(transport.open());
         QCOMPARE(state().lastNonblocking, 1);
+        QCOMPARE(transport.openedCollection(), QStringLiteral("interface=0 usagePage=0x000c usage=0x0001"));
     }
     void everyReadHasAnExplicitZeroTimeout()
     {

@@ -98,11 +98,14 @@ bool StreamDeck::open()
     }
     m_keepAliveTimer.start();
     m_inputTimer.start();
+    ++m_diagnostics.opens;
     return true;
 }
 
 void StreamDeck::close()
 {
+    if (isOpen())
+        ++m_diagnostics.closes;
     m_inputState = {}; // a device that comes back starts with nothing pressed
     m_keepAliveTimer.stop();
     m_inputTimer.stop();
@@ -117,6 +120,13 @@ bool StreamDeck::isOpen() const
 QString StreamDeck::serialNumber() const
 {
     return m_transport->serialNumber();
+}
+
+QString StreamDeck::hidCollection() const
+{
+    if (const auto *hid = dynamic_cast<const HidTransport *>(m_transport.get()))
+        return hid->openedCollection();
+    return {};
 }
 
 bool StreamDeck::setKeyImage(int key, const QImage &image, bool flush)
@@ -177,8 +187,17 @@ void StreamDeck::setKeepAliveInterval(int ms)
 
 bool StreamDeck::sendKeepAliveNow()
 {
-    if (!isOpen() || !m_transport->sendFeatureReport(protocol::keepAliveReport()))
+    if (!isOpen())
         return false;
+    QElapsedTimer timer;
+    timer.start();
+    const bool sent = m_transport->sendFeatureReport(protocol::keepAliveReport());
+    m_diagnostics.longestKeepAliveMs = qMax(m_diagnostics.longestKeepAliveMs, static_cast<int>(timer.elapsed()));
+    if (!sent) {
+        ++m_diagnostics.keepAliveFailures;
+        return false;
+    }
+    ++m_diagnostics.keepAlives;
     m_sinceKeepAlive.start();
     return true;
 }
@@ -202,12 +221,21 @@ bool StreamDeck::writeReports(const std::vector<std::vector<std::uint8_t>> &repo
         if ((!m_sinceKeepAlive.isValid() || m_sinceKeepAlive.elapsed() >= qMax(1, m_keepAliveTimer.interval() / 2))
             && !sendKeepAliveNow())
             return false;
-        return m_transport->write(report);
+        QElapsedTimer timer;
+        timer.start();
+        const bool written = m_transport->write(report);
+        m_diagnostics.longestImageReportMs = qMax(m_diagnostics.longestImageReportMs, static_cast<int>(timer.elapsed()));
+        if (written)
+            ++m_diagnostics.imageReports;
+        else
+            ++m_diagnostics.imageFailures;
+        return written;
     });
 }
 
 void StreamDeck::pollInput()
 {
+    ++m_diagnostics.polls;
     // Every report that is waiting, not just one: a module that sends them faster than
     // this timer ticks would otherwise build a queue, and a turn of a dial would be
     // read seconds late. Bounded, so that a flood cannot keep this thread here for good.
@@ -222,13 +250,16 @@ bool StreamDeck::pollOneReport()
     std::array<std::uint8_t, InputBufferSize> buffer{};
     const int read = m_transport->read(buffer);
     if (read < 0) {
+        ++m_diagnostics.readErrors;
         qWarning() << "galleon: Stream Deck module disconnected";
         close();
         Q_EMIT disconnected();
         return false;
     }
-    if (read == 0)
+    if (read == 0) {
+        ++m_diagnostics.emptyReads;
         return false;
+    }
 
     const auto report = std::span<const std::uint8_t>(buffer).first(static_cast<std::size_t>(read));
     const protocol::InputResult result = protocol::decodeInputReport(report, m_inputState);
@@ -239,12 +270,18 @@ bool StreamDeck::pollOneReport()
                           << "]";
     }
     if (result.status == protocol::InputStatus::Invalid) {
+        ++m_diagnostics.invalidReports;
         // Dropped, and said: the first ones, then one in a hundred, so that a
         // misbehaving device cannot flood the log.
         if (m_invalidReports++ % 100 == 0)
             qWarning() << "galleon: malformed input report dropped, first bytes" << hexHead(report, 8);
         return true;
     }
+    if (result.status == protocol::InputStatus::Ok)
+        ++m_diagnostics.validReports;
+    else
+        ++m_diagnostics.ignoredReports;
+    m_diagnostics.events += result.events.size();
     for (const auto &event : result.events)
         dispatch(event);
     return isOpen(); // a handler may have closed the module

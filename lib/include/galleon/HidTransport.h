@@ -26,6 +26,7 @@ public:
     void close() override;
     [[nodiscard]] bool isOpen() const override;
     [[nodiscard]] QString serialNumber() const override;
+    [[nodiscard]] QString openedCollection() const { return m_openedCollection; }
 
     bool sendFeatureReport(std::span<const std::uint8_t> report) override;
     bool write(std::span<const std::uint8_t> report) override;
@@ -37,6 +38,7 @@ private:
     std::uint16_t m_productId;
     int m_interfaceNumber;
     std::unique_ptr<Device> m_device;
+    QString m_openedCollection;
 };
 
 } // namespace galleon

@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+GalleonCore — diagnostic du Stream Deck sous Windows
+====================================================
+
+Ce guide concerne le Setup Windows construit avec la PR #30 (ou une version
+ultérieure). Il aide à comprendre pourquoi les touches LCD et les molettes
+peuvent rester inactives au lancement alors que les images s'affichent.
+Il ne faut pas ajouter --trace-input : le test doit reproduire le démarrage
+normal. Le journal ne contient ni touches pressées, ni contenu des rapports
+HID, ni numéro de série, ni chemin personnel du périphérique.
+
+1. Préparer le test
+------------------
+- Installer le nouveau Setup et redémarrer complètement Windows.
+- Laisser GalleonCore se lancer normalement. Si Bosun ou galleond ne démarre
+  pas seul, noter lequel manque, puis le lancer comme d'habitude.
+- Ne pas débrancher le clavier pour commencer. Noter si OpenRGB et « Éclairage
+  dynamique » de Windows sont actifs. Ne changer qu'un seul de ces paramètres
+  entre deux essais, pour pouvoir comparer les résultats.
+- Ouvrir PowerShell et vérifier le nombre de démons et leurs arguments :
+
+  Get-CimInstance Win32_Process -Filter "Name='galleond.exe'" | Select-Object ProcessId, ParentProcessId, CommandLine
+
+  Il doit y avoir un seul galleond.exe. Noter son ProcessId et vérifier que
+  CommandLine ne contient pas --trace-input. Si aucun démon n'apparaît, noter
+  l'heure et démarrer galleond avec le bouton « Start It » de Bosun.
+
+2. Observer le comportement du clavier
+--------------------------------------
+- Environ 20 secondes après le lancement du démon, presser UNE touche LCD,
+  tourner UNE molette puis presser cette molette. Noter l'heure Windows à la
+  seconde près et, pour chacun, si le clavier réagit et si Bosun réagit.
+- Si tout est inactif, laisser galleond tourner pendant une minute et refaire
+  les trois gestes. Ne pas relancer le démon entre ces deux essais.
+- Si le logo Corsair apparaît, noter l'heure de son apparition, sa durée,
+  puis si les touches et molettes fonctionnent après son départ. Vérifier de
+  nouveau le ProcessId avec la commande ci-dessus.
+- Une fois le contrôle retrouvé, essayer un changement de page (NEXT > puis
+  < BACK), une modification de touche dans Bosun, et la sortie de veille du
+  clavier. Noter précisément les éventuels échecs. Ne pas chercher à forcer
+  un plantage ou à charger plus de 12 lanceurs par page.
+- Si le clavier reste bloqué, conserver le démon en marche au moins 30
+  secondes après le dernier essai : le journal écrit un instantané toutes
+  les cinq secondes. Le débranchement/rebranchement n'est utile qu'en dernier
+  recours ; s'il est nécessaire, noter l'heure exacte.
+
+3. Récupérer le journal
+-----------------------
+Le journal se trouve dans :
+
+  %LOCALAPPDATA%\GalleonCore\logs\
+
+Chaque lancement de galleond crée un fichier nommé
+hid-<date-heure UTC>-<PID>.log. Le fichier est limité à 256 Kio.
+
+Dans PowerShell, copier les commandes suivantes, ligne par ligne :
+
+  $journal = Get-ChildItem "$env:LOCALAPPDATA\GalleonCore\logs\hid-*.log" -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  $journal | Select-Object FullName, Length, LastWriteTime
+  Get-Content -LiteralPath $journal.FullName -Tail 80
+  Copy-Item -LiteralPath $journal.FullName -Destination "$env:USERPROFILE\Desktop\GalleonCore-HID-test.log"
+
+Le fichier à transmettre se trouve ensuite sur le Bureau sous le nom
+GalleonCore-HID-test.log. Si aucune ligne de journal n'apparaît, indiquer
+qu'aucun fichier n'a été créé et préciser si galleond.exe était lancé.
+Si plusieurs essais ont été faits avec des PID différents, transmettre les
+fichiers hid-*.log correspondants plutôt que seulement le plus récent.
+
+4. Joindre ces informations au retour de test
+----------------------------------------------
+- Le ou les fichiers .log ; ne pas coller de clés ni de secrets.
+- La version du Setup ou le lien de l'artefact utilisé.
+- L'heure locale et le résultat de chaque geste, avant et après le logo
+  Corsair, ainsi que le PID avant et après.
+- Le mode de lancement : automatique au démarrage ou bouton « Start It ».
+- L'état d'OpenRGB et de l'Éclairage dynamique Windows pendant chaque essai.
+- La présence éventuelle d'autres logiciels qui accèdent au clavier.
+
+Les compteurs du journal servent à distinguer une absence de rapports d'entrée
+d'un rapport rejeté, d'une erreur de lecture ou d'une reconnexion. Un PID
+identique ne suffit pas à prouver que la connexion HID est restée ouverte.
+Le premier tag et les publications PPA/COPR/AUR attendent encore la validation
+matérielle du clavier par son propriétaire.

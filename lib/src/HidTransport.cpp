@@ -46,9 +46,16 @@ bool HidTransport::open()
     // hid_open(vid, pid) would take the first interface found, which for the
     // Stream Deck module may be the numpad or the dial keys: pick by number.
     hid_device_info *devices = hid_enumerate(m_vendorId, m_productId);
+    QString openedCollection;
     for (const hid_device_info *info = devices; info && !device->handle; info = info->next) {
-        if (m_interfaceNumber < 0 || info->interface_number == m_interfaceNumber)
+        if (m_interfaceNumber < 0 || info->interface_number == m_interfaceNumber) {
             device->handle = hid_open_path(info->path);
+            if (device->handle)
+                openedCollection = QStringLiteral("interface=%1 usagePage=0x%2 usage=0x%3")
+                    .arg(info->interface_number)
+                    .arg(info->usage_page, 4, 16, QLatin1Char('0'))
+                    .arg(info->usage, 4, 16, QLatin1Char('0'));
+        }
     }
     hid_free_enumeration(devices);
     if (!device->handle) {
@@ -61,6 +68,7 @@ bool HidTransport::open()
                    << QString::fromWCharArray(hid_error(device->handle));
         return false;
     }
+    m_openedCollection = openedCollection;
     m_device = std::move(device);
     return true;
 }
@@ -68,6 +76,7 @@ bool HidTransport::open()
 void HidTransport::close()
 {
     m_device.reset();
+    m_openedCollection.clear();
 }
 
 bool HidTransport::isOpen() const
