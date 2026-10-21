@@ -48,6 +48,36 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 | Plugin OpenRGB | Anneaux des molettes implémentés dans le plugin séparé ; RVB du clavier toujours en investigation |
 | Windows | Préversion desktop ; CI native et essais interactifs suivis dans [WINDOWS.md](docs/WINDOWS.md) |
 
+### Windows : les touches du Stream Deck ne répondent pas
+
+Sur le Galleon 100 SD du propriétaire, les images se mettaient à jour mais les
+touches LCD et les molettes ne répondaient qu'après une réinitialisation du
+module. La mise à jour du firmware Stream Deck avec l'application officielle
+Elgato **sous Windows**, suivie de la désinstallation de cette application, a
+rétabli les commandes lors de son essai suivant. Ces deux changements ayant été
+faits ensemble, on ne sait pas lequel a suffi à résoudre le défaut sur d'autres
+appareils.
+
+Si tu rencontres le même symptôme, relève d'abord la version du firmware. Ferme
+GalleonCore et les autres applications qui pilotent le module. Dans l'application
+Elgato Stream Deck sous Windows ou macOS, ouvre **Préférences → Appareils →
+Galleon 100 SD → Mettre à jour le microprogramme**. Laisse le clavier connecté
+jusqu'à la fin de la mise à jour. Note la nouvelle version, ferme Stream Deck
+et teste GalleonCore après un démarrage à froid. Si Stream Deck ne te sert que
+pour ce clavier, tu peux le
+désinstaller après la mise à jour ; garde-le si un autre périphérique en dépend.
+La capture du propriétaire affiche la version `3.06.005`, également citée dans
+les [notes d'Elgato pour la version 7.4.1](https://edge.elgato.com/egc/sd_content/releasenotes/7.4.1.html).
+La procédure d'essai Windows et ses limites sont dans [WINDOWS.md](docs/WINDOWS.md).
+
+Le firmware du **clavier principal** est distinct : Corsair indique de passer
+par [Corsair Web Hub](https://www.corsair.com/web-hub) dans un navigateur
+compatible, rubrique **Paramètres de l'appareil**. Il n'y a aucune application
+à installer ni à désinstaller. Le GIF ci-dessous montre la mise à jour du
+*module Stream Deck* dans l'application Elgato, pas celle du clavier.
+
+![Préférences Appareils de Stream Deck montrant le bouton de mise à jour du firmware Galleon](site/firmware-update.gif)
+
 ## Architecture
 
 ```

@@ -353,3 +353,27 @@ Compare `polls`, `empty`, `valid`, `ignored`, `invalid`, `events`, errors, opens
 closes, keep-alives and the selected collection before/after the transition.
 A stable PID alone cannot distinguish those paths. The physical fix remains
 pending until these observations identify the failing layer.
+
+## Owner's firmware retest (21 October 2026)
+
+The owner installed Elgato's official Stream Deck application on Windows,
+updated the Galleon Stream Deck firmware through **Preferences → Devices →
+Galleon 100 SD → Update Firmware**, then uninstalled the application. The next
+GalleonCore hardware test had working LCD keys and dials without the previous
+initial acquisition failure. The owner's capture displays firmware `3.06.005`;
+[Elgato's 7.4.1 release notes](https://edge.elgato.com/egc/sd_content/releasenotes/7.4.1.html)
+also list that version. The update and application removal happened together,
+so their individual effects were not isolated. This is an observed resolution
+on one keyboard, not proof that PR #29, PR #31 or a specific firmware change
+caused or fixed the original HID fault.
+
+For a reproducible check, record the firmware version and symptom before any
+update, quit other software controlling the module, then use Elgato Stream Deck
+on Windows or macOS. Keep the keyboard connected during the official updater,
+then record the post-update version. Close or uninstall the official app only
+after the update finishes, and retest GalleonCore
+after a cold Windows start and after extended idle. The official app may still
+be needed for other Stream Deck devices. A Linux package cannot perform the
+Elgato firmware update. The separate **main keyboard firmware** is updated
+through [Corsair Web Hub](https://www.corsair.com/web-hub) in a compatible
+browser under Device Settings, without installing or uninstalling an app.

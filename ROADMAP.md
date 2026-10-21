@@ -204,3 +204,12 @@ est préparée pour distinguer absence de lecture, rejet du décodage et vraie
 reconnexion ; voir `docs/WINDOWS.md`. La cause et la correction matérielles
 restent à établir après comparaison des journaux d'une première ouverture en
 échec et de la récupération.
+
+Le 21 octobre, le propriétaire a ensuite mis à jour le firmware Stream Deck
+depuis l'application officielle Elgato sous Windows, puis désinstallé cette
+application. Lors du nouvel essai, touches LCD et molettes ont répondu sans la
+panne initiale ; sa capture montre `3.06.005`. Comme les deux changements ont
+été faits ensemble, leur effet individuel reste inconnu. Confirmer la stabilité
+après démarrage à froid et longue veille avant de considérer la validation
+matérielle Windows terminée ; aucun premier tag ni publication n'est déclenché
+sur ce seul essai.

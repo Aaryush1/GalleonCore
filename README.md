@@ -48,6 +48,33 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 | OpenRGB plugin | Dial rings implemented in the separate plugin; keyboard RGB remains under investigation |
 | Windows | Desktop preview; native CI and interactive validation tracked in [WINDOWS.md](docs/WINDOWS.md) |
 
+### Windows: Stream Deck input does not respond
+
+On the owner's Galleon 100 SD, images updated but the LCD keys and dials did not
+respond until the module reset. Updating its Stream Deck firmware with the
+official Elgato Stream Deck app on **Windows**, then uninstalling that app, restored
+input in the owner's next test. Those two changes were made together, so the
+test does not establish which one fixed the problem for other devices.
+
+If you encounter the same symptom, record the firmware version first. Close
+GalleonCore and other apps controlling the module. In the Elgato Stream Deck
+app on Windows or macOS, open **Preferences → Devices → Galleon 100 SD →
+Update Firmware**. Keep the keyboard connected until the update finishes.
+Record the new version, close Stream Deck, and restart GalleonCore on Windows
+for a cold-start test. If you use Stream Deck only for this keyboard, you can
+uninstall it after the firmware update; leave it installed if another device
+needs it. The owner's screenshot shows
+version `3.06.005`, which [Elgato lists in its 7.4.1 release notes](https://edge.elgato.com/egc/sd_content/releasenotes/7.4.1.html).
+The Windows test procedure and its remaining limits are in [WINDOWS.md](docs/WINDOWS.md).
+
+The **main keyboard firmware** is separate: Corsair directs users to
+[Corsair Web Hub](https://www.corsair.com/web-hub) in a compatible browser under
+**Device Settings**. It requires no app installation or uninstallation. The
+GIF below shows the *Stream Deck module* update in the Elgato app, not this
+keyboard update.
+
+![Elgato Stream Deck device preferences showing the Galleon firmware update control](site/firmware-update.gif)
+
 ## Architecture
 
 ```
