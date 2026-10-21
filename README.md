@@ -48,6 +48,20 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 | OpenRGB plugin | Dial rings implemented in the separate plugin; keyboard RGB remains under investigation |
 | Windows | Desktop preview; native CI and interactive validation tracked in [WINDOWS.md](docs/WINDOWS.md) |
 
+### Galleon Bosun screenshots
+
+The five default pages below show applications installed on one Linux desktop; the apps and icons vary by computer. The last two pictures show the wallpaper and screensaver selectors. [Open the full gallery on the website](https://paullux.github.io/GalleonCore/#previews).
+
+| Control | Multimedia |
+|---|---|
+| ![Bosun Control page with media keys](site/screenshots/control.png) | ![Bosun Multimedia page with browsers and media players](site/screenshots/multimedia.png) |
+| Games | System |
+| ![Bosun Games page with installed games](site/screenshots/games.png) | ![Bosun System page with useful tools](site/screenshots/system.png) |
+| Numeric keypad | Wallpaper choice |
+| ![Bosun numeric keypad](site/screenshots/numpad.png) | ![Bosun wallpaper collection](site/screenshots/wallpapers.png) |
+| Screensaver choice | |
+| ![Bosun screensaver selector with the two bundled videos](site/screenshots/screensavers.png) | |
+
 ### Windows: Stream Deck input does not respond
 
 On the owner's Galleon 100 SD, images updated but the LCD keys and dials did not
