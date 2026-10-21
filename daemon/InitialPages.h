@@ -13,6 +13,8 @@ namespace galleond {
 // Used only when no user pages file exists. Never replaces a customized file.
 [[nodiscard]] QByteArray initialPagesJson();
 [[nodiscard]] QByteArray windowsInitialPagesJson(const QString &systemFolder, const QString &screensaverFolder);
+// A fixed first-run Linux profile, built from installed desktop entries and Steam games.
+[[nodiscard]] QByteArray linuxInitialPagesJson(const QList<DesktopApp> &apps, const QList<SteamGame> &games);
 // Initial discovery is capped at 12 launchers; no generated pagination.
 [[nodiscard]] QJsonObject seedWindowsLaunchers(QJsonObject root, const QList<DesktopApp> &apps, const QList<SteamGame> &games);
 // No discovery: existing keys/empty slots stay fixed, including on reload and edit.
