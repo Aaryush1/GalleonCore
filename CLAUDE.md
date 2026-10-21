@@ -81,13 +81,13 @@ reuse lint
   tests. The Windows pipe suffix derives from the current user's SID; the
   PowerShell helper must use the same UTF-8 SHA-256/24-hex contract.
 
-## Windows initial content
+## Initial desktop content
 
-`InitialPages` supplies Windows-only initial themes and bundled screensaver paths
-when no user pages file exists. Keep `defaultPagesJson()` as the minimal portable
-fixture and Linux fallback. Never overwrite customized pages to deliver new
-Windows defaults. Start Menu classification is a heuristic; Steam discovery uses
-its installed library metadata. No arbitrary shell commands or URI schemes are
+`InitialPages` supplies five initial themes on Linux and Windows when no user
+pages file exists; the bundled screensaver paths are Windows-only. Keep
+`defaultPagesJson()` as the minimal portable fixture. Never overwrite customized
+pages to deliver new defaults. Start Menu classification is a heuristic; Steam
+discovery uses its installed library metadata. No arbitrary shell commands or URI schemes are
 accepted as Windows app references.
 
 Windows follow-up: application icons are extracted from Shell metadata and cached
@@ -98,11 +98,12 @@ for a decoder process; test an ignored termination request as well as consumed
 wake input. Official OpenRGB ring ownership remains a hardware integration item;
 do not claim priority from repeated color writes.
 
-Windows defaults are capped at 12 launchers per theme, with no generated Plus
-page, auto-refill or usage reordering on reload/edit. Existing Windows page files
-are normalized without Shell discovery; explicit empty slots remain empty.
-Linux keeps its auto-fill behavior. Keep launcher/Shell/Steam artwork I/O outside
-the Windows device event loop: LauncherCache runs a bounded, timed metadata-only
+Fresh Linux and Windows defaults are capped at 12 launchers per theme, with no
+generated Plus page, auto-refill or usage reordering on reload/edit. Existing
+Windows page files are normalized without Shell discovery; explicit empty slots
+remain empty. Existing Linux page files retain their configured behavior. Keep
+launcher/Shell/Steam artwork I/O outside the Windows device event loop:
+LauncherCache runs a bounded, timed metadata-only
 child (`galleond --launcher-info`), before any instance lock/HID opening. Draw one
 key per event-loop turn. Long image writes refresh the existing host keep-alive
 between reports without processing nested events. Cover both with slow-I/O tests;

@@ -77,8 +77,8 @@ private Q_SLOTS:
         QCOMPARE(backend.page(), QStringLiteral("main"));
         QCOMPARE(backend.keys().size(), 12);
         QCOMPARE(key(backend, 0).value("kind").toString(), QStringLiteral("media"));
-        QCOMPARE(key(backend, 0).value("label").toString(), QStringLiteral("Previous"));
-        QCOMPARE(key(backend, 4).value("kind").toString(), QStringLiteral("empty"));
+        QCOMPARE(key(backend, 0).value("label").toString(), QStringLiteral("Précédent"));
+        QCOMPARE(key(backend, 4).value("kind").toString(), QStringLiteral("media"));
     }
 
     void assigningAnApplicationEditsTheFileAndRefreshesTheKeys()

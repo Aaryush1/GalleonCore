@@ -54,7 +54,7 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
 | **Galleon Bosun, icône dans la zone de notification** : fermer la fenêtre la masque (si la zone existe), clic gauche affiche ou masque, clic droit : Afficher/Masquer, « Quitter et arrêter galleond » (le module repasse en pavé numérique) et « Quitter » (galleond continue), ou « Démarrer galleond » quand il ne tourne pas ; menu refait selon l'état. Sans zone de notification, fenêtre ordinaire. Le contenu du menu est une fonction pure | oui (`test_traymenu`, fermeture = masquage dans `test_bosun`) ; l'icône elle-même ne se teste pas hors bureau | à essayer |
 | Plugin OpenRGB (LampArray en libusb) : anneaux des molettes pilotés depuis OpenRGB | oui | oui (les anneaux ; le clavier non, voir §4) |
 | **Bureau Windows** : SMTC, Core Audio, SendInput, IPC/verrou par utilisateur, Chrome/App Paths/PWA distinctes, icônes natives, Setup NSIS UTF-8, démarrage de galleond et Bosun minimisé par HKCU Run ; Bosun lance le démon absent | oui (tests natifs, déploiement, installation/mise à niveau/désinstallation avec applications ouvertes et données conservées) | partiel : fonds et pages présents ; stabilité et ouverture de session à revalider |
-| **Pages Windows fixes** : au plus 12 lanceurs initiaux, sans pagination/remplissage/réordonnancement automatiques ; retraits et positions conservés ; `.url` Steam bornés et validés | oui (`test_initialpages`, `test_usage`, `test_windowsdesktop`) | non confirmé après ce correctif |
+| **Pages initiales fixes Linux/Windows** : cinq onglets, au plus 12 touches par page, applications et jeux détectés une seule fois ; retraits et positions conservés ; `.url` Steam Windows bornés et validés | oui (`test_initialpages`, `test_pagescontroller`, `test_usage`, `test_windowsdesktop`) | nouvelles pages Linux à confirmer ; Windows à revalider après ce correctif |
 | **Réactivité Windows** : recherche d’icônes/jaquettes dans un enfant limité, annulation des requêtes périmées, dessin échelonné des 12 touches ; keep-alive connu servi entre rapports JPEG longs | oui (`test_launchercache`, `test_streamdeck`, `test_windowsdesktop`) | retour au logo Corsair et longues sessions à revalider |
 | **Réveil sans attente du décodeur** : arrêt asynchrone FFmpeg et nettoyage borné, première action consommée | oui (`test_screensaver`, `test_windowswake`, `test_modes_flow`) | réveil court Linux observé avant ce correctif ; réveil prolongé Linux/Windows à confirmer |
 
@@ -128,7 +128,7 @@ Décisions à ne pas perdre :
 
 1. (fait) Reprise du module après une veille de l'ordinateur : confirmée. Le réglage NVIDIA de l'utilisateur est un sujet système, hors du projet.
 2. (fait) Branche `galleond-wallpaper-clock` fusionnée dans `main` (pull request 5, 19 octobre) ; la CI passe (GCC, Clang + sanitizers, lint).
-3. Tester le dernier Setup Windows validé : pages fixes à 12, modifications/retraits conservés, lanceurs Steam/PWA, réveil après attente longue et démarrage de session. Faire le premier essai avec les autres contrôleurs des anneaux arrêtés ; relever toute reprise du logo Corsair. Confirmer séparément la veille prolongée Linux et les pages Linux remplies/classées par usage.
+3. Tester le dernier Setup Windows validé : pages fixes à 12, modifications/retraits conservés, lanceurs Steam/PWA, réveil après attente longue et démarrage de session. Faire le premier essai avec les autres contrôleurs des anneaux arrêtés ; relever toute reprise du logo Corsair. Confirmer séparément la veille prolongée Linux et les cinq pages Linux initiales figées à 12 touches au plus.
 4. **Galleon Bosun** : (fait : maquette ; écrans de veille : lecture puis réglages et retrait) sélecteur de fichier natif images/vidéos et découverte du premier fond personnel après démarrage corrigés ; validation sur le module confirmée par le propriétaire ; démarrage de Bosun avec la session (option) ; distribution Linux : recettes PPA (Ubuntu 24.04/26.04), COPR (Fedora 43/44/45/rawhide), AUR et AppImage, CI de construction et publication sur tags dans `tools/packaging/` et `.github/workflows/linux-*.yml` (voir `tools/packaging/README.md` ; PPA et COPR ouverts, secrets requis pour publier, validation matérielle et CI de l’arbre fusionné à confirmer ; badges README/site et documents de contribution, conduite, licences et sécurité ajoutés), puis édition d'une touche (application, libellé, icône, couleur de l'onglet, ajout et retrait), puis onglets fonds d'écran et économiseurs d'écran, puis réinitialisation et lien Web Hub.
 5. Mesurer la latence du choix du fond ; regrouper les crans si nécessaire.
 
@@ -149,7 +149,9 @@ Le quatrième retour matériel signale un retour au logo Corsair sur les pages
 chargées, puis une reprise après environ une minute, sans changement du PID.
 Les retraits/modifications pouvaient être annulés par le remplissage automatique.
 La tentative de pagination à 22 est donc remplacée par **12 lanceurs initiaux
-fixes**, sans découverte sur rechargement/édition. Les anciens liens Plus générés
+fixes**, sans découverte sur rechargement/édition. Le même plafond et les cinq
+onglets initiaux sont appliqués aux profils Linux neufs ; les fichiers personnels
+existants ne sont pas migrés. Les anciens liens Plus générés
 sont retirés ; les pages supplémentaires restent dans le fichier pour récupération.
 Les raccourcis `.url` Steam sont désormais acceptés avec validation stricte.
 

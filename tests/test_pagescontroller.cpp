@@ -321,6 +321,9 @@ private Q_SLOTS:
     void anEmptyKeyDoesNothing()
     {
         Fixture f;
+        const auto parsed = parsePagesConfig(defaultPagesJson());
+        QVERIFY(parsed.config.has_value());
+        f.controller->setConfig(required(parsed.config)); // The minimal portable fixture has an empty key 4.
         const auto before = f.transport->writes.size();
         f.pressKey(4, true);
         f.pressKey(4, false);
@@ -331,6 +334,9 @@ private Q_SLOTS:
     void dialsTurnAndPress()
     {
         Fixture f;
+        const auto parsed = parsePagesConfig(defaultPagesJson());
+        QVERIFY(parsed.config.has_value());
+        f.controller->setConfig(required(parsed.config)); // Check media dial actions independently of first-run themes.
         f.turnDial(0, 3);  // volume, +2 per click
         QCOMPARE(f.media.volumeTotal, 6);
         f.turnDial(0, -2);

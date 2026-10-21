@@ -678,10 +678,8 @@ int main(int argc, char *argv[])
 
 #endif
 
-#ifdef Q_OS_WIN
-    // Discover initial launchers before opening HID: Shell enumeration must not delay keep-alives.
+    // Discover first-run launchers before opening HID: menu/Steam I/O must not delay keep-alives.
     (void)galleond::initialPagesJson();
-#endif
     galleon::StreamDeck deck;
     deck.setTraceInput(parser.isSet(traceOption));
 #ifdef Q_OS_WIN

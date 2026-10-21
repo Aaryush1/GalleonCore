@@ -187,7 +187,80 @@ private Q_SLOTS:
         QVERIFY(required(parsed.config).pages.value("systeme").keys[0].has_value());
     }
 #else
-    void linuxDefaultsStayUnchanged() { QCOMPARE(initialPagesJson(), defaultPagesJson()); }
+    void linuxFirstRunHasFiveFixedPagesWithAtMostTwelveKeysEach()
+    {
+        QList<DesktopApp> apps;
+        for (int index = 0; index < 18; ++index) {
+            DesktopApp media;
+            media.file = applicationPath(index);
+            media.name = QStringLiteral("Player %1").arg(index);
+            media.categories = {QStringLiteral("AudioVideo")};
+            apps.append(media);
+        }
+        DesktopApp browser;
+        browser.file = QStringLiteral("/apps/chrome.desktop");
+        browser.name = QStringLiteral("Google Chrome");
+        browser.categories = {QStringLiteral("Network"), QStringLiteral("WebBrowser")};
+        apps.prepend(browser);
+        for (int index = 0; index < 18; ++index) {
+            DesktopApp utility;
+            utility.file = QStringLiteral("/apps/utility-%1.desktop").arg(index);
+            utility.name = QStringLiteral("Utility %1").arg(index);
+            utility.categories = {QStringLiteral("Utility")};
+            apps.append(utility);
+        }
+        QList<SteamGame> games;
+        for (int id = 1; id <= 18; ++id)
+            games.append(SteamGame{.appid = id, .name = QStringLiteral("Game %1").arg(id)});
+
+        const QByteArray bytes = linuxInitialPagesJson(apps, games);
+        const auto parsed = parsePagesConfig(bytes);
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        const auto &config = required(parsed.config);
+        QCOMPARE(config.themes.size(), std::size_t(5));
+        QCOMPARE(config.pages.size(), 5);
+        QVERIFY(!config.screensaver.enabled());
+        for (const auto &page : config.pages) {
+            QCOMPARE(page.menuMax, 0);
+            QCOMPARE(page.steamMax, 0);
+            QCOMPARE(page.sort, PageSort::None);
+        }
+        const Page &media = config.pages.value(QStringLiteral("multimedia"));
+        QCOMPARE(required(media.keys[0]).action.desktop, browser.file);
+        for (const QString &name : {QStringLiteral("multimedia"), QStringLiteral("jeux"), QStringLiteral("systeme")}) {
+            const Page &page = config.pages.value(name);
+            for (const auto &key : page.keys)
+                QVERIFY(key.has_value());
+        }
+        QCOMPARE(required(config.pages.value(QStringLiteral("jeux")).keys[11]).action.appid, 12);
+        QCOMPARE(required(config.pages.value(QStringLiteral("numpad")).keys[11]).label, QStringLiteral("Entrée"));
+    }
+    void linuxFirstRunLeavesUnavailableApplicationsEmptyAndPreservesCustomFiles()
+    {
+        const QByteArray empty = linuxInitialPagesJson({}, {});
+        const auto parsed = parsePagesConfig(empty);
+        QVERIFY2(parsed.config.has_value(), qPrintable(parsed.errors.join('\n')));
+        const auto &pages = required(parsed.config).pages;
+        QVERIFY(!pages.value(QStringLiteral("multimedia")).keys[0]);
+        QVERIFY(!pages.value(QStringLiteral("jeux")).keys[0]);
+        QVERIFY(!pages.value(QStringLiteral("systeme")).keys[0]);
+
+        DesktopApp player;
+        player.file = applicationPath(1);
+        player.name = QStringLiteral("Player");
+        player.categories = {QStringLiteral("AudioVideo")};
+        QJsonObject root = QJsonDocument::fromJson(linuxInitialPagesJson({player}, {})).object();
+        QJsonObject editedPages = root.value(QStringLiteral("pages")).toObject();
+        QJsonObject media = editedPages.value(QStringLiteral("multimedia")).toObject();
+        media.insert(QStringLiteral("keys"), QJsonArray{}); // The owner removed the seeded launcher.
+        editedPages.insert(QStringLiteral("multimedia"), media);
+        root.insert(QStringLiteral("pages"), editedPages);
+        const QByteArray edited = QJsonDocument(root).toJson();
+        QCOMPARE(preparePagesJson(edited), edited);
+        const auto reparsed = parsePagesConfig(edited);
+        QVERIFY(reparsed.config.has_value());
+        QVERIFY(!required(reparsed.config).pages.value(QStringLiteral("multimedia")).keys[0]);
+    }
 #endif
 };
 QTEST_GUILESS_MAIN(TestInitialPages)

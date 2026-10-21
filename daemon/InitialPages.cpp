@@ -91,7 +91,7 @@ QByteArray windowsInitialPagesJson(const QString &systemFolder, const QString &s
         QStringLiteral("Nettoyage de disque")};
     for (qsizetype index = 0; index < executables.size(); ++index) {
         const QString file = QDir(systemFolder).absoluteFilePath(executables.at(index));
-        if (!QFileInfo(file).isFile())
+        if (systemFolder.isEmpty() || !QFileInfo(file).isFile())
             continue;
         systemKeys.append(QJsonObject{{QStringLiteral("key"), static_cast<int>(index)}, {QStringLiteral("label"), labels.at(index)},
             {QStringLiteral("icon"), QStringLiteral("preferences-system")},
@@ -118,16 +118,18 @@ QByteArray windowsInitialPagesJson(const QString &systemFolder, const QString &s
         {QStringLiteral("1"), QJsonObject{{QStringLiteral("turn"), QJsonObject{{QStringLiteral("type"), QStringLiteral("media")},
             {QStringLiteral("command"), QStringLiteral("seek")}, {QStringLiteral("seconds"), 5}}},
             {QStringLiteral("press"), QJsonObject{{QStringLiteral("type"), QStringLiteral("wallpaper-mode")}}}}}});
-    QJsonArray videos;
-    for (const QString &title : {QStringLiteral("Hackerne cyberpunk sous la pluie"), QStringLiteral("Refuge néon sous la lune rose")})
-        videos.append(QJsonObject{{QStringLiteral("file"), QDir(screensaverFolder).absoluteFilePath(title + QStringLiteral(".mp4"))},
-            {QStringLiteral("title"), title}});
-    // Dimensions measured on the owner's module; see docs/ROADMAP.md and screensaver geometry notes.
-    root.insert(QStringLiteral("screensaver"), QJsonObject{{QStringLiteral("video"), videos}, {QStringLiteral("idle_minutes"), 5},
-        {QStringLiteral("fps"), 15}, {QStringLiteral("while_playing"), false},
-        {QStringLiteral("geometry"), QJsonObject{{QStringLiteral("screen_mm"), QJsonArray{62.6, 33.0}},
-            {QStringLiteral("key_mm"), QJsonArray{13.7, 13.7}}, {QStringLiteral("gap_mm"), QJsonArray{5.4, 5.4}},
-            {QStringLiteral("screen_to_keys_mm"), 5.4}}}});
+    if (!screensaverFolder.isEmpty()) {
+        QJsonArray videos;
+        for (const QString &title : {QStringLiteral("Hackerne cyberpunk sous la pluie"), QStringLiteral("Refuge néon sous la lune rose")})
+            videos.append(QJsonObject{{QStringLiteral("file"), QDir(screensaverFolder).absoluteFilePath(title + QStringLiteral(".mp4"))},
+                {QStringLiteral("title"), title}});
+        // Dimensions measured on the owner's module; see docs/ROADMAP.md and screensaver geometry notes.
+        root.insert(QStringLiteral("screensaver"), QJsonObject{{QStringLiteral("video"), videos}, {QStringLiteral("idle_minutes"), 5},
+            {QStringLiteral("fps"), 15}, {QStringLiteral("while_playing"), false},
+            {QStringLiteral("geometry"), QJsonObject{{QStringLiteral("screen_mm"), QJsonArray{62.6, 33.0}},
+                {QStringLiteral("key_mm"), QJsonArray{13.7, 13.7}}, {QStringLiteral("gap_mm"), QJsonArray{5.4, 5.4}},
+                {QStringLiteral("screen_to_keys_mm"), 5.4}}}});
+    }
     return QJsonDocument(root).toJson();
 }
 
@@ -204,7 +206,11 @@ QJsonObject seedWindowsLaunchers(QJsonObject root, const QList<DesktopApp> &apps
             }
         }
         for (const DesktopApp &app : apps) {
-            if (!app.categories.contains(category) || (app.steamAppId > 0 && seenGames.contains(app.steamAppId)))
+            const bool browser = category == QStringLiteral("AudioVideo") && !app.categories.contains(QStringLiteral("Game"))
+                && (app.categories.contains(QStringLiteral("WebBrowser"))
+                    || windowsAppCategories(app.name, QString()).contains(QStringLiteral("AudioVideo")));
+            if ((!app.categories.contains(category) && !browser)
+                || (app.steamAppId > 0 && seenGames.contains(app.steamAppId)))
                 continue;
             if (app.steamAppId > 0)
                 seenGames.insert(app.steamAppId);
@@ -215,6 +221,23 @@ QJsonObject seedWindowsLaunchers(QJsonObject root, const QList<DesktopApp> &apps
     }
     root.insert(QStringLiteral("pages"), pages);
     return fixedWindowsPages(root);
+}
+
+QByteArray linuxInitialPagesJson(const QList<DesktopApp> &apps, const QList<SteamGame> &games)
+{
+    QJsonObject root = QJsonDocument::fromJson(windowsInitialPagesJson({}, {})).object();
+    QJsonArray themes = root.value(QStringLiteral("themes")).toArray();
+    QJsonObject numberTheme = themes.at(4).toObject();
+    numberTheme.remove(QStringLiteral("when")); // Start on Contrôle, not the numpad when no player is active.
+    themes.replace(4, numberTheme);
+    root.insert(QStringLiteral("themes"), themes);
+    QJsonObject pages = root.value(QStringLiteral("pages")).toObject();
+    QJsonObject system = pages.value(QStringLiteral("systeme")).toObject();
+    system.insert(QStringLiteral("menu"), QJsonObject{{QStringLiteral("category"), QStringLiteral("Utility")},
+        {QStringLiteral("max"), galleon::protocol::KeyCount}});
+    pages.insert(QStringLiteral("systeme"), system);
+    root.insert(QStringLiteral("pages"), pages);
+    return QJsonDocument(seedWindowsLaunchers(root, apps, games)).toJson();
 }
 
 QByteArray preparePagesJson(const QByteArray &bytes)
@@ -239,7 +262,9 @@ QByteArray initialPagesJson()
         DesktopEntries::list(false), SteamLibrary::installedGames())).toJson();
     return initial;
 #else
-    return defaultPagesJson();
+    // Discover once before opening HID, then keep every slot fixed after the first edit.
+    static const QByteArray initial = linuxInitialPagesJson(DesktopEntries::list(), SteamLibrary::installedGames());
+    return initial;
 #endif
 }
 }

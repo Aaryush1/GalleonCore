@@ -158,7 +158,7 @@ Only the images found in the wallpaper folder can be chosen, and each one is che
 
 ## Button pages
 
-The 12 keys and the 2 dials run the actions of a JSON file, `~/.config/galleoncore/pages.json` (or `--pages file`). Without it, built-in pages control the music player. The file is read again when it changes; a file with an error is refused as a whole and the previous pages stay (the errors are in the log).
+The 12 keys and the 2 dials run the actions of a JSON file, `~/.config/galleoncore/pages.json` (or `--pages file`). On a fresh Linux or Windows profile, the five built-in tabs are Contrôle, Multimédia, Jeu Vidéo, Système and Pavé Numérique. Available applications and Steam games are selected once for the initial pages, with at most 12 keys on each page; an unavailable launcher leaves its slot empty. Removing or changing a key in Bosun does not refill or reorder it. Existing personal pages are left as they are. The file is read again when it changes; a file with an error is refused as a whole and the previous pages stay (the errors are in the log).
 
 ```json
 {

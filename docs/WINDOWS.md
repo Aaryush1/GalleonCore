@@ -186,6 +186,10 @@ video decoding, probing and conversion, as described above.
 
 Existing customized pages are preserved. Initial contents apply only when there
 is no pages.json; copying the user's Linux configuration is not required.
+Fresh Linux profiles now use the same five fixed themes, with installed Linux
+desktop entries and Steam games selected once into at most twelve slots per
+page. Linux System uses available Utility launchers. The Windows-specific
+System32 shortcuts and bundled screensaver videos remain Windows-only.
 
 ## Follow-up: native icons, waking, and sign-in
 
