@@ -100,7 +100,10 @@ do not claim priority from repeated color writes.
 
 Fresh Linux and Windows defaults are capped at 12 launchers per theme, with no
 generated Plus page, auto-refill or usage reordering on reload/edit. Existing
-Windows page files are normalized without Shell discovery; explicit empty slots
+profiles are unchanged. First-run Multimedia suggests browsers and players,
+System suggests administration tools, and Games starts with installed Steam
+games; unrelated apps leave slots empty. Existing Windows page files are
+normalized without Shell discovery; explicit empty slots
 remain empty. Existing Linux page files retain their configured behavior. Keep
 launcher/Shell/Steam artwork I/O outside the Windows device event loop:
 LauncherCache runs a bounded, timed metadata-only

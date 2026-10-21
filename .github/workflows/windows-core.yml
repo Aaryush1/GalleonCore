@@ -7,7 +7,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths-ignore: ["site/**"]
   pull_request:
+    paths-ignore: ["site/**"]
 permissions:
   contents: read
 concurrency:
