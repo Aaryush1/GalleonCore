@@ -46,6 +46,51 @@ private Q_SLOTS:
         QVERIFY(f.transport->featureReports.empty());
     }
 
+    void failedInitialKeepAliveDoesNotClaimTheDevice()
+    {
+        Fixture f;
+        f.transport->featureSucceeds = false;
+        QVERIFY(!f.deck->open());
+        QVERIFY(!f.deck->isOpen());
+        const auto sent = f.transport->featureReports.size();
+        QTest::qWait(30);
+        QCOMPARE(f.transport->featureReports.size(), sent);
+        f.transport->featureSucceeds = true;
+        QVERIFY(f.deck->open());
+    }
+
+    void failedPeriodicKeepAliveReleasesTheDeviceOnce()
+    {
+        Fixture f;
+        f.deck->setKeepAliveInterval(10);
+        QVERIFY(f.deck->open());
+        const QSignalSpy lost(f.deck.get(), &StreamDeck::disconnected);
+        f.transport->featureSucceeds = false;
+        QTRY_COMPARE_WITH_TIMEOUT(lost.count(), 1, 1000);
+        QVERIFY(!f.deck->isOpen());
+        QTest::qWait(30);
+        QCOMPARE(lost.count(), 1);
+    }
+
+    void inputWorksWithAndWithoutTrace_data()
+    {
+        QTest::addColumn<bool>("trace");
+        QTest::newRow("normal startup") << false;
+        QTest::newRow("diagnostic startup") << true;
+    }
+
+    void inputWorksWithAndWithoutTrace()
+    {
+        QFETCH(const bool, trace);
+        Fixture f;
+        f.deck->setTraceInput(trace);
+        const QSignalSpy pressed(f.deck.get(), &StreamDeck::keyPressed);
+        QVERIFY(f.deck->open());
+        f.transport->pendingReads.push_back({0x01, 0x00, 0x0c, 0x00, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        QTRY_COMPARE_WITH_TIMEOUT(pressed.count(), 1, 1000);
+        QCOMPARE(pressed.first().first().toInt(), 0);
+    }
+
     void openSendsKeepAliveImmediately()
     {
         Fixture f;

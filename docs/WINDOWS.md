@@ -291,3 +291,38 @@ solution. PR/main CI status and latest download are available through
 [GitHub Actions](https://github.com/Paullux/GalleonCore/actions); use an artifact
 whose workflow completed successfully. Do not create the first release tag before
 explicitly successful owner feedback.
+
+## Windows HID startup follow-up (21 October 2026)
+
+The owner reports that manual pagination and normal controls work after the daemon
+finally acquires control, including with OpenRGB running. Cold session startup
+still sometimes shows inactive controls, a temporary Corsair logo and recovery;
+`--trace-input` is not a reliable workaround. It only logs decoded input and does
+not enable a different reader. The hardware root cause remains unconfirmed.
+
+The code audit found three concrete lifecycle gaps: HID was opened before QML,
+SMTC and Core Audio initialization while Qt timers could not yet run; an initial
+failed host keep-alive still returned success; and a read failure immediately
+reopened the device inside the disconnect signal, potentially hiding both
+availability transitions and skipping the recovery redraw.
+
+Normal Windows startup now queues its first open in the initialized event loop.
+Diagnostic measurement modes retain their explicit immediate open. Nonblocking
+setup must succeed, and every input read uses `hid_read_timeout(..., 0)` explicitly
+([hidapi API](https://libusb.info/hidapi/group__API.html)). Opening requires a
+successful existing host keep-alive; periodic keep-alive failure releases the
+handle. Recovery publishes loss first and retries on the existing five-second
+controller timer, then redraws on availability. No new device commands, sleeps,
+trace requirement or OpenRGB ownership claims are introduced. Linux startup keeps
+its existing immediate open; the shared failure handling is regression-tested.
+
+Tests compile the real HID adapter against a fake C API, check failed nonblocking
+setup and zero-timeout reads, reject/retry an initial keep-alive failure, compare
+input with trace on/off, and check loss/reconnect notifications. Existing full
+Linux and native Windows CI checks remain required. These synthetic tests do not
+establish cold-boot hardware success: test session startup without `--trace-input`,
+keys/dials immediately, manual pagination, long idle wake and USB recovery.
+
+New manual subpages use literal `NEXT >` and `< BACK` labels. Existing customized
+navigation labels and pages are not rewritten. Each page still has twelve keys.
+No first release tag or PPA/COPR/AUR publication before owner hardware acceptance.

@@ -681,9 +681,17 @@ int main(int argc, char *argv[])
 #endif
     galleon::StreamDeck deck;
     deck.setTraceInput(parser.isSet(traceOption));
-    if (!deck.open())
+    // Normal Windows startup opens HID on the controller's timer after exec():
+    // QML, Core Audio and SMTC setup must finish before host-mode timers start.
+#ifdef Q_OS_WIN
+    const bool openImmediately = parser.isSet(calibrationOption) || parser.isSet(displayLagOption)
+        || parser.isSet(measureOption) || parser.isSet(testKeysOption);
+#else
+    constexpr bool openImmediately = true;
+#endif
+    if (openImmediately && !deck.open())
         qWarning() << "galleond: no Galleon 100 SD found, waiting";
-    else
+    else if (deck.isOpen())
         qInfo() << "galleond: Stream Deck module opened, serial" << deck.serialNumber();
 
     if (parser.isSet(calibrationOption)) {

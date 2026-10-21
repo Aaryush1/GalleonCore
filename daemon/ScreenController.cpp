@@ -103,9 +103,20 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
         // The module may be plugged in later, or unplugged: keep looking for it.
         m_deckTimer.setInterval(DeckCheckIntervalMs);
         connect(&m_deckTimer, &QTimer::timeout, this, &ScreenController::checkDeck);
-        connect(m_deck, &galleon::StreamDeck::disconnected, this, &ScreenController::checkDeck);
+        connect(m_deck, &galleon::StreamDeck::disconnected, this, [this] {
+            // Publish the loss before any reopen, even when the next open succeeds.
+            // Retry only on the existing periodic timer, not inside an input callback.
+            if (m_wasAvailable) {
+                m_wasAvailable = false;
+                Q_EMIT deckAvailableChanged();
+            }
+        });
         m_deckTimer.start();
         m_wasAvailable = m_deck->isOpen();
+#ifdef Q_OS_WIN
+        if (!m_wasAvailable)
+            QTimer::singleShot(0, this, &ScreenController::checkDeck);
+#endif
     }
 }
 

@@ -56,7 +56,11 @@ bool HidTransport::open()
                    << QString::fromWCharArray(hid_error(nullptr));
         return false;
     }
-    hid_set_nonblocking(device->handle, 1);
+    if (hid_set_nonblocking(device->handle, 1) != 0) {
+        qWarning() << "galleon: cannot enable nonblocking HID input"
+                   << QString::fromWCharArray(hid_error(device->handle));
+        return false;
+    }
     m_device = std::move(device);
     return true;
 }
@@ -100,7 +104,9 @@ int HidTransport::read(std::span<std::uint8_t> buffer)
 {
     if (!isOpen())
         return -1;
-    return hid_read(m_device->handle, buffer.data(), buffer.size());
+    // Explicit zero timeout: never let input polling wait for a physical key.
+    // https://libusb.info/hidapi/group__API.html (hid_read_timeout).
+    return hid_read_timeout(m_device->handle, buffer.data(), buffer.size(), 0);
 }
 
 } // namespace galleon

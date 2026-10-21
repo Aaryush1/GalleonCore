@@ -113,3 +113,10 @@ the validated Steam URI when launching. Other URL schemes remain rejected.
 The owner identified Windows Dynamic Lighting and OpenRGB's `Dynamic Light`
 LampArray device (1b1c:2b18, MI_03) as competing ring controllers. Do not invent
 ownership commands or persistent RGB reports.
+
+Windows HID startup: normal startup must open only after desktop initialization
+and event-loop entry; diagnostic measurement modes can open immediately. Never
+accept an initial failed keep-alive or silently ignore nonblocking setup errors.
+Use explicit zero-timeout input reads. Publish disconnect before periodic reopen
+so recovery redraw cannot be lost; never retry directly inside the read callback.
+Manual Bosun pagination defaults to literal `NEXT >` / `< BACK`; retain user labels.
