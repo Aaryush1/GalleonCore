@@ -199,3 +199,17 @@ est préparée pour distinguer absence de lecture, rejet du décodage et vraie
 reconnexion ; voir `docs/WINDOWS.md`. La cause et la correction matérielles
 restent à établir après comparaison des journaux d'une première ouverture en
 échec et de la récupération.
+
+### Lecture du journal HID PID 3412
+
+La première ouverture a produit 67 300 lectures vides, puis le handle a été
+fermé à `t_ms=940290` par la branche d'échec du keep-alive périodique :
+`readErrors=0` exclut la branche de lecture, et un échec d'image seul ne ferme
+pas le transport. La deuxième ouverture à `t_ms=945913` reçoit des événements.
+Le compteur `imageReports` mesure des paquets de 1 024 octets, pas des images :
+la vidéo de veille envoie un écran et douze touches par frame, ce qui explique
+environ mille paquets/s. Une contribution de cette charge à la panne reste
+possible mais non prouvée. Un rafraîchissement unique du premier handle après
+le keep-alive initial est expérimenté sur Windows ; Linux garde son ouverture
+unique. Les tests simulés vérifient les erreurs et la reprise, mais la validation
+sur clavier Windows reste obligatoire avant tag ou publication.

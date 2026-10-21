@@ -129,3 +129,12 @@ handle reopening from the PID. The bounded, local Windows counter log contains
 no report contents. Compare failing-first-open and recovered snapshots before
 changing protocol bytes, HID ownership or retry policy. Keep the publication
 gate until the owner confirms physical Windows behavior.
+
+PID 3412 log follow-up: `t_ms=940290` closed through periodic keep-alive
+failure, not an input read (`readErrors=0`) or image failure alone. About 1,000
+successful 1,024-byte image packets/s during the screensaver are consistent with
+one screen plus 12 keys per video frame; causation is unproven. A Windows-only
+one-time refresh of the first HID handle after its successful host keep-alive is
+an experiment, not a hardware-confirmed fix. Keep Linux's single open unchanged,
+retry a failed refresh on the ordinary timer, and do not publish until real
+Windows cold-boot input and wake are confirmed.

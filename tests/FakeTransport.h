@@ -21,17 +21,21 @@ public:
     bool open() override
     {
         ++openAttempts;
-        m_open = openSucceeds;
+        m_open = openSucceeds && openAttempts != failOpenAttempt;
         return m_open;
     }
-    void close() override { m_open = false; }
+    void close() override
+    {
+        ++closeCalls;
+        m_open = false;
+    }
     [[nodiscard]] bool isOpen() const override { return m_open; }
     [[nodiscard]] QString serialNumber() const override { return QStringLiteral("FAKE0001"); }
 
     bool sendFeatureReport(std::span<const std::uint8_t> report) override
     {
         featureReports.emplace_back(report.begin(), report.end());
-        return m_open && featureSucceeds;
+        return m_open && featureSucceeds && static_cast<int>(featureReports.size()) != failFeatureCall;
     }
 
     bool write(std::span<const std::uint8_t> report) override
@@ -39,13 +43,15 @@ public:
         if (beforeWrite)
             beforeWrite();
         writes.emplace_back(report.begin(), report.end());
-        return m_open;
+        return m_open && writeSucceeds;
     }
 
     int read(std::span<std::uint8_t> buffer) override
     {
         if (disconnected)
             return -1;
+        if (openAttempts < inputReadyOnOpenAttempt)
+            return 0;
         if (pendingReads.empty())
             return 0;
         const Report report = pendingReads.front();
@@ -57,7 +63,12 @@ public:
 
     std::function<void()> beforeWrite;
     int openAttempts = 0;
+    int closeCalls = 0;
+    int failOpenAttempt = 0;
+    int failFeatureCall = 0;
+    int inputReadyOnOpenAttempt = 1;
     bool featureSucceeds = true;
+    bool writeSucceeds = true;
     bool openSucceeds = true;
     bool disconnected = false;
     std::vector<Report> featureReports;

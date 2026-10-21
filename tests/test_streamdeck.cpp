@@ -72,6 +72,26 @@ private Q_SLOTS:
         QCOMPARE(lost.count(), 1);
     }
 
+    void imageFailureAloneDoesNotCloseButPeriodicKeepAliveFailureDoes()
+    {
+        Fixture f;
+        f.deck->setKeepAliveInterval(20);
+        QVERIFY(f.deck->open());
+        const QSignalSpy lost(f.deck.get(), &StreamDeck::disconnected);
+        f.transport->writeSucceeds = false;
+        QImage image(160, 160, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(!f.deck->setKeyImage(0, image));
+        QCOMPARE(f.deck->diagnostics().imageFailures, std::uint64_t{1});
+        QVERIFY(f.deck->isOpen());
+        QCOMPARE(lost.count(), 0);
+
+        f.transport->featureSucceeds = false;
+        QTRY_COMPARE_WITH_TIMEOUT(lost.count(), 1, 1000);
+        QCOMPARE(f.deck->diagnostics().readErrors, std::uint64_t{0});
+        QCOMPARE(f.deck->diagnostics().closes, std::uint64_t{1});
+    }
+
     void inputWorksWithAndWithoutTrace_data()
     {
         QTest::addColumn<bool>("trace");
@@ -96,8 +116,68 @@ private Q_SLOTS:
         Fixture f;
         QVERIFY(f.deck->open());
         QCOMPARE(f.transport->featureReports.size(), std::size_t{1});
+        QCOMPARE(f.transport->openAttempts, 1); // Linux/default path has no refresh.
         QCOMPARE(f.deck->diagnostics().opens, std::uint64_t{1});
         QCOMPARE(f.deck->diagnostics().keepAlives, std::uint64_t{1});
+    }
+
+    void startupRefreshReopensOnlyOnceBeforePublishingInput()
+    {
+        Fixture f;
+        f.transport->inputReadyOnOpenAttempt = 2; // model a silent first Windows handle
+        std::vector<std::uint8_t> keyReport = {0x01, 0x00, 0x0c, 0x00};
+        keyReport.resize(4 + galleon::protocol::KeyCount, 0);
+        keyReport[4] = 1;
+        f.transport->pendingReads.push_back(keyReport);
+        const QSignalSpy pressed(f.deck.get(), &StreamDeck::keyPressed);
+        f.deck->setStartupHandleRefresh(true); // enabled by the Windows daemon
+        QVERIFY(f.deck->open());
+        QCOMPARE(f.transport->openAttempts, 2);
+        QCOMPARE(f.transport->closeCalls, 1);
+        QCOMPARE(f.transport->featureReports.size(), std::size_t{2});
+        QCOMPARE(f.deck->diagnostics().startupHandleRefreshes, std::uint64_t{1});
+        QCOMPARE(f.deck->diagnostics().opens, std::uint64_t{1});
+        QTRY_COMPARE_WITH_TIMEOUT(pressed.count(), 1, 1000);
+
+        f.deck->close();
+        QVERIFY(f.deck->open());
+        QCOMPARE(f.transport->openAttempts, 3); // recovery does not repeat priming
+        QCOMPARE(f.deck->diagnostics().startupHandleRefreshes, std::uint64_t{1});
+    }
+
+    void failedStartupRefreshDoesNotPublishAConnectedDeck()
+    {
+        Fixture f;
+        f.deck->setStartupHandleRefresh(true);
+        f.transport->failOpenAttempt = 2;
+        QVERIFY(!f.deck->open());
+        QVERIFY(!f.deck->isOpen());
+        QCOMPARE(f.deck->diagnostics().opens, std::uint64_t{0});
+        QCOMPARE(f.deck->diagnostics().startupHandleRefreshes, std::uint64_t{0});
+        const auto polls = f.deck->diagnostics().polls;
+        QTest::qWait(30);
+        QCOMPARE(f.deck->diagnostics().polls, polls); // no input polling on the discarded handle
+
+        f.transport->failOpenAttempt = 0;
+        QVERIFY(f.deck->open());
+        QCOMPARE(f.transport->openAttempts, 4); // both phases retried
+        QCOMPARE(f.deck->diagnostics().startupHandleRefreshes, std::uint64_t{1});
+    }
+
+    void failedSecondHostKeepAliveLeavesStartupRefreshPending()
+    {
+        Fixture f;
+        f.deck->setStartupHandleRefresh(true);
+        f.transport->failFeatureCall = 2;
+        QVERIFY(!f.deck->open());
+        QVERIFY(!f.deck->isOpen());
+        QCOMPARE(f.deck->diagnostics().keepAliveFailures, std::uint64_t{1});
+        QCOMPARE(f.deck->diagnostics().startupHandleRefreshes, std::uint64_t{0});
+
+        f.transport->failFeatureCall = 0;
+        QVERIFY(f.deck->open());
+        QCOMPARE(f.transport->openAttempts, 4);
+        QCOMPARE(f.deck->diagnostics().startupHandleRefreshes, std::uint64_t{1});
     }
 
     void diagnosticsDistinguishMissingInputFromRejectedInput()

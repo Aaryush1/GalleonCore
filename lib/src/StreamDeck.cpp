@@ -96,6 +96,20 @@ bool StreamDeck::open()
         close();
         return false;
     }
+    if (m_startupHandleRefresh) {
+        // On the first Windows session the control collection can accept images
+        // while its input endpoint stays silent. Reopen once after entering host
+        // mode, before images or input timers use this handle. No new report is sent.
+        m_transport->close();
+        m_sinceKeepAlive.invalidate();
+        if (!m_transport->open() || !sendKeepAliveNow()) {
+            qWarning() << "galleon: startup HID handle refresh failed";
+            close();
+            return false;
+        }
+        m_startupHandleRefresh = false;
+        ++m_diagnostics.startupHandleRefreshes;
+    }
     m_keepAliveTimer.start();
     m_inputTimer.start();
     ++m_diagnostics.opens;

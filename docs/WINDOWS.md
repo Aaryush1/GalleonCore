@@ -353,3 +353,36 @@ Compare `polls`, `empty`, `valid`, `ignored`, `invalid`, `events`, errors, opens
 closes, keep-alives and the selected collection before/after the transition.
 A stable PID alone cannot distinguish those paths. The physical fix remains
 pending until these observations identify the failing layer.
+
+### First-handle follow-up from the owner's PID 3412 log
+
+The new log shows 67,300 empty reads and no valid, ignored or malformed input
+reports on the first handle. At `t_ms=940290`, `disconnected` and `unavailable`
+appear together; the following sample has `closes=1`, `readErrors=0`,
+`keepAliveFailures=13` and `imageFailures=1`. `writeReports()` returns false on
+an image or in-transfer keep-alive failure but does not close the handle. A
+negative `pollOneReport()` read would increment `readErrors`. Thus the closing
+branch is the periodic `StreamDeck::sendKeepAlive()` failure, which calls
+`close()` and emits `disconnected`. The exact first failing USB write is not
+timestamped by this counter log. The same process later opens MI_00 again at
+`t_ms=945913`; valid input appears by `t_ms=950924`.
+
+`imageReports` counts successful 1,024-byte HID output packets, not JPEGs or
+frames. The jump from 334 to 5,334 between roughly 61 and 66 seconds coincides
+with the video screensaver: each frame sends a screen JPEG and 12 key JPEGs,
+split across many packets. About 1,000 packets/s is consistent with the default
+15 fps and roughly five packets per image (about 1 MiB/s). The exact configured
+fps and JPEG sizes are absent from the log. This load may contribute to delayed
+polling or output failure, but the log cannot establish causality or prove that
+the first handle would receive input without the video.
+
+The smallest Windows-only startup experiment refreshes the first HID handle
+once after a successful host-mode keep-alive and before starting input polling
+or publishing the device as available. It sends only the existing keep-alive,
+does not reset the USB device, and leaves Linux's one-open path unchanged. If
+either replacement open or keep-alive fails, normal five-second retry handles
+it; recovery after a successful startup does not repeat the priming. A counter
+records the refresh. Synthetic tests cover a first handle with silent input,
+replacement failure, second keep-alive failure and unchanged default behavior.
+These tests do not establish that the Windows hardware issue is solved; compare
+fresh cold-boot logs and an interactive test before any release.

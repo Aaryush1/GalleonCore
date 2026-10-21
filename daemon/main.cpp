@@ -685,6 +685,7 @@ int main(int argc, char *argv[])
     galleon::StreamDeck deck;
     deck.setTraceInput(parser.isSet(traceOption));
 #ifdef Q_OS_WIN
+    deck.setStartupHandleRefresh(true);
     // A low-volume, per-process record survives a tray/session startup with no console.
     // It only records counters and HID collection metadata, never report contents.
     const QString diagnosticFolder = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
@@ -876,6 +877,7 @@ int main(int argc, char *argv[])
         QString summary;
         QTextStream out(&summary);
         out << "snapshot open=" << deck.isOpen() << " opens=" << d.opens << " closes=" << d.closes
+            << " startupHandleRefreshes=" << d.startupHandleRefreshes
             << " polls=" << d.polls << " empty=" << d.emptyReads << " readErrors=" << d.readErrors
             << " valid=" << d.validReports << " ignored=" << d.ignoredReports
             << " invalid=" << d.invalidReports << " events=" << d.events

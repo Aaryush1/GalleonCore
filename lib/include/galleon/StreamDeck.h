@@ -27,6 +27,7 @@ public:
     struct Diagnostics {
         std::uint64_t opens = 0;
         std::uint64_t closes = 0;
+        std::uint64_t startupHandleRefreshes = 0;
         std::uint64_t polls = 0;
         std::uint64_t emptyReads = 0;
         std::uint64_t readErrors = 0;
@@ -76,6 +77,11 @@ public:
     // Exposed for tests; the hardware needs protocol::KeepAliveIntervalMs.
     void setKeepAliveInterval(int ms);
 
+    // Windows startup only: after the first host-mode keep-alive, replace the
+    // initial HID handle before starting input polling or publishing availability.
+    // A failed replacement leaves the deck closed for the normal retry timer.
+    void setStartupHandleRefresh(bool enabled) { m_startupHandleRefresh = enabled; }
+
 Q_SIGNALS:
     void keyPressed(int key);
     void keyReleased(int key);
@@ -98,6 +104,7 @@ private:
     protocol::InputState m_inputState;
     int m_invalidReports = 0;
     bool m_traceInput = false;
+    bool m_startupHandleRefresh = false;
     Diagnostics m_diagnostics;
 };
 
