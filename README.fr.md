@@ -10,8 +10,8 @@
 [![GitHub downloads](https://img.shields.io/github/downloads/Paullux/GalleonCore/total?label=GitHub%20downloads)](https://github.com/Paullux/GalleonCore/releases)
 [![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
 [![Fedora COPR](https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/)
-[![AUR recipe](https://img.shields.io/badge/AUR-recipe-1793D1?logo=archlinux&logoColor=white)](tools/packaging/README.md)
-[![AppImage builds](https://img.shields.io/badge/AppImage-CI%20builds-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
+[![Arch AUR](https://img.shields.io/badge/Arch-AUR-1793D1?logo=archlinux&logoColor=white)](https://aur.archlinux.org/packages/galleoncore)
+[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-0.1.0-x86_64.AppImage)
 [![Licenses](https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue)](LICENSE.md)
 [![Security policy](https://img.shields.io/badge/security-report%20privately-46505E)](SECURITY.md)
 
@@ -337,11 +337,12 @@ Les textes complets sont dans [`LICENSES/`](LICENSES/). Les fichiers portent des
 
 ## Paquets et communauté
 
-Les recettes PPA, COPR, AUR et AppImage et leur CI sont décrites dans le
-[guide de distribution](tools/packaging/README.md). Les dépôts PPA/COPR peuvent
-rester vides tant qu’une release n’a pas été publiée ; le badge AUR mène à la
-recette en attendant sa publication. Le compteur GitHub concerne uniquement les
-assets téléchargés depuis les releases GitHub, pas les installations PPA/COPR/AUR.
+Choisis ton système dans la [section téléchargements du site](https://paullux.github.io/GalleonCore/#downloads)
+pour obtenir directement les paquets Windows, Ubuntu, Fedora, Arch et AppImage.
+La [release v0.1.0](https://github.com/Paullux/GalleonCore/releases/tag/v0.1.0)
+explique comment ajouter les dépôts PPA, COPR ou AUR et à quoi sert chaque fichier.
+Les détails de construction figurent dans le [guide de distribution](tools/packaging/README.md).
+Le compteur GitHub concerne uniquement les fichiers des releases, pas les installations PPA/COPR/AUR.
 
 [Contribuer](CONTRIBUTING.md) · [Code de conduite](CODE_OF_CONDUCT.md) ·
 [Sécurité](SECURITY.md) · [Licences](LICENSE.md).

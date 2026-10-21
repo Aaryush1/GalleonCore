@@ -10,8 +10,8 @@
 [![GitHub downloads](https://img.shields.io/github/downloads/Paullux/GalleonCore/total?label=GitHub%20downloads)](https://github.com/Paullux/GalleonCore/releases)
 [![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
 [![Fedora COPR](https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/)
-[![AUR recipe](https://img.shields.io/badge/AUR-recipe-1793D1?logo=archlinux&logoColor=white)](tools/packaging/README.md)
-[![AppImage builds](https://img.shields.io/badge/AppImage-CI%20builds-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
+[![Arch AUR](https://img.shields.io/badge/Arch-AUR-1793D1?logo=archlinux&logoColor=white)](https://aur.archlinux.org/packages/galleoncore)
+[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-0.1.0-x86_64.AppImage)
 [![Licenses](https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue)](LICENSE.md)
 [![Security policy](https://img.shields.io/badge/security-report%20privately-46505E)](SECURITY.md)
 
@@ -334,11 +334,12 @@ Full texts are in [`LICENSES/`](LICENSES/). Files carry SPDX headers, following 
 
 ## Packages and community
 
-PPA, COPR, AUR and AppImage recipes and their CI are documented in the
-[distribution guide](tools/packaging/README.md). The PPA/COPR repositories may
-remain empty until a release is published; the AUR badge links to the recipe
-until publication. The GitHub download counter counts GitHub release assets,
-not PPA/COPR/AUR installations.
+Choose your operating system in the [website's downloads section](https://paullux.github.io/GalleonCore/#downloads)
+for direct Windows, Ubuntu, Fedora, Arch and AppImage packages. The
+[v0.1.0 release](https://github.com/Paullux/GalleonCore/releases/tag/v0.1.0)
+explains how to add the PPA, COPR or AUR repository and what each file contains.
+Build and packaging details are in the [distribution guide](tools/packaging/README.md).
+The GitHub download counter counts release assets, not PPA/COPR/AUR installations.
 
 [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
 [Security](SECURITY.md) · [Licenses](LICENSE.md).

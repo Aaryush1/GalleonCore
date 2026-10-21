@@ -228,6 +228,13 @@ h3 { font: 600 1.25rem/1.25 var(--display); margin: 0 0 8px; }
 .preview-grid a { display: block; }
 .preview-grid img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
 .preview-grid figcaption { color: var(--muted); font-size: 0.875rem; margin-top: 8px; }
+.download-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); margin: 28px 0; }
+.download-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 12px; }
+.download-card h3, .download-card p { margin: 0; }
+.download-card p { color: var(--muted); }
+.download-card pre { max-width: 100%; margin: 4px 0; padding: 12px; font-size: 0.8125rem; }
+.download-card .actions { margin-top: auto; }
+.download-card .btn { padding: 10px 12px; font-size: 0.875rem; }
 
 .goals { display: grid; gap: 32px; margin-top: 32px; }
 @media (min-width: 900px) { .goals { grid-template-columns: repeat(3, 1fr); gap: 40px; } }
@@ -339,7 +346,44 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
   </div>
 
   <section class="wrap" id="downloads">
-    <h2><span lang="en">Downloads and project links</span><span lang="fr">Téléchargements et liens du projet</span></h2>
+    <h2><span lang="en">Install GalleonCore</span><span lang="fr">Installer GalleonCore</span></h2>
+    <p class="prose"><span lang="en">Choose your operating system. Version 0.1.0 has direct downloads; distribution repositories also provide updates. The keyboard needs its own hardware access rules and a running per-user daemon.</span><span lang="fr">Choisis ton système. La version 0.1.0 propose des téléchargements directs ; les dépôts de distribution facilitent aussi les mises à jour. Le clavier nécessite des règles d’accès au matériel et un démon utilisateur actif.</span></p>
+    <div class="download-grid">
+      <article class="download-card">
+        <h3>Windows x86_64</h3>
+        <p><span lang="en">The Setup installs Bosun and galleond for your user. The ZIP is a portable alternative.</span><span lang="fr">Le Setup installe Bosun et galleond pour ta session. Le ZIP est une variante portable.</span></p>
+        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-0.1.0-Windows-x86_64-Setup.exe">Setup .exe</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-Windows-x86_64.zip">ZIP</a></div>
+      </article>
+      <article class="download-card">
+        <h3>Ubuntu 24.04 / 26.04</h3>
+        <p><span lang="en">Use the PPA for automatic updates, or install the .deb matching your Ubuntu release.</span><span lang="fr">Utilise le PPA pour les mises à jour, ou installe le .deb correspondant à ta version d’Ubuntu.</span></p>
+        <pre><code>sudo add-apt-repository ppa:paulwoisard/galleoncore
+sudo apt update
+sudo apt install galleoncore</code></pre>
+        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/galleoncore_0.1.0-2.noble_amd64.deb">.deb 24.04</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/galleoncore_0.1.0-2.resolute_amd64.deb">.deb 26.04</a><a href="https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore">PPA</a></div>
+      </article>
+      <article class="download-card">
+        <h3>Fedora 43 / 44 / 45</h3>
+        <p><span lang="en">Use COPR for updates, or download the RPM built for your Fedora release.</span><span lang="fr">Utilise COPR pour les mises à jour, ou télécharge le RPM construit pour ta version de Fedora.</span></p>
+        <pre><code>sudo dnf copr enable paullux/GalleonCore
+sudo dnf install galleoncore</code></pre>
+        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/galleoncore-0.1.0-1.fc43.x86_64.rpm">RPM 43</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/galleoncore-0.1.0-1.fc44.x86_64.rpm">RPM 44</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/galleoncore-0.1.0-1.fc45.x86_64.rpm">RPM 45</a><a href="https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/">COPR</a></div>
+      </article>
+      <article class="download-card">
+        <h3>Arch Linux</h3>
+        <p><span lang="en">AUR builds the package on your machine. The release also offers a binary package and its PKGBUILD recipe.</span><span lang="fr">L’AUR construit le paquet sur ta machine. La release propose aussi un paquet binaire et sa recette PKGBUILD.</span></p>
+        <pre><code>yay -S galleoncore</code></pre>
+        <div class="actions"><a class="btn btn-primary" href="https://aur.archlinux.org/packages/galleoncore">AUR</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/galleoncore-0.1.0-1-x86_64.pkg.tar.zst"><span lang="en">Arch package</span><span lang="fr">Paquet Arch</span></a><a href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/PKGBUILD">PKGBUILD</a></div>
+      </article>
+      <article class="download-card">
+        <h3><span lang="en">Other Linux x86_64</span><span lang="fr">Autres Linux x86_64</span></h3>
+        <p><span lang="en">Run the AppImage directly. Its separate host-integration archive installs the hardware rules and an optional user service; follow its instructions before using the keyboard.</span><span lang="fr">Lance directement l’AppImage. L’archive d’intégration séparée installe les règles matérielles et un service utilisateur facultatif ; suis ses instructions avant d’utiliser le clavier.</span></p>
+        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-0.1.0-x86_64.AppImage">AppImage</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-host-integration.tar.gz"><span lang="en">Host integration</span><span lang="fr">Intégration système</span></a></div>
+      </article>
+    </div>
+    <p class="prose"><span lang="en">Native Linux packages include galleond, Bosun, libgalleon, widgets, wallpapers and udev rules. Enable the optional user service with <code>systemctl --user enable --now galleond.service</code>. Fedora RPMs are Fedora-specific. On other distributions, check AppImage compatibility with your system and install the separate hardware integration.</span><span lang="fr">Les paquets Linux natifs incluent galleond, Bosun, libgalleon, les widgets, les fonds d’écran et les règles udev. Active le service utilisateur facultatif avec <code>systemctl --user enable --now galleond.service</code>. Les RPM Fedora sont propres à Fedora. Sur les autres distributions, vérifie la compatibilité de l’AppImage avec ton système et installe l’intégration matérielle séparée.</span></p>
+    <p class="prose"><a href="https://github.com/Paullux/GalleonCore/releases/tag/v0.1.0"><span lang="en">What each release file contains and its checksums</span><span lang="fr">Contenu de chaque fichier de la release et sommes de contrôle</span></a></p>
+    <h3><span lang="en">Project and build links</span><span lang="fr">Liens du projet et des compilations</span></h3>
     <div class="badges">
       <a href="https://paullux.github.io/GalleonCore/"><img src="https://img.shields.io/badge/website-GalleonCore-46505E" alt="Website" height="20" loading="lazy"></a>
       <a href="https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml"><img src="https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" height="20" loading="lazy"></a>
@@ -349,14 +393,13 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
       <a href="https://github.com/Paullux/GalleonCore/releases"><img src="https://img.shields.io/github/downloads/Paullux/GalleonCore/total?label=GitHub%20downloads" alt="GitHub downloads" height="20" loading="lazy"></a>
       <a href="https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore"><img src="https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&amp;logoColor=white" alt="Ubuntu PPA" height="20" loading="lazy"></a>
       <a href="https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/"><img src="https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&amp;logoColor=white" alt="Fedora COPR" height="20" loading="lazy"></a>
-      <a href="https://github.com/Paullux/GalleonCore/blob/main/tools/packaging/README.md"><img src="https://img.shields.io/badge/AUR-recipe-1793D1?logo=archlinux&amp;logoColor=white" alt="AUR recipe" height="20" loading="lazy"></a>
-      <a href="https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml"><img src="https://img.shields.io/badge/AppImage-CI%20builds-8E6BBF?logo=linux&amp;logoColor=white" alt="AppImage builds" height="20" loading="lazy"></a>
+      <a href="https://aur.archlinux.org/packages/galleoncore"><img src="https://img.shields.io/badge/Arch-AUR-1793D1?logo=archlinux&amp;logoColor=white" alt="Arch AUR" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-0.1.0-x86_64.AppImage"><img src="https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&amp;logoColor=white" alt="AppImage" height="20" loading="lazy"></a>
       <a href="https://github.com/Paullux/GalleonCore/blob/main/LICENSE.md"><img src="https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue" alt="Licenses" height="20" loading="lazy"></a>
       <a href="https://github.com/Paullux/GalleonCore/blob/main/SECURITY.md"><img src="https://img.shields.io/badge/security-report%20privately-46505E" alt="Security policy" height="20" loading="lazy"></a>
     </div>
     <div class="prose">
-      <p><span lang="en">Ubuntu 24.04 or later, Qt 6.4 or newer. Native packages include the daemon, Bosun, libgalleon, widgets, wallpapers, udev rules and an opt-in user service. The AppImage has separate host integration helpers.</span><span lang="fr">Ubuntu 24.04 ou plus récent, Qt 6.4 minimum. Les paquets natifs contiennent le démon, Bosun, libgalleon, les widgets, les fonds d’écran, les règles udev et un service utilisateur à activer au choix. L’AppImage dispose de scripts d’intégration séparés.</span></p>
-      <p><span lang="en">Follow the release and build links above for available artifacts. PPA and COPR repositories may be empty before the first successful publication; the AUR link currently leads to the recipe. GitHub downloads count release assets, not installations from other repositories.</span><span lang="fr">Les liens de release et de compilation ci-dessus donnent accès aux fichiers disponibles. Les dépôts PPA et COPR peuvent être vides avant la première publication réussie ; le lien AUR mène actuellement à la recette. Le compteur GitHub mesure les téléchargements des assets de release, pas les installations depuis les autres dépôts.</span></p>
+      <p><span lang="en">Ubuntu 24.04 or later and Qt 6.4 or newer are the native Debian baseline. GitHub download counts cover release files only, not installations through PPA, COPR or AUR.</span><span lang="fr">Ubuntu 24.04 ou plus récent et Qt 6.4 minimum forment la base du paquet Debian. Le compteur GitHub mesure uniquement les fichiers téléchargés de la release, pas les installations depuis PPA, COPR ou AUR.</span></p>
       <p><a href="https://github.com/Paullux/GalleonCore/blob/main/tools/packaging/README.md"><span lang="en">Installation and packaging guide</span><span lang="fr">Guide d’installation et de distribution</span></a></p>
     </div>
     <nav class="community-links" aria-label="Community resources">
