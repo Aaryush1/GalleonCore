@@ -342,6 +342,8 @@ and zero-timeout reads are already present. No physical root cause is establishe
 A diagnostic build records one short sample every five seconds and every
 connection transition in
 `%LOCALAPPDATA%\GalleonCore\logs\hid-<UTC timestamp>-<PID>.log`.
+The owner's step-by-step collection and test instructions are in
+[GalleonCore-diagnostic-HID-Windows.txt](../GalleonCore-diagnostic-HID-Windows.txt).
 Each file stops at 256 KiB; it contains only uptime, status counters, operation
 latency maxima and the selected HID interface/usage. It does not record raw
 reports, key values, paths, serial numbers, media or user configuration. No new
