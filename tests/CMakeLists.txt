@@ -43,6 +43,12 @@ galleon_add_test(test_layout)
 galleon_add_test(test_protocol)
 galleon_add_test(test_streamdeck FakeTransport.h)
 
+# Compile the real adapter against a fake C API: never enumerate real hardware.
+add_executable(test_hidtransport test_hidtransport.cpp ../lib/src/HidTransport.cpp)
+target_include_directories(test_hidtransport PRIVATE hidapi-stub ../lib/include)
+target_link_libraries(test_hidtransport PRIVATE Qt6::Core Qt6::Test galleon_warnings)
+add_test(NAME test_hidtransport COMMAND test_hidtransport)
+
 galleon_add_test(test_audioendpoint)
 target_link_libraries(test_audioendpoint PRIVATE galleon_smtc)
 

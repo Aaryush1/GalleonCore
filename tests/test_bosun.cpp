@@ -668,6 +668,8 @@ private Q_SLOTS:
         bosun::BosunBackend backend(file);
         QVERIFY(backend.subPagesOf("music").isEmpty());
         QVERIFY(backend.addSubPage("music").isEmpty());
+        QCOMPARE(backend.keys("music").at(10).toMap().value("label").toString(), QStringLiteral("NEXT >"));
+        QCOMPARE(backend.keys("music-plus").at(11).toMap().value("label").toString(), QStringLiteral("< BACK"));
         QCOMPARE(backend.subPagesOf("music"), (QStringList{"music-plus"})); // listed with its tab, and only there
         QVERIFY(backend.subPagesOf("main").isEmpty() || !backend.subPagesOf("main").contains("music-plus"));
         // The 12th key of this fixture's "music" is taken (a Back key): the link takes the last free one, the 11th.

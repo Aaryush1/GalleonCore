@@ -2,7 +2,7 @@
 
 Référence pour reprendre le développement à tout moment, y compris dans une nouvelle session Claude Code. À mettre à jour après chaque fonctionnalité terminée **et** testée (voir « Règle de mise à jour » en bas). Les notes de conception détaillées (protocole, RGB, OpenRGB, Windows) sont dans [docs/ROADMAP.md](docs/ROADMAP.md) ; les règles de code dans [CLAUDE.md](CLAUDE.md).
 
-État au 21 octobre 2026 : socle Linux/Windows et Setup NSIS fusionnés (PR #19 à #27). Les correctifs de stabilité, pages fixes à 12 lanceurs, icônes/PWA, Steam `.url`, réveil et démarrage sont regroupés dans la [PR #28](https://github.com/Paullux/GalleonCore/pull/28). Validation complète Ubuntu 24.04/Qt 6.4 réussie (38 suites sous GCC et ASan/UBSan, fuzzing, lint et REUSE) et [CI Windows du correctif réussie](https://github.com/Paullux/GalleonCore/actions/runs/39523931081). Les nouveaux essais matériels restent à faire ; aucun premier tag avant confirmation du propriétaire.
+État au 21 octobre 2026 : socle Linux/Windows, Setup NSIS et correctifs de stabilité fusionnés (PR #19 à #28). Les correctifs de stabilité, pages fixes à 12 lanceurs, icônes/PWA, Steam `.url`, réveil et démarrage sont regroupés dans la [PR #28](https://github.com/Paullux/GalleonCore/pull/28). Validation complète Ubuntu 24.04/Qt 6.4 réussie (38 suites sous GCC et ASan/UBSan, fuzzing, lint et REUSE) et [CI Windows du correctif réussie](https://github.com/Paullux/GalleonCore/actions/runs/39523931081). Les nouveaux essais matériels restent à faire ; aucun premier tag avant confirmation du propriétaire.
 
 ## 1. Implémenté et testé
 
@@ -172,3 +172,16 @@ Le réveil prolongé et le nouveau transfert avec keep-alive restent à vérifie
 
 **Verrou de publication inchangé** : aucun tag/release ni publication PPA/COPR/AUR
 avant un retour matériel Windows explicitement concluant du propriétaire.
+
+### Retour matériel et suivi HID du 21 octobre
+
+Le propriétaire confirme la pagination manuelle et le comportement attendu une
+fois le contrôle acquis, même avec OpenRGB ; le démarrage reste intermittent.
+Le suivi `codex/windows-hid-startup` corrige les défauts identifiés dans le cycle
+HID : ouverture Windows après initialisation Qt, contrôle du mode non bloquant,
+lecture à délai nul, premier keep-alive obligatoire et transitions de reconnexion
+visibles avant nouvelle tentative périodique. Des régressions simulées couvrent
+ces chemins ; la cause matérielle et le démarrage à froid restent à confirmer.
+Les nouveaux liens de pagination Bosun sont `NEXT >` et `< BACK`, sans modifier les
+libellés personnels. Voir `docs/WINDOWS.md`. Validation complète exigée avant PR ;
+aucune publication avant acceptation matérielle du propriétaire.

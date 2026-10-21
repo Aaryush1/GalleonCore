@@ -87,9 +87,15 @@ StreamDeck::~StreamDeck()
 
 bool StreamDeck::open()
 {
+    if (isOpen())
+        return true;
     if (!m_transport->open())
         return false;
-    sendKeepAlive();
+    if (!sendKeepAliveNow()) {
+        qWarning() << "galleon: initial host keep-alive failed";
+        close();
+        return false;
+    }
     m_keepAliveTimer.start();
     m_inputTimer.start();
     return true;
@@ -179,7 +185,11 @@ bool StreamDeck::sendKeepAliveNow()
 
 void StreamDeck::sendKeepAlive()
 {
-    (void)sendKeepAliveNow();
+    if (isOpen() && !sendKeepAliveNow()) {
+        qWarning() << "galleon: host keep-alive failed, releasing module";
+        close();
+        Q_EMIT disconnected();
+    }
 }
 
 bool StreamDeck::writeReports(const std::vector<std::vector<std::uint8_t>> &reports)

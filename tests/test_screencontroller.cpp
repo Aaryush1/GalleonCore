@@ -86,7 +86,7 @@ struct Fixture
     FakeMedia media;
     std::unique_ptr<ScreenController> controller;
 
-    Fixture()
+    explicit Fixture(bool initiallyOpen = true)
     {
         // One wallpaper: a flat green, easy to tell from the dark track screen.
         QImage green(1600, 900, QImage::Format_RGB32);
@@ -97,7 +97,8 @@ struct Fixture
         auto fake = std::make_unique<FakeTransport>();
         transport = fake.get();
         deck = std::make_unique<StreamDeck>(std::move(fake));
-        QVERIFY(deck->open());
+        if (initiallyOpen)
+            QVERIFY(deck->open());
         wallpaperRenderer = std::make_unique<ScreenRenderer>(widgetsDir() + "/WallpaperClock.qml");
         nowPlayingRenderer = std::make_unique<ScreenRenderer>(widgetsDir() + "/NowPlaying.qml");
         controller = std::make_unique<ScreenController>(deck.get(), wallpaperRenderer.get(),
@@ -172,6 +173,34 @@ class TestScreenController : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+#ifdef Q_OS_WIN
+    void initialOpenWaitsForTheEventLoop()
+    {
+        Fixture f(false);
+        QCOMPARE(f.transport->openAttempts, 0);
+        QVERIFY(!f.controller->deckAvailable());
+        const QSignalSpy available(f.controller.get(), &ScreenController::deckAvailableChanged);
+        QTRY_COMPARE_WITH_TIMEOUT(available.count(), 1, 1000);
+        QCOMPARE(f.transport->openAttempts, 1);
+        QVERIFY(f.controller->deckAvailable());
+    }
+#endif
+
+    void readFailurePublishesLossAndWaitsForPeriodicReconnect()
+    {
+        Fixture f;
+        const QSignalSpy available(f.controller.get(), &ScreenController::deckAvailableChanged);
+        const int attempts = f.transport->openAttempts;
+        f.transport->disconnected = true;
+        QTRY_COMPARE_WITH_TIMEOUT(available.count(), 1, 1000);
+        QVERIFY(!f.controller->deckAvailable());
+        QCOMPARE(f.transport->openAttempts, attempts);
+        f.transport->disconnected = false;
+        QTRY_COMPARE_WITH_TIMEOUT(available.count(), 2, 6500);
+        QVERIFY(f.controller->deckAvailable());
+        QCOMPARE(f.transport->openAttempts, attempts + 1);
+    }
+
     void aPersonalWallpaperImportedAfterStartupCanBeApplied()
     {
         const Fixture f;

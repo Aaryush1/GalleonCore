@@ -20,6 +20,7 @@ public:
 
     bool open() override
     {
+        ++openAttempts;
         m_open = openSucceeds;
         return m_open;
     }
@@ -30,7 +31,7 @@ public:
     bool sendFeatureReport(std::span<const std::uint8_t> report) override
     {
         featureReports.emplace_back(report.begin(), report.end());
-        return m_open;
+        return m_open && featureSucceeds;
     }
 
     bool write(std::span<const std::uint8_t> report) override
@@ -55,6 +56,8 @@ public:
     }
 
     std::function<void()> beforeWrite;
+    int openAttempts = 0;
+    bool featureSucceeds = true;
     bool openSucceeds = true;
     bool disconnected = false;
     std::vector<Report> featureReports;

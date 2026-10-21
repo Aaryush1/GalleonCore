@@ -679,7 +679,7 @@ QString BosunBackend::addTheme(const QString &name, const QString &color)
 
 QString BosunBackend::addSubPage(const QString &page)
 {
-    return applied(galleond::PagesEditor::addSubPage(m_file, page, pageNameFor(page + QStringLiteral(" plus"), pageNames()), tr("More"), tr("Back")));
+    return applied(galleond::PagesEditor::addSubPage(m_file, page, pageNameFor(page + QStringLiteral(" plus"), pageNames()), QStringLiteral("NEXT >"), QStringLiteral("< BACK")));
 }
 
 QString BosunBackend::setTheme(int index, const QString &name, const QString &color)
