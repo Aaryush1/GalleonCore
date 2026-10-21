@@ -2,7 +2,7 @@
 
 Référence pour reprendre le développement à tout moment, y compris dans une nouvelle session Claude Code. À mettre à jour après chaque fonctionnalité terminée **et** testée (voir « Règle de mise à jour » en bas). Les notes de conception détaillées (protocole, RGB, OpenRGB, Windows) sont dans [docs/ROADMAP.md](docs/ROADMAP.md) ; les règles de code dans [CLAUDE.md](CLAUDE.md).
 
-État au 21 octobre 2026 : socle Linux/Windows, Setup NSIS et correctifs de stabilité fusionnés (PR #19 à #28). Les correctifs de stabilité, pages fixes à 12 lanceurs, icônes/PWA, Steam `.url`, réveil et démarrage sont regroupés dans la [PR #28](https://github.com/Paullux/GalleonCore/pull/28). Validation complète Ubuntu 24.04/Qt 6.4 réussie (38 suites sous GCC et ASan/UBSan, fuzzing, lint et REUSE) et [CI Windows du correctif réussie](https://github.com/Paullux/GalleonCore/actions/runs/39523931081). Les nouveaux essais matériels restent à faire ; aucun premier tag avant confirmation du propriétaire.
+État au 21 octobre 2026 : socle Linux/Windows, Setup NSIS, pages initiales à 12 touches et aperçus Bosun fusionnés dans `main` jusqu'à la PR #35. La validation complète de l'arbre fusionné et les CI de `main` ont réussi. Le propriétaire a confirmé le fonctionnement du Setup après mise à jour du firmware Stream Deck depuis l'application officielle Elgato, puis désinstallation de cette application. Le tag [`v0.1.0`](https://github.com/Paullux/GalleonCore/tree/v0.1.0) pointe sur `8634920` et a déclenché la [CI de publication](https://github.com/Paullux/GalleonCore/actions/runs/39674680765) : consulter cette exécution et les dépôts pour leur état effectif. Les essais prolongés et le démarrage à froid sous Windows restent à confirmer. La [PR #31](https://github.com/Paullux/GalleonCore/pull/31), ancien contournement HID expérimental non validé sur le matériel, est fermée sans fusion.
 
 ## 1. Implémenté et testé
 
@@ -172,8 +172,11 @@ réveil court réussi après réénumération. L’ancien patch expérimental av
 retiré : ne pas le présenter comme une correction matériellement confirmée.
 Le réveil prolongé et le nouveau transfert avec keep-alive restent à vérifier.
 
-**Verrou de publication inchangé** : aucun tag/release ni publication PPA/COPR/AUR
-avant un retour matériel Windows explicitement concluant du propriétaire.
+Le propriétaire a demandé explicitement le tag `v0.1.0` et le lancement de la
+publication après son nouvel essai du Setup. Ce tag a été poussé depuis `main` ;
+la réussite de la CI de publication ne vaut pas confirmation des essais Windows
+prolongés, ni preuve que les dépôts PPA/COPR/AUR ont effectivement publié les
+paquets.
 
 ### Retour matériel et suivi HID du 21 octobre
 
@@ -211,7 +214,7 @@ Le 21 octobre, le propriétaire a ensuite mis à jour le firmware Stream Deck
 depuis l'application officielle Elgato sous Windows, puis désinstallé cette
 application. Lors du nouvel essai, touches LCD et molettes ont répondu sans la
 panne initiale ; sa capture montre `3.06.005`. Comme les deux changements ont
-été faits ensemble, leur effet individuel reste inconnu. Confirmer la stabilité
-après démarrage à froid et longue veille avant de considérer la validation
-matérielle Windows terminée ; aucun premier tag ni publication n'est déclenché
-sur ce seul essai.
+été faits ensemble, leur effet individuel reste inconnu. Le propriétaire a
+ensuite jugé le Setup satisfaisant et demandé le premier tag. Confirmer encore
+la stabilité après démarrage à froid et longue veille ; ne pas attribuer la
+résolution du défaut HID à un correctif logiciel non vérifié.
