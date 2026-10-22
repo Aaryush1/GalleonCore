@@ -2,7 +2,7 @@
 
 # GalleonCore
 
-[![Website](https://img.shields.io/badge/website-GalleonCore-46505E)](https://paullux.github.io/GalleonCore/)
+[![Website](https://img.shields.io/badge/website-GalleonCore-46505E)](https://galleoncore.xyz/)
 [![CI](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml)
 [![Linux packages](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
 [![Windows desktop](https://github.com/Paullux/GalleonCore/actions/workflows/windows-core.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/windows-core.yml)
@@ -17,7 +17,7 @@
 
 🇫🇷 [Lire en français](README.fr.md)
 
-🌐 [Website](https://paullux.github.io/GalleonCore/)
+🌐 [Website](https://galleoncore.xyz/)
 
 **The open platform for the Corsair Galleon 100 SD on Linux.**
 
@@ -50,7 +50,7 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 
 ### Galleon Bosun screenshots
 
-The five default pages below show applications installed on one Linux desktop; the apps and icons vary by computer. The last two pictures show the wallpaper and screensaver selectors. [Open the full gallery on the website](https://paullux.github.io/GalleonCore/#previews).
+The five default pages below show applications installed on one Linux desktop; the apps and icons vary by computer. The last two pictures show the wallpaper and screensaver selectors. [Open the full gallery on the website](https://galleoncore.xyz/#previews).
 
 | Control | Multimedia |
 |---|---|
@@ -334,13 +334,13 @@ Full texts are in [`LICENSES/`](LICENSES/). Files carry SPDX headers, following 
 
 ## Packages and community
 
-Choose your operating system in the [website's downloads section](https://paullux.github.io/GalleonCore/#downloads)
+Choose your operating system in the [website's downloads section](https://galleoncore.xyz/#downloads)
 for direct Windows, Ubuntu, Fedora, Arch and AppImage packages. The
 [v0.1.0 release](https://github.com/Paullux/GalleonCore/releases/tag/v0.1.0)
 explains how to add the PPA, COPR or AUR repository and what each file contains.
 Build and packaging details are in the [distribution guide](tools/packaging/README.md).
 The GitHub download badge counts release assets, not PPA/COPR/AUR installations.
-The [website](https://paullux.github.io/GalleonCore/#downloads) shows cumulative
+The [website](https://galleoncore.xyz/#downloads) shows cumulative
 direct package downloads by platform. With optional external content enabled, it
 reads current counts from GitHub when the page opens; otherwise it uses the last
 daily snapshot. Daily baselines also provide approximate seven-day changes.

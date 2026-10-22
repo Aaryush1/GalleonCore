@@ -35,6 +35,7 @@ jobs:
           python3 -m unittest discover -s tools -p 'test_download_stats.py'
           node tools/test_download_stats_js.js
           python3 tools/website/download_stats.py \
+            --previous-url https://galleoncore.xyz/downloads-weekly.json \
             --previous-url https://paullux.github.io/GalleonCore/downloads-weekly.json \
             --output site/downloads-weekly.json
       - uses: actions/configure-pages@v5
