@@ -1,0 +1,26 @@
+/* SPDX-FileCopyrightText: 2026 Paul Woisard */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+:root[data-lang="en"] [lang="fr"]:not(html),
+:root[data-lang="fr"] [lang="en"]:not(html) { display: none; }
+
+.legal-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-block: 12px; }
+.legal-links button { border: 0; padding: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: .18em; cursor: pointer; }
+
+.privacy-banner { position: fixed; z-index: 1000; inset: auto 16px 16px; box-sizing: border-box; max-width: 760px; max-height: calc(100vh - 32px); overflow-y: auto; margin-inline: auto; padding: 18px; background: var(--page, #e3e5e7); color: var(--ink, #1f242b); border: 2px solid var(--ink, #1f242b); border-radius: 12px; box-shadow: 0 12px 40px #0006; }
+.privacy-banner[hidden] { display: none; }
+.privacy-banner p { margin: 0 0 12px; }
+.privacy-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.privacy-actions button { min-width: 120px; padding: 9px 14px; border: 2px solid currentColor; border-radius: 6px; background: transparent; color: inherit; font: 600 1rem/1.2 system-ui, sans-serif; cursor: pointer; }
+.privacy-actions button:hover, .privacy-actions button:focus-visible { background: var(--ink, #1f242b); color: var(--page, #e3e5e7); }
+
+body.legal-page { margin: 0; background: #e3e5e7; color: #1f242b; font: 1rem/1.6 system-ui, sans-serif; }
+.legal-wrap { max-width: 850px; margin: auto; padding: 24px 20px 64px; }
+.legal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #aeb5bc; }
+.legal-head a { color: inherit; }
+.legal-head img { width: 32px; height: 32px; vertical-align: middle; }
+.legal-page h1 { font-size: clamp(2rem, 5vw, 3rem); }
+.legal-page h2 { margin-top: 2rem; }
+.legal-page a { text-underline-offset: .18em; }
+.legal-page button { cursor: pointer; }
+.legal-page footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #aeb5bc; }
