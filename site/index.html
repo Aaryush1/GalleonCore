@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="legal.css">
 <link rel="stylesheet" data-external-href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;600;700&display=swap">
 <script src="privacy-consent.js" defer></script>
+<script src="download-stats.js" defer></script>
 <style>
 :root {
   --page: #E3E5E7;
@@ -243,7 +244,7 @@ h3 { font: 600 1.25rem/1.25 var(--display); margin: 0 0 8px; }
 .download-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 12px; margin: 16px 0 10px; }
 .download-stats-grid div { padding: 12px; border-radius: 8px; background: var(--code-bg); }
 .download-stats-grid strong { display: block; font: 700 1.5rem/1.2 var(--display); }
-.download-stats-grid small { color: var(--muted); }
+.download-stats-grid small { display: block; color: var(--muted); }
 .download-stats-note { color: var(--muted); font-size: 0.875rem; }
 
 .goals { display: grid; gap: 32px; margin-top: 32px; }
@@ -363,18 +364,19 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
     <h2><span lang="en">Install GalleonCore</span><span lang="fr">Installer GalleonCore</span></h2>
     <p class="prose"><span lang="en">Choose your operating system. Version 0.1.0 has direct downloads; distribution repositories also provide updates. The keyboard needs its own hardware access rules and a running per-user daemon.</span><span lang="fr">Choisis ton système. La version 0.1.0 propose des téléchargements directs ; les dépôts de distribution facilitent aussi les mises à jour. Le clavier nécessite des règles d’accès au matériel et un démon utilisateur actif.</span></p>
     <div class="download-stats" aria-live="polite">
-      <h3><span lang="en">Recent downloads</span><span lang="fr">Téléchargements récents</span></h3>
+      <h3><span lang="en">Download counts</span><span lang="fr">Compteurs de téléchargement</span></h3>
       <div class="download-stats-grid">
-        <div><strong data-download-stat="total">—</strong><small><span lang="en">Measured channels</span><span lang="fr">Canaux mesurés</span></small></div>
-        <div><strong data-download-stat="windows">—</strong><small>Windows</small></div>
-        <div><strong data-download-stat="ubuntu">—</strong><small>Ubuntu .deb</small></div>
-        <div><strong data-download-stat="fedora">—</strong><small>Fedora RPM</small></div>
-        <div><strong data-download-stat="arch">—</strong><small>Arch package</small></div>
-        <div><strong data-download-stat="appimage">—</strong><small>AppImage</small></div>
-        <div><strong data-download-stat="ppa">—</strong><small>Ubuntu PPA</small></div>
-        <div><strong data-download-stat="copr">—</strong><small>Fedora COPR</small></div>
+        <div><strong data-download-stat="total">—</strong><small><span lang="en">Recent measured (approx.)</span><span lang="fr">Mesurés récemment (approx.)</span></small></div>
+        <div><strong data-download-stat="windows">—</strong><small>Windows · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="windows">—</span></small></div>
+        <div><strong data-download-stat="ubuntu">—</strong><small>Ubuntu .deb · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="ubuntu">—</span></small></div>
+        <div><strong data-download-stat="fedora">—</strong><small>Fedora RPM · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="fedora">—</span></small></div>
+        <div><strong data-download-stat="arch">—</strong><small>Arch package · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="arch">—</span></small></div>
+        <div><strong data-download-stat="appimage">—</strong><small>AppImage · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="appimage">—</span></small></div>
+        <div><strong data-download-stat="ppa">—</strong><small>Ubuntu PPA · <span lang="en">last weekly check</span><span lang="fr">dernier contrôle hebdomadaire</span></small></div>
+        <div><strong data-download-stat="copr">—</strong><small>Fedora COPR · <span lang="en">last weekly check</span><span lang="fr">dernier contrôle hebdomadaire</span></small></div>
         <div><strong data-download-stat="aur">—</strong><small><span lang="en">AUR votes (not downloads)</span><span lang="fr">Votes AUR (pas des téléchargements)</span></small></div>
       </div>
+      <p class="download-stats-note"><span lang="en">Direct source: </span><span lang="fr">Source directe : </span><span id="direct-count-source">—</span></p>
       <p class="download-stats-note" id="download-stats-note"><span lang="en">Loading download counts…</span><span lang="fr">Chargement des compteurs…</span></p>
     </div>
     <div class="download-grid">
@@ -628,32 +630,6 @@ sudo udevadm control --reload &amp;&amp; sudo udevadm trigger</code></pre>
 
 <script>
 (function () {
-  fetch("./downloads-weekly.json", { cache: "no-store" }).then(function (response) {
-    if (!response.ok) throw new Error("download counts unavailable");
-    return response.json();
-  }).then(function (stats) {
-    var note = document.getElementById("download-stats-note");
-    if (Number.isSafeInteger(stats.aur_votes) && stats.aur_votes >= 0) {
-      document.querySelector('[data-download-stat="aur"]').textContent = stats.aur_votes.toLocaleString();
-    }
-    if (!stats.since || !stats.by_channel) {
-      note.innerHTML = '<span lang="en">First measurement recorded; seven-day counts will appear as daily snapshots accumulate.</span><span lang="fr">Premier relevé enregistré ; les comptes sur sept jours apparaîtront avec les relevés quotidiens.</span>';
-      return;
-    }
-    ["total", "windows", "ubuntu", "fedora", "arch", "appimage", "ppa", "copr", "aur"].forEach(function (name) {
-      var value = name === "total" ? stats.total : name === "aur" ? stats.aur_votes : stats.by_channel[name];
-      if (Number.isSafeInteger(value) && value >= 0) {
-        document.querySelector('[data-download-stat="' + name + '"]').textContent = value.toLocaleString();
-      }
-    });
-    var since = document.createElement("time");
-    since.dateTime = stats.since;
-    since.textContent = stats.since;
-    note.replaceChildren(since);
-    note.insertAdjacentHTML("beforeend", ' <span lang="en">to today. Direct GitHub packages, PPA and COPR downloads are counted separately; unavailable sources remain blank. AUR votes are shown separately and excluded from the total. Downloads include updates and are not unique users. Daily snapshots make the seven-day window approximate if a run is missed.</span><span lang="fr">à aujourd’hui. Les paquets GitHub directs et les téléchargements PPA/COPR sont comptés séparément ; une source indisponible reste vide. Les votes AUR sont séparés et exclus du total. Les téléchargements incluent les mises à jour et ne désignent pas des utilisateurs uniques. La fenêtre de sept jours est approximative si un relevé quotidien manque.</span>');
-  }).catch(function () {
-    document.getElementById("download-stats-note").innerHTML = '<span lang="en">Download counts are temporarily unavailable.</span><span lang="fr">Les compteurs de téléchargement sont temporairement indisponibles.</span>';
-  });
   var root = document.documentElement;
   var idle = {
     en: ["galleond", "Waiting for a Galleon 100 SD. Pick a key."],

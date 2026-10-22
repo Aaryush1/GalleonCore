@@ -1,10 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Paul Woisard
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import unittest
 
-from website.download_stats import build_stats, parse_copr_downloads, platform_for
+from website.download_stats import (
+    build_stats, parse_copr_downloads, platform_for,
+    repository_measurements, weekly_refresh_needed,
+)
 
 
 class DownloadStatsTests(unittest.TestCase):
@@ -38,7 +41,8 @@ class DownloadStatsTests(unittest.TestCase):
             {"id": 12, "name": "c.AppImage", "download_count": 4},
         ]}]
         result = build_stats(releases, {"ppa": 12, "copr": 25}, 3,
-                             previous, datetime(2026, 10, 22, tzinfo=timezone.utc))
+                             previous, datetime(2026, 10, 22, tzinfo=timezone.utc),
+                             repository_weekly={"ppa": 2, "copr": 5})
         self.assertEqual(result["total"], 18)
         self.assertEqual(result["by_channel"]["ubuntu"], 7)
         self.assertEqual(result["by_channel"]["windows"], 0)
@@ -52,7 +56,8 @@ class DownloadStatsTests(unittest.TestCase):
         previous = {"history": [{"date": "2026-10-15", "assets": {},
                                  "repositories": {"ppa": 5, "copr": 9}}]}
         result = build_stats([], {"ppa": 7, "copr": None}, None,
-                             previous, datetime(2026, 10, 22, tzinfo=timezone.utc))
+                             previous, datetime(2026, 10, 22, tzinfo=timezone.utc),
+                             repository_weekly={"ppa": 2, "copr": None})
         self.assertIsNone(result["by_channel"]["copr"])
         self.assertIsNone(result["total"])
 
@@ -62,6 +67,53 @@ class DownloadStatsTests(unittest.TestCase):
         self.assertEqual(parse_copr_downloads(page), 12)
         with self.assertRaises(ValueError):
             parse_copr_downloads('<title>Making sure you are not a bot</title>')
+
+    def test_repository_counts_refresh_once_per_iso_week(self):
+        self.assertFalse(weekly_refresh_needed("2026-10-19", 12, date(2026, 10, 22)))
+        self.assertTrue(weekly_refresh_needed("2026-10-19", 12, date(2026, 10, 26)))
+        self.assertTrue(weekly_refresh_needed("2026-10-22", None, date(2026, 10, 22)))
+        self.assertTrue(weekly_refresh_needed("invalid", 12, date(2026, 10, 22)))
+
+    def test_repository_measurements_are_reused_and_preserve_last_weekly_delta(self):
+        previous = {
+            "history": [{"date": "2026-10-19", "repositories": {"ppa": 10, "copr": 20}}],
+            "repository_checked_at": {"ppa": "2026-10-19", "copr": "2026-10-19",
+                                      "aur": "2026-10-19"},
+            "repository_weekly": {"ppa": 2, "copr": 3}, "aur_votes": 4,
+        }
+        def unexpected():
+            self.fail("same-week repository check must not make a network request")
+        totals, votes, checked, weekly, _ = repository_measurements(
+            previous, date(2026, 10, 22),
+            (("ppa", unexpected), ("copr", unexpected), ("aur", unexpected)))
+        self.assertEqual(totals, {"ppa": 10, "copr": 20})
+        self.assertEqual(votes, 4)
+        self.assertEqual(weekly, {"ppa": 2, "copr": 3})
+        self.assertEqual(checked["ppa"], "2026-10-19")
+
+        totals, votes, checked, weekly, period = repository_measurements(
+            previous, date(2026, 10, 26),
+            (("ppa", lambda: 14), ("copr", lambda: 25), ("aur", lambda: 5)))
+        self.assertEqual(totals, {"ppa": 14, "copr": 25})
+        self.assertEqual(votes, 5)
+        self.assertEqual(weekly, {"ppa": 4, "copr": 5})
+        self.assertEqual(period["ppa"], {"from": "2026-10-19", "to": "2026-10-26"})
+        self.assertEqual(checked["aur"], "2026-10-26")
+
+    def test_unavailable_repository_retries_on_next_daily_run(self):
+        previous = {"history": [{"date": "2026-10-19",
+                                  "repositories": {"ppa": 10, "copr": 20}}],
+                    "repository_checked_at": {"ppa": "2026-10-19", "copr": "2026-10-19"}}
+        def unavailable():
+            raise ValueError("temporary outage")
+        totals, _, checked, weekly, period = repository_measurements(
+            previous, date(2026, 10, 26),
+            (("ppa", lambda: 14), ("copr", unavailable)))
+        self.assertEqual(totals, {"ppa": 14, "copr": None})
+        self.assertEqual(weekly, {"ppa": 4, "copr": None})
+        self.assertTrue(weekly_refresh_needed(checked["copr"], totals["copr"],
+                                              date(2026, 10, 27)))
+        self.assertEqual(period["copr"]["to"], "2026-10-26")
 
 
 if __name__ == "__main__":

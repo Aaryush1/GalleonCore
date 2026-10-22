@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Paul Woisard
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build seven-day download deltas from public distribution counters."""
+"""Build daily release baselines and weekly repository download deltas."""
 
 import argparse
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import html
 import json
 import os
@@ -49,7 +49,19 @@ def snapshot(releases, date):
     return {"date": date, "assets": assets}
 
 
-def build_stats(releases, repository_totals, aur_votes, previous, now):
+def weekly_refresh_needed(last_checked, previous_value, today):
+    if type(previous_value) is not int or previous_value < 0:
+        return True
+    try:
+        checked = date.fromisoformat(last_checked)
+    except (TypeError, ValueError):
+        return True
+    return checked.isocalendar()[:2] != today.isocalendar()[:2]
+
+
+def build_stats(releases, repository_totals, aur_votes, previous, now,
+                repository_checked_at=None, repository_weekly=None,
+                repository_period=None):
     today = now.date().isoformat()
     current = snapshot(releases, today)
     current["repositories"] = repository_totals
@@ -73,10 +85,8 @@ def build_stats(releases, repository_totals, aur_votes, previous, now):
             if type(old_count) is not int or old_count < 0:
                 old_count = 0
             by_channel[item["platform"]] += max(0, item["count"] - old_count)
-        old_repositories = baseline.get("repositories", {})
         for name in REPOSITORIES:
-            old, new = old_repositories.get(name), repository_totals.get(name)
-            by_channel[name] = max(0, new - old) if type(old) is int and type(new) is int else None
+            by_channel[name] = (repository_weekly or {}).get(name)
     history.append(current)
     total = None
     if by_channel and all(type(value) is int for value in by_channel.values()):
@@ -87,6 +97,9 @@ def build_stats(releases, repository_totals, aur_votes, previous, now):
         "by_channel": by_channel,
         "total": total,
         "aur_votes": aur_votes,
+        "repository_checked_at": repository_checked_at or {},
+        "repository_weekly": repository_weekly or {},
+        "repository_period": repository_period or {},
         "history": history,
     }
 
@@ -161,6 +174,51 @@ def aur_votes():
     return results[0]["NumVotes"]
 
 
+def repository_measurements(previous, today, fetchers):
+    previous_history = previous.get("history", [])
+    latest = previous_history[-1] if isinstance(previous_history, list) and previous_history else {}
+    if not isinstance(latest, dict):
+        latest = {}
+    prior_repositories = latest.get("repositories", {})
+    prior_checked = previous.get("repository_checked_at", {})
+    prior_weekly = previous.get("repository_weekly", {})
+    prior_period = previous.get("repository_period", {})
+    if not isinstance(prior_repositories, dict):
+        prior_repositories = {}
+    if not isinstance(prior_checked, dict):
+        prior_checked = {}
+    if not isinstance(prior_weekly, dict):
+        prior_weekly = {}
+    if not isinstance(prior_period, dict):
+        prior_period = {}
+    repository_totals = {}
+    checked_at = dict(prior_checked)
+    weekly = dict(prior_weekly)
+    period = dict(prior_period)
+    votes = None
+    for name, fetch in fetchers:
+        prior_value = previous.get("aur_votes") if name == "aur" else prior_repositories.get(name)
+        if not weekly_refresh_needed(prior_checked.get(name), prior_value, today):
+            value = prior_value
+        else:
+            checked_at[name] = today.isoformat()
+            try:
+                value = fetch()
+            except (ValueError, urllib.error.URLError) as error:
+                print(f"{name}: {error}")
+                value = None
+            if name in REPOSITORIES:
+                weekly[name] = (max(0, value - prior_value)
+                                if type(value) is int and type(prior_value) is int else None)
+                period[name] = {"from": prior_checked.get(name) or latest.get("date"),
+                                "to": today.isoformat()}
+        if name == "aur":
+            votes = value
+        else:
+            repository_totals[name] = value
+    return repository_totals, votes, checked_at, weekly, period
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--previous-url", required=True)
@@ -183,19 +241,12 @@ def main():
     previous = get_json(args.previous_url, missing_ok=True)
     if not isinstance(previous, dict):
         raise ValueError("Previous snapshot is not an object")
-    repository_totals = {}
-    for name, fetch in (("ppa", ppa_downloads), ("copr", copr_downloads)):
-        try:
-            repository_totals[name] = fetch()
-        except (ValueError, urllib.error.URLError) as error:
-            print(f"{name}: {error}")
-            repository_totals[name] = None
-    try:
-        votes = aur_votes()
-    except (ValueError, urllib.error.URLError) as error:
-        print(f"AUR: {error}")
-        votes = None
-    result = build_stats(releases, repository_totals, votes, previous, datetime.now(timezone.utc))
+    now = datetime.now(timezone.utc)
+    repository_totals, votes, checked_at, weekly, period = repository_measurements(
+        previous, now.date(), (("ppa", ppa_downloads), ("copr", copr_downloads),
+                               ("aur", aur_votes)))
+    result = build_stats(releases, repository_totals, votes, previous, now,
+                         checked_at, weekly, period)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
 
