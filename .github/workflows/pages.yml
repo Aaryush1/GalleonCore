@@ -28,11 +28,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Build seven-day release download counts
+      - name: Update daily release baseline and weekly repository counts
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python3 -m unittest discover -s tools -p 'test_download_stats.py'
+          node tools/test_download_stats_js.js
           python3 tools/website/download_stats.py \
             --previous-url https://paullux.github.io/GalleonCore/downloads-weekly.json \
             --output site/downloads-weekly.json

@@ -340,12 +340,14 @@ for direct Windows, Ubuntu, Fedora, Arch and AppImage packages. The
 explains how to add the PPA, COPR or AUR repository and what each file contains.
 Build and packaging details are in the [distribution guide](tools/packaging/README.md).
 The GitHub download badge counts release assets, not PPA/COPR/AUR installations.
-The [website](https://paullux.github.io/GalleonCore/#downloads) also shows recent
-downloads of installable GitHub release packages by platform, plus PPA and COPR
-package downloads when their public counters are available. Daily snapshots
-provide differences over up to seven days; the first measurement cannot
-reconstruct past downloads. The AUR publishes votes and popularity, not download
-counts. These figures count transfers (including updates), not unique users.
+The [website](https://paullux.github.io/GalleonCore/#downloads) shows cumulative
+direct package downloads by platform. With optional external content enabled, it
+reads current counts from GitHub when the page opens; otherwise it uses the last
+daily snapshot. Daily baselines also provide approximate seven-day changes.
+PPA and COPR downloads are checked once per week and shown for their last measured
+interval; the combined recent figure is approximate because intervals can differ.
+The AUR publishes votes and popularity, not download counts. These figures count
+transfers (including updates), not unique users.
 
 [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
 [Security](SECURITY.md) · [Licenses](LICENSE.md).
