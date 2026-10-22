@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+User-agent: *
+Allow: /
+
+Sitemap: https://galleoncore.xyz/sitemap.xml

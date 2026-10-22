@@ -59,6 +59,7 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
 | **Réveil sans attente du décodeur** : arrêt asynchrone FFmpeg et nettoyage borné, première action consommée | oui (`test_screensaver`, `test_windowswake`, `test_modes_flow`) | réveil court Linux observé avant ce correctif ; réveil prolongé Linux/Windows à confirmer |
 | **Compteurs de diffusion du site** : totaux directs GitHub lus à l'ouverture après consentement (sinon dernier relevé quotidien), écarts directs sur sept jours ; PPA/COPR vérifiés chaque semaine et intervalle indiqué, source indisponible affichée comme telle, votes AUR séparés des téléchargements | oui (`test_download_stats`, `test_download_stats_js`) ; affichage en production à vérifier après fusion | sans objet (statistiques de distribution) |
 | **Confidentialité du site** : pages Confidentialité et CGU en français/anglais ; polices et badges tiers désactivés jusqu'au choix explicite ; refus aussi simple que l'acceptation, choix modifiable depuis le pied de page | oui (vérification du site et du consentement) ; à confirmer après déploiement Pages | sans objet (site web) |
+| **Découverte du site** : descriptions des trois pages, Open Graph et Twitter Card sur l’accueil, `robots.txt`, sitemap XML, favicon SVG/ICO/PNG et icônes Apple/Android dérivées du logo Bosun | oui (validation locale des références, formats et dimensions) ; déploiement Pages à vérifier | sans objet (site web) |
 
 ## 2. En cours
 
