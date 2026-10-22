@@ -34,9 +34,10 @@ propagation. The other build and release workflows contain no site URL and need
 no domain-specific change. Keep the legacy URL as a fallback until the custom
 domain and at least two daily snapshots are verified.
 
-Publish `contact@galleoncore.xyz` and `privacy@galleoncore.xyz` in the website's
-terms and privacy pages only after sending and receiving a test message in both
-mailboxes; until then, the existing working address remains public.
+The owner confirmed that `contact@galleoncore.xyz` and
+`privacy@galleoncore.xyz` both receive mail. The website's terms and privacy
+pages use those addresses respectively. The separate security-reporting
+address in `SECURITY.md` is unchanged.
 
 References: [GitHub Pages custom domains](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site),
 [domain verification](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/verifying-your-custom-domain-for-github-pages).
