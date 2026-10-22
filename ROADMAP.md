@@ -58,6 +58,7 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
 | **Réactivité Windows** : recherche d’icônes/jaquettes dans un enfant limité, annulation des requêtes périmées, dessin échelonné des 12 touches ; keep-alive connu servi entre rapports JPEG longs | oui (`test_launchercache`, `test_streamdeck`, `test_windowsdesktop`) | retour au logo Corsair et longues sessions à revalider |
 | **Réveil sans attente du décodeur** : arrêt asynchrone FFmpeg et nettoyage borné, première action consommée | oui (`test_screensaver`, `test_windowswake`, `test_modes_flow`) | réveil court Linux observé avant ce correctif ; réveil prolongé Linux/Windows à confirmer |
 | **Compteurs de diffusion du site** : relevés quotidiens des fichiers installables GitHub Releases, des binaires PPA et des RPM COPR ; écart sur sept jours, source indisponible affichée comme telle, votes AUR séparés des téléchargements | oui (`test_download_stats`) ; premier déploiement et historique de sept jours à vérifier après fusion | sans objet (statistiques de distribution) |
+| **Confidentialité du site** : pages Confidentialité et CGU en français/anglais ; polices et badges tiers désactivés jusqu'au choix explicite ; refus aussi simple que l'acceptation, choix modifiable depuis le pied de page | oui (vérification du site et du consentement) ; à confirmer après déploiement Pages | sans objet (site web) |
 
 ## 2. En cours
 
