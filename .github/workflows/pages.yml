@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths: ["site/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
+  schedule:
+    - cron: "23 3 * * *"
 
 permissions:
   contents: read
@@ -26,6 +28,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Build seven-day release download counts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m unittest discover -s tools -p 'test_download_stats.py'
+          python3 tools/website/download_stats.py \
+            --previous-url https://paullux.github.io/GalleonCore/downloads-weekly.json \
+            --output site/downloads-weekly.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

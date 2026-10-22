@@ -57,6 +57,7 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
 | **Pages initiales fixes Linux/Windows** : cinq onglets, au plus 12 touches par page, navigateurs/lecteurs et outils système pertinents prioritaires, jeux Steam en premier ; détection unique ; retraits et positions conservés ; `.url` Steam Windows bornés et validés | oui (`test_initialpages`, `test_pagescontroller`, `test_usage`, `test_windowsdesktop`) | nouvelles pages Linux à confirmer ; Windows à revalider après ce correctif |
 | **Réactivité Windows** : recherche d’icônes/jaquettes dans un enfant limité, annulation des requêtes périmées, dessin échelonné des 12 touches ; keep-alive connu servi entre rapports JPEG longs | oui (`test_launchercache`, `test_streamdeck`, `test_windowsdesktop`) | retour au logo Corsair et longues sessions à revalider |
 | **Réveil sans attente du décodeur** : arrêt asynchrone FFmpeg et nettoyage borné, première action consommée | oui (`test_screensaver`, `test_windowswake`, `test_modes_flow`) | réveil court Linux observé avant ce correctif ; réveil prolongé Linux/Windows à confirmer |
+| **Compteurs de diffusion du site** : relevés quotidiens des fichiers installables GitHub Releases, des binaires PPA et des RPM COPR ; écart sur sept jours, source indisponible affichée comme telle, votes AUR séparés des téléchargements | oui (`test_download_stats`) ; premier déploiement et historique de sept jours à vérifier après fusion | sans objet (statistiques de distribution) |
 
 ## 2. En cours
 

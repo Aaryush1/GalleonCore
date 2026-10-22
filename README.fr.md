@@ -342,7 +342,14 @@ pour obtenir directement les paquets Windows, Ubuntu, Fedora, Arch et AppImage.
 La [release v0.1.0](https://github.com/Paullux/GalleonCore/releases/tag/v0.1.0)
 explique comment ajouter les dépôts PPA, COPR ou AUR et à quoi sert chaque fichier.
 Les détails de construction figurent dans le [guide de distribution](tools/packaging/README.md).
-Le compteur GitHub concerne uniquement les fichiers des releases, pas les installations PPA/COPR/AUR.
+Le badge GitHub concerne uniquement les fichiers des releases, pas les installations PPA/COPR/AUR.
+Le [site](https://paullux.github.io/GalleonCore/#downloads) affiche aussi les
+téléchargements récents des paquets installables de GitHub Releases, par système,
+ainsi que ceux du PPA et de COPR lorsque leurs compteurs publics sont disponibles.
+Les relevés quotidiens donnent les différences sur sept jours au maximum ; le
+premier ne peut pas reconstituer les téléchargements passés. L’AUR publie des
+votes et une popularité, pas le nombre de téléchargements. Ces chiffres comptent
+des transferts (mises à jour comprises), pas des utilisateurs uniques.
 
 [Contribuer](CONTRIBUTING.md) · [Code de conduite](CODE_OF_CONDUCT.md) ·
 [Sécurité](SECURITY.md) · [Licences](LICENSE.md).
