@@ -26,6 +26,11 @@ SPDX-FileCopyrightText = "2026 Paul Woisard"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
 
 [[annotations]]
+path = ["site/favicon.ico", "site/favicon-*.png", "site/apple-touch-icon.png", "site/android-chrome-*.png", "site/site.webmanifest"]
+SPDX-FileCopyrightText = "2026 Paul Woisard"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
 path = ["tools/packaging/debian/control", "tools/packaging/debian/changelog", "tools/packaging/debian/copyright", "tools/packaging/debian/source/format"]
 SPDX-FileCopyrightText = "2026 Paul Woisard"
 SPDX-License-Identifier = "GPL-3.0-or-later"
