@@ -2,7 +2,7 @@
 
 # GalleonCore
 
-[![Website](https://img.shields.io/badge/website-GalleonCore-46505E)](https://paullux.github.io/GalleonCore/)
+[![Website](https://img.shields.io/badge/website-GalleonCore-46505E)](https://galleoncore.xyz/)
 [![CI](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/ci.yml)
 [![Linux packages](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/linux-packages.yml)
 [![Windows desktop](https://github.com/Paullux/GalleonCore/actions/workflows/windows-core.yml/badge.svg?branch=main)](https://github.com/Paullux/GalleonCore/actions/workflows/windows-core.yml)
@@ -17,7 +17,7 @@
 
 🇬🇧 [Read in English](README.md) · *La version anglaise fait référence en cas de différence.*
 
-🌐 [Site web](https://paullux.github.io/GalleonCore/)
+🌐 [Site web](https://galleoncore.xyz/)
 
 **La plateforme ouverte pour le Corsair Galleon 100 SD sous Linux.**
 
@@ -50,7 +50,7 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 
 ### Captures de Galleon Bosun
 
-Les cinq pages par défaut montrent les applications installées sur un poste Linux ; les applications et leurs icônes varient selon l’ordinateur. Les deux dernières captures montrent le choix des fonds d’écran et des vidéos de veille. [Voir la galerie sur le site](https://paullux.github.io/GalleonCore/#previews).
+Les cinq pages par défaut montrent les applications installées sur un poste Linux ; les applications et leurs icônes varient selon l’ordinateur. Les deux dernières captures montrent le choix des fonds d’écran et des vidéos de veille. [Voir la galerie sur le site](https://galleoncore.xyz/#previews).
 
 | Contrôle | Multimédia |
 |---|---|
@@ -337,13 +337,13 @@ Les textes complets sont dans [`LICENSES/`](LICENSES/). Les fichiers portent des
 
 ## Paquets et communauté
 
-Choisis ton système dans la [section téléchargements du site](https://paullux.github.io/GalleonCore/#downloads)
+Choisis ton système dans la [section téléchargements du site](https://galleoncore.xyz/#downloads)
 pour obtenir directement les paquets Windows, Ubuntu, Fedora, Arch et AppImage.
 La [release v0.1.0](https://github.com/Paullux/GalleonCore/releases/tag/v0.1.0)
 explique comment ajouter les dépôts PPA, COPR ou AUR et à quoi sert chaque fichier.
 Les détails de construction figurent dans le [guide de distribution](tools/packaging/README.md).
 Le badge GitHub concerne uniquement les fichiers des releases, pas les installations PPA/COPR/AUR.
-Le [site](https://paullux.github.io/GalleonCore/#downloads) affiche les téléchargements
+Le [site](https://galleoncore.xyz/#downloads) affiche les téléchargements
 directs cumulés par système. Si le contenu externe facultatif est autorisé, il lit
 les chiffres actuels sur GitHub à l’ouverture de la page ; sinon il utilise le
 dernier relevé quotidien. Ces relevés donnent aussi des variations approximatives

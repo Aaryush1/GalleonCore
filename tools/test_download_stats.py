@@ -3,14 +3,36 @@
 
 from datetime import date, datetime, timezone
 import unittest
+import urllib.error
 
 from website.download_stats import (
-    build_stats, parse_copr_downloads, platform_for,
+    build_stats, parse_copr_downloads, platform_for, previous_snapshot,
     repository_measurements, weekly_refresh_needed,
 )
 
 
 class DownloadStatsTests(unittest.TestCase):
+    def test_domain_migration_keeps_existing_baseline(self):
+        calls = []
+        def fetch(url, missing_ok=False):
+            calls.append((url, missing_ok))
+            if url == "https://galleoncore.xyz/downloads-weekly.json":
+                raise urllib.error.URLError("DNS pending")
+            return {"history": [{"date": "2026-10-22", "assets": {}}]}
+        previous = previous_snapshot([
+            "https://galleoncore.xyz/downloads-weekly.json",
+            "https://paullux.github.io/GalleonCore/downloads-weekly.json",
+        ], fetch)
+        self.assertEqual(previous["history"][0]["date"], "2026-10-22")
+        self.assertEqual(len(calls), 2)
+
+    def test_no_baseline_if_both_urls_are_missing(self):
+        self.assertEqual(previous_snapshot(["new", "old"], lambda *_args, **_kwargs: {}), {})
+
+    def test_malformed_previous_snapshot_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "not an object"):
+            previous_snapshot(["new", "old"], lambda *_args, **_kwargs: [])
+
     def test_only_installable_assets_are_counted(self):
         self.assertEqual(platform_for("GalleonCore-0.1.0-Windows-x86_64-Setup.exe"), "windows")
         self.assertEqual(platform_for("galleoncore_0.1.0-2.noble_amd64.deb"), "ubuntu")

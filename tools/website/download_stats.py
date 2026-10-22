@@ -118,6 +118,25 @@ def get_json(url, token=None, missing_ok=False):
         raise
 
 
+def previous_snapshot(urls, fetch=get_json):
+    """Keep the baseline while the site moves to its custom domain."""
+    last_error = None
+    for url in urls:
+        try:
+            previous = fetch(url, missing_ok=True)
+        except urllib.error.URLError as error:
+            last_error = error
+            continue
+        if not isinstance(previous, dict):
+            raise ValueError(f"Previous snapshot at {url} is not an object")
+        if previous:
+            return previous
+        last_error = None
+    if last_error is not None:
+        raise last_error
+    return {}
+
+
 def ppa_downloads():
     base = "https://api.launchpad.net/1.0/~paulwoisard/+archive/ubuntu/galleoncore"
     links = set()
@@ -221,7 +240,7 @@ def repository_measurements(previous, today, fetchers):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--previous-url", required=True)
+    parser.add_argument("--previous-url", required=True, action="append")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     token = os.environ.get("GITHUB_TOKEN")
@@ -238,9 +257,7 @@ def main():
             break
     else:
         raise ValueError("More than 1,000 releases; refusing incomplete statistics")
-    previous = get_json(args.previous_url, missing_ok=True)
-    if not isinstance(previous, dict):
-        raise ValueError("Previous snapshot is not an object")
+    previous = previous_snapshot(args.previous_url)
     now = datetime.now(timezone.utc)
     repository_totals, votes, checked_at, weekly, period = repository_measurements(
         previous, now.date(), (("ppa", ppa_downloads), ("copr", copr_downloads),
