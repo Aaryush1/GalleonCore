@@ -254,6 +254,17 @@ h3 { font: 600 1.25rem/1.25 var(--display); margin: 0 0 8px; }
 .preview-grid a { display: block; }
 .preview-grid img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
 .preview-grid figcaption { color: var(--muted); font-size: 0.875rem; margin-top: 8px; }
+.demo-video { margin: 28px 0 36px; max-width: 900px; }
+.demo-video-player { width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--body); }
+.demo-video-player button, .demo-video-player iframe { display: block; width: 100%; height: 100%; border: 0; }
+.demo-video-player button {
+  color: #fff; background: radial-gradient(circle at center, #46505E, #1A1D21 75%);
+  font: 600 clamp(1rem, 2.5vw, 1.5rem)/1.3 var(--display);
+  cursor: pointer;
+}
+.demo-video-player button:hover { background: radial-gradient(circle at center, #586574, #1A1D21 75%); }
+.demo-video-play { display: block; margin: 0 auto 16px; font-size: 3rem; line-height: 1; color: var(--amber); }
+.demo-video figcaption { color: var(--muted); font-size: 0.875rem; margin-top: 8px; }
 .download-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); margin: 28px 0; }
 .download-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 12px; }
 .download-card h3, .download-card p { margin: 0; }
@@ -466,6 +477,12 @@ sudo dnf install galleoncore</code></pre>
   <section class="wrap" id="previews">
     <h2><span lang="en">Galleon Bosun in pictures</span><span lang="fr">Galleon Bosun en images</span></h2>
     <p class="prose"><span lang="en">The five default pages are shown with applications found on one Linux desktop; installed apps and icons vary by computer. Wallpapers and screensavers are selected in their own tabs. Click a picture to view it at full size.</span><span lang="fr">Les cinq pages par défaut sont montrées avec les applications trouvées sur un poste Linux ; les applications et icônes varient selon l’ordinateur. Les fonds d’écran et écrans de veille se choisissent dans leurs onglets. Clique sur une image pour l’agrandir.</span></p>
+    <figure class="demo-video">
+      <div class="demo-video-player" id="demo-video-player">
+        <button type="button" id="demo-video-load" aria-label="Play GalleonCore demo on YouTube / Lire la démo GalleonCore sur YouTube"><span class="demo-video-play" aria-hidden="true">▶</span><span lang="en">Watch GalleonCore in action</span><span lang="fr">Voir GalleonCore en action</span></button>
+      </div>
+      <figcaption><span lang="en">Playing loads a YouTube video. </span><span lang="fr">La lecture charge une vidéo YouTube. </span><a href="https://youtu.be/mLbDAYO5cGY"><span lang="en">Open on YouTube</span><span lang="fr">Ouvrir sur YouTube</span></a>.</figcaption>
+    </figure>
     <div class="preview-grid">
       <figure><a href="screenshots/control.png"><img src="screenshots/control.png" width="1240" height="740" loading="lazy" alt="Galleon Bosun: media controls on the Control page"></a><figcaption><span lang="en">Control</span><span lang="fr">Contrôle</span></figcaption></figure>
       <figure><a href="screenshots/multimedia.png"><img src="screenshots/multimedia.png" width="1240" height="740" loading="lazy" alt="Galleon Bosun: browsers and media players on the Multimedia page"></a><figcaption><span lang="en">Multimedia</span><span lang="fr">Multimédia</span></figcaption></figure>
@@ -681,6 +698,16 @@ sudo udevadm control --reload &amp;&amp; sudo udevadm trigger</code></pre>
 
   document.getElementById("lang-toggle").addEventListener("click", function () {
     setLang(lang() === "fr" ? "en" : "fr");
+  });
+
+  document.getElementById("demo-video-load").addEventListener("click", function () {
+    var iframe = document.createElement("iframe");
+    iframe.src = "https://www.youtube-nocookie.com/embed/mLbDAYO5cGY?autoplay=1";
+    iframe.title = "GalleonCore demo / Démonstration GalleonCore";
+    iframe.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share";
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = "strict-origin-when-cross-origin";
+    this.replaceWith(iframe);
   });
 
   document.querySelectorAll(".key").forEach(function (key) {
