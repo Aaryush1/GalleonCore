@@ -109,6 +109,9 @@
       return name.toUpperCase() + " " + (checked[name] || "—");
     }).join("; ");
     note.innerHTML = '<span lang="en">Direct totals: <span data-source></span> at page load (daily snapshot when optional content is refused). Seven-day changes need a previous snapshot. PPA/COPR are checked once per week; their latest measured periods: <span data-repo-dates></span>. The combined recent total is approximate because these periods can differ. AUR votes are not downloads; downloads include updates, not unique users.</span><span lang="fr">Totaux directs : <span data-source></span> à l’ouverture (relevé quotidien si le contenu facultatif est refusé). Les variations sur sept jours demandent un relevé antérieur. PPA/COPR sont vérifiés une fois par semaine ; dernières périodes mesurées : <span data-repo-dates></span>. Le total récent est approximatif car ces périodes peuvent différer. Les votes AUR ne sont pas des téléchargements ; les comptes incluent les mises à jour, pas des utilisateurs uniques.</span>';
+    if (!stats.since) {
+      note.insertAdjacentHTML("afterbegin", '<strong lang="en">First daily snapshot recorded. Recent counts will appear after the next daily snapshot. </strong><strong lang="fr">Premier relevé quotidien enregistré. Les mesures récentes apparaîtront après le prochain relevé quotidien. </strong>');
+    }
     note.querySelectorAll("[data-source]").forEach(function (span) {
       span.textContent = live ? "GitHub API" : stats.generated_at || "GitHub Pages";
     });
