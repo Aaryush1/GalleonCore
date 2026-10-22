@@ -98,7 +98,7 @@
           DIRECT.reduce(function (sum, name) { return sum + weekly[name]; }, ppa + copr));
       }
     }
-    document.getElementById("direct-count-source").textContent = live ? "GitHub API" : "GitHub Pages";
+    document.getElementById("direct-count-source").textContent = live ? "GitHub API" : "Daily snapshot";
   }
 
   function setNote(stats, live) {
@@ -113,7 +113,7 @@
       note.insertAdjacentHTML("afterbegin", '<strong lang="en">First daily snapshot recorded. Recent counts will appear after the next daily snapshot. </strong><strong lang="fr">Premier relevé quotidien enregistré. Les mesures récentes apparaîtront après le prochain relevé quotidien. </strong>');
     }
     note.querySelectorAll("[data-source]").forEach(function (span) {
-      span.textContent = live ? "GitHub API" : stats.generated_at || "GitHub Pages";
+      span.textContent = live ? "GitHub API" : stats.generated_at || "Daily snapshot";
     });
     note.querySelectorAll("[data-repo-dates]").forEach(function (span) { span.textContent = dates; });
   }

@@ -23,6 +23,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-24.04
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -36,8 +38,16 @@ jobs:
           node tools/test_download_stats_js.js
           python3 tools/website/download_stats.py \
             --previous-url https://galleoncore.xyz/downloads-weekly.json \
+            --previous-url https://galleoncore.pages.dev/downloads-weekly.json \
             --previous-url https://paullux.github.io/GalleonCore/downloads-weekly.json \
             --output site/downloads-weekly.json
+      - name: Deploy to Cloudflare Pages
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e272635a5bb7cf86402f363a755ce70b
+          command: pages deploy site --project-name=galleoncore
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
