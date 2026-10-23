@@ -84,6 +84,10 @@ galleond_add_test(test_launchercache)
 target_compile_definitions(test_launchercache PRIVATE GALLEON_TEST_LAUNCHER="$<TARGET_FILE:galleon_test_launcher>")
 add_dependencies(test_launchercache galleon_test_launcher)
 
+galleond_add_test(test_homewidgets)
+galleond_add_test(test_fpsreader)
+galleond_add_test(test_gamemode)
+
 if(WIN32)
     # Native desktop smoke rendering; Linux service/launcher tests stay on Linux.
     galleond_add_test(test_screenrenderer)

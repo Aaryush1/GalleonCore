@@ -3,6 +3,9 @@
 
 # The daemon's logic, as a library so that the tests can use it.
 add_library(galleond_core STATIC
+    GameMode.h GameMode.cpp
+    FpsReader.h FpsReader.cpp
+    HomeWidgets.h HomeWidgets.cpp
     LauncherCache.h LauncherCache.cpp
     AppsBackend.h AppsBackend.cpp
     CoverLoader.h CoverLoader.cpp
@@ -60,3 +63,9 @@ if(WIN32)
     configure_file(${PROJECT_SOURCE_DIR}/tools/packaging/windows/bosun-icon.rc.in ${CMAKE_CURRENT_BINARY_DIR}/bosun-icon.rc @ONLY)
     target_sources(galleond PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bosun-icon.rc)
 endif()
+
+qt_add_resources(galleond_core "home_widgets"
+    PREFIX "/homewidgets"
+    BASE "${CMAKE_SOURCE_DIR}/widgets"
+    FILES "${CMAKE_SOURCE_DIR}/widgets/HomeOverlay.qml" "${CMAKE_SOURCE_DIR}/widgets/GameScreen.qml" "${CMAKE_SOURCE_DIR}/widgets/CarGauge.qml"
+)

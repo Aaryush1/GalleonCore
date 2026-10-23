@@ -5,8 +5,15 @@
 
 #include "PagesController.h"
 #include "ScreenController.h"
+#include "ScreensaverController.h"
 
 namespace galleond {
+
+void connectGameToScreensaver(ScreenController &screen, ScreensaverController &screensaver)
+{
+    QObject::connect(&screen, &ScreenController::gameActiveChanged, &screensaver, &ScreensaverController::setInhibited);
+    screensaver.setInhibited(screen.gameActive());
+}
 
 void connectPagesToScreen(PagesController &pages, ScreenController &screen)
 {

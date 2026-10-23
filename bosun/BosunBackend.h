@@ -4,6 +4,7 @@
 #pragma once
 
 #include <PagesConfig.h>
+#include <HomeWidgets.h>
 #include "VideoConverter.h"
 
 #include <PagesEditor.h>
@@ -31,6 +32,7 @@ namespace bosun {
 class BosunBackend : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QObject* homeWidgets READ homeWidgets CONSTANT)
     Q_PROPERTY(QString file READ file CONSTANT)
     // Empty when all is well; else why the pages cannot be shown.
     Q_PROPERTY(QString problem READ problem NOTIFY changed)
@@ -52,6 +54,7 @@ class BosunBackend : public QObject
     Q_PROPERTY(QVariantMap conversion READ conversion NOTIFY changed)
 
 public:
+    QObject *homeWidgets() { return &m_homeWidgets; }
     // The user's own folder for converted videos: ~/.local/share/galleoncore/screensavers.
     [[nodiscard]] static QString defaultConvertedFolder();
 
@@ -162,6 +165,7 @@ Q_SIGNALS:
     void changed();
 
 private:
+    galleond::HomeWidgets m_homeWidgets{nullptr, {}, true};
     void watchFile();
     [[nodiscard]] QString applied(const galleond::EditResult &result);
     void buildScreensaver();

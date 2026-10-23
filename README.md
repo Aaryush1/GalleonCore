@@ -35,6 +35,9 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 - **OpenRGB plugin**: configure the deck from OpenRGB and sync deck themes with the lighting.
 - **Windows desktop preview**, sharing the same core, with native media, audio and keyboard backends; hardware validation remains pending.
 
+Home screen widgets can be edited in Bosun’s **Widgets** tab (position, size and visibility), then saved with **Apply**. The first iteration includes weather, CPU/RAM, Linux CPU temperature, partial-download detection and game FPS via MangoHud/PresentMon CSV, with adjustable text size; see [supported platforms and current limits](docs/HOME_WIDGETS.md).
+An automatic game screen now shows local game artwork, FPS and CPU/GPU temperatures while capture is active, and keeps the keyboard screensaver off until capture ends.
+
 ## Status
 
 | Part | Status |

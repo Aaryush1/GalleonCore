@@ -306,6 +306,24 @@ private Q_SLOTS:
         QVERIFY(args.contains(f.dir.filePath("clip.mp4")));
     }
 
+    void gameInhibitionWakesAndRestoresTheIdleDelay()
+    {
+        Fixture f;
+        f.configure(f.config);
+        f.controller->setIdleTimeoutMs(100);
+        QTRY_VERIFY_WITH_TIMEOUT(f.controller->isActive(), 3000);
+        f.controller->setInhibited(true);
+        QVERIFY(f.controller->isInhibited());
+        QVERIFY(!f.controller->isActive());
+        f.controller->notifyActivity();
+        f.configure(f.config); // configuration reload must not remove inhibition
+        QTest::qWait(250);
+        QVERIFY(!f.controller->isActive());
+        f.controller->setInhibited(false);
+        QVERIFY(!f.controller->isActive());
+        QTRY_VERIFY_WITH_TIMEOUT(f.controller->isActive(), 3000);
+    }
+
     void aKeyPressWakesTheModule()
     {
         Fixture f;

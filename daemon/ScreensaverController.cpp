@@ -75,9 +75,17 @@ void ScreensaverController::setConfig(const ScreensaverConfig &config, const QSt
 void ScreensaverController::restartIdleTimer()
 {
     m_idle.stop();
-    if (!m_splitter)
+    if (!m_splitter || m_inhibited)
         return;
     m_idle.start(m_idleOverrideMs > 0 ? m_idleOverrideMs : m_config.idleMinutes * 60 * 1000);
+}
+
+void ScreensaverController::setInhibited(bool inhibited)
+{
+    if (m_inhibited == inhibited) return;
+    m_inhibited = inhibited;
+    if (inhibited) wake();
+    restartIdleTimer();
 }
 
 void ScreensaverController::notifyActivity()
@@ -95,7 +103,7 @@ void ScreensaverController::notifyActivity()
 
 void ScreensaverController::onIdle()
 {
-    if (m_active || !m_splitter || m_giveUp || !m_deck->isOpen())
+    if (m_inhibited || m_active || !m_splitter || m_giveUp || !m_deck->isOpen())
         return;
     if (!m_config.whilePlaying && m_media && m_media->state() == MediaController::State::Playing) {
         restartIdleTimer(); // look again later

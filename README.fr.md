@@ -35,6 +35,9 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 - **Plugin OpenRGB** : configurer le deck depuis OpenRGB et synchroniser ses thèmes avec l'éclairage.
 - **Préversion Windows**, avec le même cœur et des backends natifs pour les médias, le son et le clavier ; validation matérielle encore attendue.
 
+Les widgets de l’accueil se règlent dans l’onglet **Widgets** de Bosun (position, taille et visibilité), puis sont enregistrés avec **Appliquer**. Cette première version comprend météo, CPU/RAM, température CPU Linux, détection des téléchargements partiels et FPS du jeu via CSV MangoHud/PresentMon, avec taille de police réglable ; voir [les plateformes prises en charge et les limites actuelles](docs/HOME_WIDGETS.md).
+Un mode Jeu automatique affiche une image locale du jeu, les FPS et les températures CPU/GPU pendant une capture active ; il empêche la veille du clavier jusqu’à la fin de cette capture.
+
 ## État
 
 | Partie | État |

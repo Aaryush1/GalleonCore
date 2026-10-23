@@ -837,6 +837,7 @@ int main(int argc, char *argv[])
         };
         QObject::connect(pages.get(), &galleond::PagesController::screensaverConfigChanged, screensaver.get(), applySaver);
         applySaver();
+        galleond::connectGameToScreensaver(controller, *screensaver);
     }
 
     // org.galleoncore.Deck on the session bus (the name was claimed at the start):

@@ -280,7 +280,8 @@ QString SteamLibrary::defaultRoot()
         return QFileInfo(installed).canonicalFilePath();
 #endif
     for (const QString &candidate : {QDir::homePath() + QStringLiteral("/.steam/steam"),
-                                     QDir::homePath() + QStringLiteral("/.local/share/Steam")}) {
+                                     QDir::homePath() + QStringLiteral("/.local/share/Steam"),
+                                     QDir::homePath() + QStringLiteral("/.var/app/com.valvesoftware.Steam/.local/share/Steam")}) {
         if (QFileInfo(candidate + QStringLiteral("/steamapps")).isDir())
             return QFileInfo(candidate).canonicalFilePath();
     }

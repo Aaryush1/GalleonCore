@@ -60,6 +60,9 @@ Window {
                 source: win.controller.widgetUrl
                 onLoaded: {
                     item.wallpaper = Qt.binding(() => win.chosenUrl)
+                    item.widgetLayout = Qt.binding(() => win.controller.homeWidgets.layout)
+                    item.gameState = Qt.binding(() => win.controller.homeWidgets.gameState)
+                    item.widgetValues = Qt.binding(() => win.controller.homeWidgets.values)
                 }
             }
         }

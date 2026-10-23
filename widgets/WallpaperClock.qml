@@ -19,6 +19,9 @@ Rectangle {
     // galleond sets it explicitly and turns `live` off, so a frame is
     // reproducible.
     property date now: new Date()
+    property var widgetLayout: [{id: "clock", enabled: true, x: 30, y: 108, width: 400, height: 170}]
+    property var gameState: ({})
+    property var widgetValues: ({})
     property bool live: true
     property color textColor: "white"
     property bool showSeconds: false
@@ -76,27 +79,23 @@ Rectangle {
         }
     }
 
-    Column {
-        anchors.left: parent.left
-        anchors.leftMargin: root.height * 0.08
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: root.height * 0.01
-
-        Text {
-            color: root.textColor
-            font.pixelSize: root.height * 0.30
-            font.bold: true
-            text: root.now.toLocaleTimeString(root.locale, root.timeFormat)
-        }
-
-        Text {
-            color: root.textColor
-            opacity: 0.8
-            font.pixelSize: root.height * 0.075
-            text: root.now.toLocaleDateString(root.locale, root.locale.dateFormat(Locale.LongFormat))
-        }
+    HomeOverlay {
+        visible: !root.gameState.active
+        anchors.fill: parent
+        layout: root.widgetLayout
+        values: root.widgetValues
+        now: root.now
+        locale: root.locale
+        timeFormat: root.timeFormat
+        textColor: root.textColor
     }
 
+    Loader {
+        anchors.fill: parent
+        active: !!root.gameState.active
+        source: "GameScreen.qml"
+        onLoaded: item.stateData = Qt.binding(() => root.gameState)
+    }
     Timer {
         interval: 1000
         running: root.live
