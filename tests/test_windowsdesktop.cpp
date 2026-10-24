@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "DaemonStatus.h"
+#include "BosunBackend.h"
 #include "DesktopEntries.h"
 #include "AppsBackend.h"
 #include "PagesEditor.h"
@@ -10,6 +11,10 @@
 #include "FakeTransport.h"
 #include <galleon/StreamDeck.h>
 #include <QThread>
+#include <HomeWidgets.h>
+#include <QQmlEngine>
+#include <QQmlComponent>
+#include <QQuickItem>
 #include <QSet>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -47,6 +52,78 @@ class TestWindowsDesktop : public QObject
 {
     Q_OBJECT
 private slots:
+    void gamingControlsLoadWithPlatformDefaultAndTwelvePadPositions() {
+        QTemporaryDir dir;
+        galleond::RecordingController recording(nullptr, dir.filePath("recording.ini"));
+        recording.setPlatformForTest(true, true, false, [](int) { return true; });
+        galleond::HomeWidgets widgets(nullptr, dir.filePath("widgets.json"), true);
+        QQmlEngine engine;
+        engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(nullptr));
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/GamingPage.qml")));
+        QScopedPointer<QObject> page(component.createWithInitialProperties({{"widgets", QVariant::fromValue(static_cast<QObject *>(&widgets))}, {"recording", QVariant::fromValue(static_cast<QObject *>(&recording))}, {"width", 1100}, {"height", 650}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        QCOMPARE(recording.backend(), QStringLiteral("gamebar"));
+        QCOMPARE(recording.buttons().size(), 12);
+        QVERIFY(recording.buttons().first().toMap().value("enabled").toBool());
+        QVERIFY(!recording.options().at(2).toMap().value("available").toBool());
+        recording.trigger(0);
+        QVERIFY(!recording.buttons().first().toMap().value("active").toBool());
+    }
+    void presentMonButtonReflectsCaptureAndRequestsRetryWithoutApplyingEdits() {
+        QTemporaryDir dir;
+        const auto config = dir.filePath("widgets.json");
+        const auto writeState = [&](bool running, bool installed = true, const QString &state = {}) {
+            QFile file(config + ".runtime.json");
+            if (!file.open(QIODevice::WriteOnly)) return false;
+            file.write(QJsonDocument(QJsonObject{{"at", QDateTime::currentMSecsSinceEpoch()},
+                {"capture", QJsonObject{{"installed", installed}, {"running", running}, {"canStart", !running}, {"state", state.isEmpty() ? (running ? QStringLiteral("capturing") : QStringLiteral("error")) : state}}}}).toJson());
+            return true;
+        };
+        QVERIFY(writeState(true));
+        galleond::HomeWidgets editor(nullptr, config, true);
+        QVERIFY(editor.setCity("Pending city"));
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/GameModePage.qml")));
+        QScopedPointer<QObject> page(component.createWithInitialProperties({{"widgets", QVariant::fromValue(static_cast<QObject *>(&editor))}, {"width", 1100}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        auto *button = page->findChild<QObject *>(QStringLiteral("startPresentMon"));
+        QVERIFY(button);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"));
+        QVERIFY(button->property("enabledLook").toBool());
+        // A confirmed capturing snapshot is authoritative even without a running flag.
+        {
+            QFile state(config + ".runtime.json");
+            QVERIFY(state.open(QIODevice::WriteOnly));
+            state.write(QJsonDocument(QJsonObject{{"at", QDateTime::currentMSecsSinceEpoch()},
+                {"capture", QJsonObject{{"installed", true}, {"running", false}, {"state", "capturing"}}}}).toJson());
+        }
+        QTest::qWait(2200);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"));
+        QVERIFY(button->property("selected").toBool());
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QFile stopRequest(config + ".capture-request.json");
+        QVERIFY(stopRequest.open(QIODevice::ReadOnly));
+        QCOMPARE(QJsonDocument::fromJson(stopRequest.readAll()).object().value("action").toString(), QStringLiteral("stop"));
+        stopRequest.close();
+        QVERIFY(writeState(false, true, QStringLiteral("waiting")));
+        QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Prêt — lancez un jeu"), 4000);
+        QVERIFY(!button->property("enabledLook").toBool());
+        QVERIFY(writeState(false));
+        QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"), 4000);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"));
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QVERIFY(QFile::exists(config + ".capture-request.json"));
+        QVERIFY(!QFile::exists(config));
+        QVERIFY(editor.pending());
+        QVERIFY(writeState(true));
+        QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"), 4000);
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QFile request(config + ".capture-request.json"); QVERIFY(request.open(QIODevice::ReadOnly));
+        QCOMPARE(QJsonDocument::fromJson(request.readAll()).object().value("action").toString(), QStringLiteral("stop"));
+        request.close();
+        QVERIFY(writeState(false, false));
+        QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Installer PresentMon"), 4000);
+    }
     void registeredApplicationWithoutShortcutIsListed()
     {
         if (qEnvironmentVariable("GITHUB_ACTIONS") != QStringLiteral("true"))

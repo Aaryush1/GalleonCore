@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "TileRenderer.h"
+#include "RecordingIcons.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -75,6 +76,8 @@ QImage TileRenderer::loadIconFile(const QString &path, int size)
 
 QImage TileRenderer::loadIcon(const QString &name, int size) const
 {
+    if (name.startsWith(QStringLiteral("galleon-recording-")))
+        return recordingIcon(name.mid(18), size);
     if (name.isEmpty())
         return {};
 

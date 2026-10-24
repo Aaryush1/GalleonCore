@@ -55,6 +55,8 @@ Window {
         {title: "+", kind: "newtab", page: "", color: "#9aa0a6"},
         {title: qsTr("Keyboard"), kind: "keyboard", page: "", color: lastTheme < backend.themes.length ? backend.themes[lastTheme].color : "#9aa0a6"},
         {title: qsTr("Wallpapers"), kind: "wallpapers", page: "", color: "#ff00ff"},
+        {title: qsTr("Widgets"), kind: "widgets", page: "", color: "#4fc3f7"},
+        {title: qsTr("Gaming"), kind: "gaming", page: "", color: "#80e5d1"},
         {title: qsTr("Screensavers"), kind: "screensavers", page: "", color: "#b388ff"}
     ])
     readonly property var tab: tabs[Math.min(currentTab, tabs.length - 1)]
@@ -80,11 +82,17 @@ Window {
     }
 
     // ---- the tab bar
-    Row {
+    Flickable {
+        id: tabViewport
+        x: 20; y: 16
+        width: win.width - 40; height: 44
+        contentWidth: bar.width; contentHeight: height
+        flickableDirection: Flickable.HorizontalFlick
+        boundsBehavior: Flickable.StopAtBounds
+        clip: true
+        Row {
         id: bar
-        x: 20
-        y: 16
-        height: 44
+        height: tabViewport.height
         spacing: 4
 
         Repeater {
@@ -126,6 +134,7 @@ Window {
                 Accessible.role: Accessible.PageTab
                 Accessible.name: tabButton.modelData.title
             }
+        }
         }
     }
 
@@ -348,6 +357,24 @@ Window {
         height: win.height - 104 - statusBar.height
         library: win.library
         backend: win.backend
+    }
+
+    WidgetsPage {
+        visible: win.tab.kind === "widgets"
+        x: 30; y: 84
+        width: win.width - 60
+        height: win.height - 104 - statusBar.height
+        widgets: win.backend.homeWidgets
+    }
+
+    GamingPage {
+        visible: win.tab.kind === "gaming"
+        x: 30; y: 84
+        width: win.width - 60
+        height: win.height - 104 - statusBar.height
+        recording: win.backend.recording
+        widgets: win.backend.homeWidgets
+        daemon: win.daemon
     }
 
     ScreensaversPage {

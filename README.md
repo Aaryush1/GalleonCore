@@ -23,9 +23,11 @@
 
 The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced by an Elgato Stream Deck module: 12 LCD keys, a screen and two dials. Corsair and Elgato only support the Stream Deck part on Windows and macOS. GalleonCore aims to make every part of the keyboard usable on Linux, and to integrate it with the desktop.
 
-> **Active development.** The Stream Deck keys, screen and dials work on Linux, with Galleon Bosun for module settings. Plasma widgets remain planned. A Windows desktop preview with a Bosun-branded NSIS Setup and portable ZIP is being prepared for interactive testing ([details](docs/WINDOWS.md)); see the [roadmap](ROADMAP.md) for detailed validation status.
+> **Active development.** The Stream Deck keys, screen and dials work on Linux, with Galleon Bosun for module settings. Plasma widgets remain planned. A Windows desktop build with a Bosun-branded NSIS Setup and portable ZIP is available for interactive testing ([details](docs/WINDOWS.md)); see the [roadmap](ROADMAP.md) for detailed validation status.
 
 > GalleonCore is not affiliated with Corsair or Elgato.
+
+> **0.2.0:** configurable home widgets, automatic Gaming mode and Game Bar/OBS controls. See the [release notes](docs/RELEASE_0.2.0.md) and [Linux launcher setup](docs/MODE_JEU_LINUX.fr.md).
 
 ## Goals
 
@@ -34,6 +36,9 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 - **RGB lighting**: per-key RGB, mood bar and dial rings, through [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB).
 - **OpenRGB plugin**: configure the deck from OpenRGB and sync deck themes with the lighting.
 - **Windows desktop preview**, sharing the same core, with native media, audio and keyboard backends; hardware validation remains pending.
+
+Home screen widgets can be edited in Bosun’s **Widgets** tab (position, size and visibility), then saved with **Apply**. The first iteration includes weather, CPU/RAM, Linux CPU temperature, partial-download detection and game FPS via MangoHud CSV on Linux and the PresentMon service/API on Windows, with adjustable text size; see [supported platforms and current limits](docs/HOME_WIDGETS.md).
+An automatic game screen now shows local game artwork, FPS and CPU/GPU temperatures while capture is active, and keeps the keyboard screensaver off until capture ends.
 
 ## Status
 
@@ -117,7 +122,7 @@ Requirements: CMake ≥ 3.21, a C++20 compiler (GCC ≥ 11 or Clang ≥ 14), Qt 
 On Debian/Ubuntu:
 
 ```sh
-sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config
+sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev qt6-websockets-dev libhidapi-dev pkg-config
 cmake -B build
 cmake --build build
 ctest --test-dir build

@@ -36,11 +36,34 @@ QString asked(const QString &dir)
 
 } // namespace
 
+class GamingEndpoint : public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.galleoncore.Deck")
+public:
+    int calls = 0;
+public Q_SLOTS:
+    bool ShowGaming() { ++calls; return true; }
+};
+
 class TestDaemonStatus : public QObject
 {
     Q_OBJECT
 
 private Q_SLOTS:
+    void showingGamingCallsTheDaemonWithoutStartingAnotherProcess()
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        GamingEndpoint endpoint;
+        QVERIFY(bus.registerService(DaemonStatus::BusName));
+        QVERIFY(bus.registerObject("/org/galleoncore/Deck", &endpoint, QDBusConnection::ExportAllSlots));
+        DaemonStatus status("/nonexistent/systemctl");
+        QVERIFY(status.running());
+        QVERIFY(status.showGaming().isEmpty());
+        QTRY_COMPARE(endpoint.calls, 1);
+        bus.unregisterObject("/org/galleoncore/Deck");
+        QVERIFY(bus.unregisterService(DaemonStatus::BusName));
+    }
     void theCommandAsksTheServiceOfTheUserAndNothingElse()
     {
         QCOMPARE(DaemonStatus::userCommand("start"), (QStringList{"--user", "start", "galleond.service"}));

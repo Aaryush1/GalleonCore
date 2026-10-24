@@ -26,6 +26,7 @@ jobs:
         with:
           version: '6.8.3'
           arch: win64_msvc2022_64
+          modules: qtwebsockets
           cache: true
       - name: Install Windows HID backend
         shell: pwsh
@@ -118,6 +119,8 @@ jobs:
           Copy-Item LICENSES/* staging/licenses/
           Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/share/hidapi/copyright" staging/licenses/hidapi.txt
           Copy-Item docs/WINDOWS.md staging/WINDOWS.md
+          Copy-Item docs/GAMING_RECORDING.md staging/GAMING_RECORDING.md
+          Copy-Item docs/HOME_WIDGETS.md staging/HOME_WIDGETS.md
       - name: Build NSIS Setup
         shell: pwsh
         run: |

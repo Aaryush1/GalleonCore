@@ -21,6 +21,9 @@
 
 namespace galleond {
 
+bool ScreenController::ShowGaming() { return m_showGaming && m_showGaming(); }
+
+
 namespace {
 
 constexpr int DeckCheckIntervalMs = 5000;
@@ -95,6 +98,12 @@ ScreenController::ScreenController(galleon::StreamDeck *deck,
             return;
         showStepped();
         m_previewTimer.start(previewRest()); // rest again before the next one
+    });
+    m_lastGameActive = gameActive();
+    connect(&m_homeWidgets, &HomeWidgets::changed, this, [this] {
+        const bool active = gameActive();
+        if (active != m_lastGameActive) { m_lastGameActive = active; Q_EMIT gameActiveChanged(active); }
+        if (!m_wallpaper.isEmpty() || m_gameShown || m_homeWidgets.gameState().value("active").toBool()) draw();
     });
     m_minuteTimer.setSingleShot(true);
     connect(&m_minuteTimer, &QTimer::timeout, this, &ScreenController::tick);
@@ -456,9 +465,11 @@ bool ScreenController::drawNowPlaying()
 bool ScreenController::draw()
 {
     const WallpaperEntry *entry = m_catalog.find(m_wallpaper);
-    if (!entry || !deckAvailable() || m_suspended)
+    const bool game = m_homeWidgets.gameState().value(QStringLiteral("active")).toBool() && !m_choosingWallpaper && !m_themeChoosing;
+    if ((!entry && !game && !m_gameShown) || !deckAvailable() || m_suspended)
         return false;
-    const bool nowPlaying = wantsNowPlaying();
+    m_gameShown = game;
+    const bool nowPlaying = !game && wantsNowPlaying();
     if (nowPlaying != m_showedNowPlaying) {
         m_showedNowPlaying = nowPlaying;
         qInfo() << "galleond: the screen shows" << (nowPlaying ? "the track" : "the wallpaper");
@@ -467,9 +478,12 @@ bool ScreenController::draw()
         return drawNowPlaying();
 
     QVariantMap properties = themeProperties();
-    properties.insert({{QStringLiteral("wallpaper"), QUrl::fromLocalFile(entry->path)},
+    properties.insert({{QStringLiteral("wallpaper"), QUrl::fromLocalFile(entry ? entry->path : QString())},
                        {QStringLiteral("now"), QDateTime::currentDateTime()},
                        {QStringLiteral("localeName"), QLocale().name()}});
+    properties.insert(QStringLiteral("gameState"), game ? m_homeWidgets.gameState() : QVariantMap());
+    properties.insert(QStringLiteral("widgetLayout"), m_homeWidgets.layout());
+    properties.insert(QStringLiteral("widgetValues"), m_homeWidgets.values());
     const QImage frame = m_renderer->render(
         properties, QSize(galleon::protocol::ScreenWidth, galleon::protocol::ScreenHeight));
     if (frame.isNull())

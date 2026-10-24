@@ -38,6 +38,8 @@ std::optional<LocalCommand> parseLocalCommand(const QByteArray &frame)
     const QString action = object.value(QStringLiteral("action")).toString();
     if (object.size() == 1 && action == QStringLiteral("ping"))
         return LocalCommand{LocalAction::Ping, {}};
+    if (object.size() == 1 && action == QStringLiteral("gaming"))
+        return LocalCommand{LocalAction::Gaming, {}};
     if (object.size() == 1 && action == QStringLiteral("stop"))
         return LocalCommand{LocalAction::Stop, {}};
     if (object.size() != 2 || action != QStringLiteral("wallpaper"))
@@ -57,6 +59,7 @@ QByteArray encodeLocalCommand(const LocalCommand &command)
     QJsonObject object;
     switch (command.action) {
     case LocalAction::Ping: object.insert(QStringLiteral("action"), QStringLiteral("ping")); break;
+    case LocalAction::Gaming: object.insert(QStringLiteral("action"), QStringLiteral("gaming")); break;
     case LocalAction::Stop: object.insert(QStringLiteral("action"), QStringLiteral("stop")); break;
     case LocalAction::Wallpaper:
         object.insert(QStringLiteral("action"), QStringLiteral("wallpaper"));
@@ -173,6 +176,7 @@ void LocalControl::acceptConnections()
             socket->write("{\"ok\":true}\n");
             socket->disconnectFromServer();
             switch (command->action) {
+            case LocalAction::Gaming: Q_EMIT gamingRequested(); break;
             case LocalAction::Ping: break;
             case LocalAction::Wallpaper: Q_EMIT wallpaperRequested(command->wallpaper); break;
             case LocalAction::Stop: Q_EMIT stopRequested(); break;

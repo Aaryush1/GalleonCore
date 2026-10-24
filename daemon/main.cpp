@@ -799,11 +799,13 @@ int main(int argc, char *argv[])
     // The button pages: keys and dials drive the platform media controller.
     // The virtual keypad for `key` actions: created only when a pages file uses one.
     auto keypad = galleond::createKeyInjector();
+    galleond::RecordingController recording;
     std::unique_ptr<galleond::PagesController> pages;
     if (usePages) {
         const QString pagesFile = defaultPagesFile(parser.value(pagesOption));
         pages = std::make_unique<galleond::PagesController>(&deck, media.get(),
                                                             galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
+        pages->setRecordingController(&recording);
         pages->setKeyInjector(keypad.get());
         // The use of applications, for the pages that put the most used first.
         pages->setUsageFile(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
@@ -837,11 +839,24 @@ int main(int argc, char *argv[])
         };
         QObject::connect(pages.get(), &galleond::PagesController::screensaverConfigChanged, screensaver.get(), applySaver);
         applySaver();
+        galleond::connectGameToScreensaver(controller, *screensaver);
     }
+
+    const auto updateGamingPad = [&pages, &screensaver](bool active) {
+        if (active && screensaver) screensaver->notifyActivity();
+        if (pages) pages->setGameActive(active);
+    };
+    QObject::connect(&controller, &galleond::ScreenController::gameActiveChanged, &controller, updateGamingPad);
+    updateGamingPad(controller.gameActive());
+    controller.setGamingHandler([&pages, &screensaver] {
+        if (screensaver) screensaver->notifyActivity();
+        return pages && pages->showGaming();
+    });
 
     // org.galleoncore.Deck on the session bus (the name was claimed at the start):
     // SetWallpaper, ClearWallpaper, Wallpapers.
 #ifdef Q_OS_WIN
+    QObject::connect(&localControl, &galleond::LocalControl::gamingRequested, &controller, [&controller] { controller.ShowGaming(); });
     QObject::connect(&localControl, &galleond::LocalControl::wallpaperRequested,
                      &controller, &galleond::ScreenController::SetWallpaper);
     QObject::connect(&localControl, &galleond::LocalControl::stopRequested,

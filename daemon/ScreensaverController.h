@@ -55,6 +55,9 @@ public:
     // Something was used (a key, a dial): restarts the idle time; wakes the
     // module if the screensaver runs.
     void notifyActivity();
+    // A live game keeps the module awake; releasing restarts the full idle delay.
+    void setInhibited(bool inhibited);
+    [[nodiscard]] bool isInhibited() const { return m_inhibited; }
 
     // For the tests.
     void setFfmpegProgram(const QString &program) { m_program = program; }
@@ -88,6 +91,7 @@ private:
     QByteArray m_buffer;
     qint64 m_frameBytes = 0;
     bool m_active = false;
+    bool m_inhibited = false;
     QElapsedTimer m_sinceShown; // since the last frame was sent
     qint64 m_lastCostMs = 0;    // what sending it took
     int m_next = 0; // the video shown at the next start: they take turns

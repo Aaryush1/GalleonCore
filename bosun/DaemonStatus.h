@@ -42,9 +42,11 @@ public:
     // "" when the request was sent (the answer is the name appearing on the bus), else why not.
     Q_INVOKABLE [[nodiscard]] QString start();
     Q_INVOKABLE [[nodiscard]] QString stop();
+    Q_INVOKABLE [[nodiscard]] QString showGaming();
 
 Q_SIGNALS:
     void changed();
+    void commandError(const QString &message);
 
 private:
     [[nodiscard]] QString ask(const QString &verb);

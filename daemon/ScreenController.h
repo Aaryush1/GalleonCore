@@ -4,12 +4,14 @@
 #pragma once
 
 #include "CoverLoader.h"
+#include "HomeWidgets.h"
 #include "MediaController.h"
 #include "PagesConfig.h"
 #include "VideoThumbnails.h"
 #include "WallpaperCatalog.h"
 
 #include <QObject>
+#include <functional>
 #include <QString>
 #include <QTimer>
 #include <QUrl>
@@ -38,6 +40,8 @@ class ScreenController : public QObject
     Q_PROPERTY(bool deckAvailable READ deckAvailable NOTIFY deckAvailableChanged)
     Q_PROPERTY(QVariantList wallpapers READ wallpapers CONSTANT)
     Q_PROPERTY(QUrl widgetUrl READ widgetUrl CONSTANT)
+    Q_PROPERTY(bool gameActive READ gameActive NOTIFY gameActiveChanged)
+    Q_PROPERTY(QObject* homeWidgets READ homeWidgets CONSTANT)
 
 public:
     // `deck`, `renderer`, `media` and `nowPlayingRenderer` are not owned and
@@ -81,12 +85,17 @@ public:
     [[nodiscard]] QString wallpaper() const { return m_wallpaper; }
     [[nodiscard]] bool deckAvailable() const;
     [[nodiscard]] QVariantList wallpapers() const;
+    [[nodiscard]] bool gameActive() const { return m_homeWidgets.gameState().value(QStringLiteral("active")).toBool(); }
+    QObject *homeWidgets() { return &m_homeWidgets; }
     [[nodiscard]] QUrl widgetUrl() const { return QUrl::fromLocalFile(m_widgetFile); }
+
+    void setGamingHandler(std::function<bool()> handler) { m_showGaming = std::move(handler); }
 
     // Takes the last wallpaper chosen, if it is still in the catalog.
     void restore();
 
 public Q_SLOTS:
+    bool ShowGaming();
     // Shows this wallpaper (a catalog name such as "manga-classic/manga-classic-01.jpg").
     // False if the name is unknown or the frame could not be drawn.
     bool SetWallpaper(const QString &name);
@@ -97,10 +106,12 @@ public Q_SLOTS:
 Q_SIGNALS:
     // The screen with the name and place of the wallpaper being chosen was sent to the module.
     void choosingLabelShown();
+    void gameActiveChanged(bool active);
     void wallpaperChanged();
     void deckAvailableChanged();
 
 private:
+    std::function<bool()> m_showGaming;
     [[nodiscard]] QVariantMap themeProperties() const;
     void tick();
     bool draw();
@@ -108,6 +119,8 @@ private:
     int m_failedSends = 0;
     std::uint32_t m_barRgb = 0xffffff;
     bool m_suspended = false;
+    bool m_gameShown = false;
+    bool m_lastGameActive = false;
     bool m_choosingWallpaper = false;
     bool m_themeChoosing = false;
     QString m_themeName;
@@ -124,6 +137,7 @@ private:
     void scheduleNextMinute();
     void checkDeck();
 
+    HomeWidgets m_homeWidgets;
     galleon::StreamDeck *m_deck;
     ScreenRenderer *m_renderer;
     WallpaperCatalog m_catalog;

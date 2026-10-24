@@ -8,6 +8,7 @@
 #include "LauncherCache.h"
 #endif
 #include "KeyInjector.h"
+#include "RecordingController.h"
 #include "PageOrder.h"
 #include "MediaController.h"
 #include "PagesConfig.h"
@@ -46,6 +47,10 @@ class PagesController : public QObject
 public:
     // `deck` and `media` are not owned and must outlive the controller.
     PagesController(galleon::StreamDeck *deck, MediaController *media, TileRenderer tiles, QObject *parent = nullptr);
+
+    void setRecordingController(RecordingController *recording);
+    bool showGaming();
+    void setGameActive(bool active);
 
     // Uses this configuration and goes back to its home page.
     void setConfig(const PagesConfig &config);
@@ -147,10 +152,17 @@ private:
     void reload();
     void watch(const QString &path);
 
+    RecordingController *m_recording = nullptr;
+    QString m_recordingPage;
+    bool m_gameActive = false;
+    void addGamingPage();
+    int m_beforeGameTheme = -1;
+    QStringList m_beforeGameStack;
     galleon::StreamDeck *m_deck;
     MediaController *m_media;
     TileRenderer m_tiles;
     PagesConfig m_config;
+    std::optional<PagesConfig> m_sourceConfig;
     void selectTheme(int index);
     // The current page as shown: the pages file's, with its application keys put in order of use and
     // the installed Steam games added, when the page asks for it.

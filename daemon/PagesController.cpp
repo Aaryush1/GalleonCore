@@ -15,6 +15,7 @@
 #include <galleon/StreamDeck.h>
 
 #include <QDebug>
+#include <QPainter>
 #ifdef Q_OS_WIN
 #include <QDesktopServices>
 #include <QUrl>
@@ -168,6 +169,96 @@ PagesController::PagesController(galleon::StreamDeck *deck, MediaController *med
     connect(&m_watcher, &QFileSystemWatcher::directoryChanged, &m_reloadTimer, qOverload<>(&QTimer::start));
 }
 
+void PagesController::setRecordingController(RecordingController *recording)
+{
+    if (m_recording) disconnect(m_recording, nullptr, this, nullptr);
+    m_recording = recording;
+    if (recording) connect(recording, &RecordingController::changed, this, [this] {
+        if (currentPage() == m_recordingPage) redraw();
+    });
+    if (m_sourceConfig) {
+        const auto source = *m_sourceConfig;
+        setConfig(source);
+    }
+}
+
+bool PagesController::showGaming()
+{
+    if (!m_gameActive || !m_recording || m_suspended || !m_deck->isOpen()) return false;
+    for (std::size_t i = 0; i < m_config.themes.size(); ++i) {
+        if (m_config.themes[i].page == m_recordingPage) {
+            m_themeApply.stop();
+            m_themePending = false;
+            m_themeTimeout.stop();
+            m_themeDial = -1;
+            setWallpaperMode(-1);
+            m_sent.fill(QImage());
+            selectTheme(static_cast<int>(i));
+            Q_EMIT themeModeChanged();
+            return true;
+        }
+    }
+    return false;
+}
+
+void PagesController::addGamingPage()
+{
+    if (!m_gameActive || !m_recording || !m_recordingPage.isEmpty()) return;
+    QString name = QStringLiteral("_galleon_gaming");
+    while (m_config.pages.contains(name)) name += QLatin1Char('_');
+    m_recordingPage = name;
+    Page gaming;
+    for (int i = 0; i < 4; ++i) {
+        KeyConfig key; key.key = i;
+        gaming.keys.at(static_cast<std::size_t>(i)) = key;
+    }
+    m_config.pages.insert(name, gaming);
+    m_config.themes.push_back(Theme{.name = QStringLiteral("Gaming"), .page = name, .rgb = 0x80e5d1, .when = ThemeTrigger::None});
+}
+
+void PagesController::setGameActive(bool active)
+{
+    if (active == m_gameActive) return;
+    m_gameActive = active;
+    if (active) {
+        m_beforeGameTheme = m_theme;
+        m_beforeGameStack = m_stack;
+        addGamingPage();
+        showGaming();
+        return;
+    }
+    if (m_recordingPage.isEmpty()) return;
+    const bool restore = currentPage() == m_recordingPage;
+    m_themeApply.stop();
+    m_themePending = false;
+    const QString removedPage = m_recordingPage;
+    // This runtime theme was appended, so removing it leaves all ordinary indices stable.
+    std::erase_if(m_config.themes, [&removedPage](const Theme &theme) { return theme.page == removedPage; });
+    m_config.pages.remove(removedPage);
+    m_recordingPage.clear();
+    if (restore) {
+        const bool validPrevious = m_beforeGameTheme >= 0 && std::cmp_less(m_beforeGameTheme, m_config.themes.size());
+        if (validPrevious || !m_config.themes.empty()) {
+            selectTheme(validPrevious ? m_beforeGameTheme : 0);
+            if (m_beforeGameStack.size() > 1 && std::ranges::all_of(m_beforeGameStack,
+                [this](const QString &name) { return m_config.pages.contains(name); })) {
+                m_stack = m_beforeGameStack;
+                rebuildPage();
+                redraw();
+            }
+        } else {
+            m_theme = -1;
+            m_stack = {m_config.home};
+            rebuildPage();
+            redraw();
+        }
+    } else {
+        // A manually selected ordinary page stays selected, but Gaming disappears everywhere.
+        applyTheme();
+    }
+    m_beforeGameStack.clear();
+}
+
 void PagesController::setConfig(const PagesConfig &config)
 {
     m_apps.clear();
@@ -179,7 +270,10 @@ void PagesController::setConfig(const PagesConfig &config)
 #endif
     const bool screenChanged = !(config.screen == m_config.screen);
     const bool saverChanged = !(config.screensaver == m_config.screensaver);
+    m_sourceConfig = config;
     m_config = config;
+    m_recordingPage.clear();
+    addGamingPage();
     releaseHeldKeys();
     m_stack = {config.home};
     m_theme = -1;
@@ -264,7 +358,7 @@ void PagesController::reload()
             qWarning().noquote() << "   " << line;
         return;
     }
-    if (*result.config == m_config)
+    if (m_sourceConfig && *result.config == *m_sourceConfig)
         return;
     qInfo() << "galleond: pages loaded from" << m_file;
     setConfig(*result.config);
@@ -350,6 +444,14 @@ void PagesController::drawKey(int key, bool force)
         // Shuffle and repeat show their state in words, and a lighter key when it is on.
         KeyConfig shown = effective;
         bool active = false;
+        bool recordingDisabled = false;
+        if (m_recording && currentPage() == m_recordingPage) {
+            const auto button = m_recording->buttons().at(key).toMap();
+            shown.label = button.value(QStringLiteral("label")).toString().left(MaxLabelLength);
+            shown.icon.name = QStringLiteral("galleon-recording-") + button.value(QStringLiteral("icon")).toString();
+            active = button.value(QStringLiteral("active")).toBool();
+            recordingDisabled = !button.value(QStringLiteral("enabled")).toBool();
+        }
         if (configured->action.type == ActionType::Media
             && (configured->action.command == MediaCommand::Shuffle || configured->action.command == MediaCommand::Repeat)) {
             const bool shuffle = configured->action.command == MediaCommand::Shuffle;
@@ -371,6 +473,10 @@ void PagesController::drawKey(int key, bool force)
         }
         image = m_tiles.render(shown, MediaController::stateName(m_media->state()), m_pressed.at(index), iconFile, tint,
                                key == m_highlightKey, active);
+        if (recordingDisabled) {
+            QPainter painter(&image);
+            painter.fillRect(image.rect(), QColor(0, 0, 0, 170));
+        }
     } else {
         image = TileRenderer::blank(tint);
     }
@@ -524,7 +630,7 @@ void PagesController::onMediaChanged()
     m_mediaPresent = present;
     // The theme tied to this moment, unless the user is choosing one right now.
     const int index = themeFor(present ? ThemeTrigger::Media : ThemeTrigger::NoMedia);
-    if (index >= 0 && index != m_theme && !themeMode() && !m_suspended)
+    if (index >= 0 && index != m_theme && !themeMode() && !m_suspended && !m_gameActive)
         selectTheme(index);
 }
 
@@ -751,6 +857,10 @@ void PagesController::onKeyPressed(int key)
             if (const auto code = keyCodeForName(action.keyName); code && m_injector->key(*code, true))
                 m_heldKey.at(static_cast<std::size_t>(key)) = *code;
         }
+        return;
+    }
+    if (m_recording && currentPage() == m_recordingPage) {
+        m_recording->trigger(key);
         return;
     }
     perform(action); // may change the page: the pressed flags are reset there

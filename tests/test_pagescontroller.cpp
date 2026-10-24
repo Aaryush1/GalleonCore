@@ -252,6 +252,103 @@ class TestPagesController : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void gamingPadRoutesSupportedButtonsAndLeavesUserPagesIntact()
+    {
+        const QTemporaryDir dir;
+        RecordingController recording(nullptr, dir.filePath("recording.ini"));
+        QList<int> commands;
+        recording.setPlatformForTest(true, true, false, [&commands](int index) { commands.append(index); return true; });
+        Fixture f;
+        f.controller->setRecordingController(&recording);
+        PagesConfig config;
+        config.home = QStringLiteral("home");
+        Page home;
+        KeyConfig themeKey; themeKey.key = 0; themeKey.action.type = ActionType::Theme;
+        home.keys[0] = themeKey;
+        config.pages.insert(config.home, home);
+        config.themes.push_back(Theme{QStringLiteral("Home"), config.home, 0xffffff, ThemeTrigger::Media});
+        f.controller->setConfig(config);
+        QCOMPARE(f.controller->currentPage(), QString("home"));
+        QVERIFY(!f.controller->showGaming());
+        f.pressKey(0, true); f.pressKey(0, false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Home"));
+        f.controller->setGameActive(true);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        for (int i = 0; i < 5; ++i) { f.pressKey(i, true); f.pressKey(i, false); }
+        QCOMPARE(commands, (QList<int>{0,1,2,3}));
+        recording.setPlatformForTest(true, false, false, [&commands](int index) { commands.append(index); return true; });
+        f.pressKey(0, true); f.pressKey(0, false);
+        QCOMPARE(commands.size(), 4);
+        QCOMPARE(config.pages.size(), 1);
+        // The runtime theme must not make an unchanged source look different.
+        const auto json = QJsonDocument(QJsonObject{{"version",1},{"home","home"},
+            {"pages",QJsonObject{{"home",page({keyJson(0,"Theme",{{"type","theme"}})})}}},
+            {"themes",QJsonArray{QJsonObject{{"name","Home"},{"page","home"},{"color","#ffffff"}}}}}).toJson();
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, json));
+        f.controller->loadFile(file);
+        f.pressKey(0, true); f.pressKey(0, false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        f.controller->loadFile(file);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        f.controller->setConfig(config);
+        QVERIFY(f.controller->showGaming());
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        f.controller->setSuspended(true);
+        QVERIFY(!f.controller->showGaming());
+        f.controller->setSuspended(false);
+        f.controller->setGameActive(false);
+        f.controller->setConfig(config);
+        f.controller->setGameActive(true);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        f.media.setState(MediaController::State::Playing);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        f.controller->setGameActive(false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Home"));
+        f.controller->setGameActive(true);
+        QVERIFY(f.controller->showGaming()); // Even explicitly revisiting Gaming cannot keep it after exit.
+        f.controller->setGameActive(false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Home"));
+        QVERIFY(!f.controller->showGaming());
+        f.pressKey(0, true); f.pressKey(0, false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Home"));
+    }
+
+    void gamingIsRemovedAfterExitEvenWhenAnotherKeyModeWasSelected()
+    {
+        const QTemporaryDir dir;
+        RecordingController recording(nullptr, dir.filePath("recording.ini"));
+        Fixture f;
+        f.controller->setRecordingController(&recording);
+        PagesConfig config;
+        config.home = QStringLiteral("home");
+        Page page;
+        KeyConfig next; next.key = 0; next.action.type = ActionType::Theme;
+        page.keys[0] = next;
+        config.pages.insert("home", page); config.pages.insert("other", page);
+        config.themes.push_back(Theme{.name="Home",.page="home",.rgb=0xffffff,.when=ThemeTrigger::None});
+        config.themes.push_back(Theme{.name="Other",.page="other",.rgb=0xffffff,.when=ThemeTrigger::None});
+        config.dials[0].press.type = ActionType::Theme;
+        f.controller->setConfig(config);
+        f.controller->setGameActive(true);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        f.pressDial(0,true); f.pressDial(0,false);
+        f.turnDial(0,2); // Gaming -> Home -> Other.
+        QCOMPARE(f.controller->currentTheme()->name, QString("Other"));
+        f.controller->setGameActive(false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Other"));
+        QVERIFY(!f.controller->showGaming());
+        f.pressKey(0,true); f.pressKey(0,false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Home")); // Gaming is no longer in the cycle.
+        f.pressKey(0,true); f.pressKey(0,false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Other"));
+        f.controller->setGameActive(true);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        QVERIFY(f.controller->showGaming());
+        f.controller->setGameActive(false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Other"));
+    }
+
     void allTwelveKeysAreDrawnAtStart()
     {
         Fixture f;

@@ -12,6 +12,8 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
+#include <QQmlPropertyMap>
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QSignalSpy>
@@ -107,6 +109,84 @@ class TestBosun : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void widgetApplyButtonPublishesTheDraft() {
+        const QTemporaryDir dir;
+        const auto file = dir.filePath("widgets.json");
+        galleond::HomeWidgets widgets(nullptr, file, true);
+        QVERIFY(widgets.setCity("Lyon"));
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/WidgetsPage.qml")));
+        const std::unique_ptr<QObject> page(component.createWithInitialProperties({{"widgets", QVariant::fromValue(&widgets)}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        auto *apply = page->findChild<QObject *>("applyWidgets");
+        QVERIFY(apply);
+        QVERIFY(!QFile::exists(file));
+        QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
+        QVERIFY(QFile::exists(file));
+        QVERIFY(!widgets.pending());
+        const galleond::HomeWidgets saved(nullptr, file);
+        QCOMPARE(saved.values().value("weatherCity").toString(), QStringLiteral("Lyon"));
+    }
+    void captureButtonTracksConfirmedStateWithoutProcessFlag() {
+        QQmlPropertyMap widgets;
+        widgets.insert("windowsCapture", true);
+        widgets.insert("pending", false);
+        widgets.insert("error", QString());
+        widgets.insert("fpsConfig", QVariantMap{});
+        widgets.insert("gameConfig", QVariantMap{});
+        widgets.insert("gameState", QVariantMap{});
+        widgets.insert("recommendedFpsFolder", QStringLiteral("/tmp/fps"));
+        widgets.insert("steamLaunchOptions", QString());
+        widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "waiting"}});
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/GameModePage.qml")));
+        const std::unique_ptr<QObject> page(component.createWithInitialProperties({{"widgets", QVariant::fromValue(static_cast<QObject *>(&widgets))}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        auto *button = page->findChild<QObject *>("startPresentMon");
+        QVERIFY(button);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Prêt — lancez un jeu"));
+        QVERIFY(!button->property("enabledLook").toBool());
+        widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "capturing"}, {"running", false}});
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"));
+        QVERIFY(button->property("selected").toBool());
+        widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "starting"}, {"starting", true}});
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrage de la capture FPS…"));
+        QVERIFY(!button->property("enabledLook").toBool());
+        widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "error"}, {"message", "API inaccessible"}});
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"));
+        QVERIFY(!button->property("selected").toBool());
+        QVERIFY(button->property("enabledLook").toBool());
+        widgets.insert("captureStatus", QVariantMap{{"state", "offline"}});
+        QVERIFY(!button->property("enabledLook").toBool());
+    }
+    void gameTabAppliesItsOwnFields() {
+        const QTemporaryDir dir;
+        const auto file = dir.filePath("widgets.json");
+        galleond::HomeWidgets widgets(nullptr, file, true);
+        QVERIFY(widgets.setGameOptions(false, false));
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/GameModePage.qml")));
+        const std::unique_ptr<QObject> page(component.createWithInitialProperties({{"widgets", QVariant::fromValue(&widgets)}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        const auto setField = [&](const char *name, const QString &value) {
+            auto *field = page->findChild<QObject *>(name);
+            return field && field->setProperty("value", value);
+        };
+        QVERIFY(setField("gameFpsSource", dir.path()));
+        QVERIFY(setField("gameProfileProcess", "cs2"));
+        QVERIFY(setField("gameProfileTitle", "Counter-Strike 2"));
+        QVERIFY(setField("gameProfileImage", dir.filePath("art.png")));
+        QVERIFY(!QFile::exists(file));
+        auto *apply = page->findChild<QObject *>("applyGameMode");
+        QVERIFY(apply);
+        QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
+        QVERIFY(!widgets.pending());
+        const galleond::HomeWidgets saved(nullptr, file);
+        QCOMPARE(saved.fpsConfig().value("source").toString(), dir.path());
+        QVERIFY(!saved.gameConfig().value("automatic").toBool());
+        QCOMPARE(saved.gameConfig().value("profiles").toMap().value("cs2").toMap().value("title").toString(), QStringLiteral("Counter-Strike 2"));
+        QVERIFY(!page->findChild<QObject *>("applyWidgets"));
+    }
     void browseComesFirstAndImportsOnlyWhenAFileIsChosen()
     {
         const QTemporaryDir dir;
@@ -137,7 +217,7 @@ private Q_SLOTS:
         engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
         QVERIFY(!engine.rootObjects().isEmpty());
         auto *root = engine.rootObjects().constFirst();
-        root->setProperty("currentTab", root->property("tabs").toList().size() - 2);
+        root->setProperty("currentTab", root->property("tabs").toList().size() - 4);
         auto *pictureButton = root->findChild<QQuickItem *>("browseWallpaper");
         auto *videoButton = root->findChild<QQuickItem *>("browseScreensaver");
         QVERIFY(pictureButton);
@@ -849,7 +929,7 @@ private Q_SLOTS:
         // The window must be able to call what it is given (the daemon's start, the backend's edits).
         QVERIFY(qvariant_cast<QObject *>(window->property("daemon")) != nullptr);
         QVERIFY(qvariant_cast<QObject *>(window->property("backend")) != nullptr);
-        QCOMPARE(window->property("tabs").toList().size(), 2 + 4); // themes, the new tab, keyboard, wallpapers, screensavers
+        QCOMPARE(window->property("tabs").toList().size(), 2 + 6); // themes, new tab, keyboard, wallpapers, widgets, gaming, screensavers
         QCOMPARE(window->property("keys").toList().size(), 12);
         QVERIFY(window->property("selected").toMap().isEmpty()); // nothing chosen yet
         window->setProperty("selectedKey", 0);
@@ -860,6 +940,50 @@ private Q_SLOTS:
         QCOMPARE(window->property("keys").toList().size(), 12);
         window->setProperty("currentTab", 5);
         QVERIFY(window->property("keys").toList().isEmpty());
+        const auto tabs = window->property("tabs").toList();
+        for (int i = 0; i < tabs.size(); ++i) {
+            const auto kind = tabs[i].toMap().value("kind").toString();
+            if (kind != "widgets" && kind != "gaming") continue;
+            window->setProperty("currentTab", i);
+            auto *widgets = window->findChild<QQuickItem *>(kind == "gaming" ? "gamingPage" : "widgetsPage");
+            QVERIFY(widgets);
+            QVERIFY(widgets->isVisible());
+            if (kind == "gaming") {
+                const auto *mode = window->findChild<QQuickItem *>("gameModePage");
+                QVERIFY(mode && widgets->isAncestorOf(mode));
+                const auto *show = window->findChild<QQuickItem *>("showGamingOnPad");
+                QVERIFY(show && !show->isVisible());
+                const auto *pad = window->findChild<QQuickItem *>("gamingPadButtons");
+                QVERIFY(pad && !pad->isVisible());
+                const auto *launch = window->findChild<QQuickItem *>("steamFpsLaunchCommand");
+                QVERIFY(launch);
+                QVERIFY(launch->property("text").toString().contains("mangohud %command%"));
+                const auto *pol = window->findChild<QQuickItem *>("polFpsLaunchCommand");
+                QVERIFY(pol && pol->property("text").toString().contains("export BEFORE_WINE="));
+                QVERIFY(!pol->property("text").toString().contains("%command%"));
+                const auto *bottles = window->findChild<QQuickItem *>("bottlesFlatpakFpsCommand");
+                QVERIFY(bottles && bottles->property("text").toString().contains("com.usebottles.bottles"));
+            }
+            QTest::qWait(100);
+            const auto screenshot = qobject_cast<QQuickWindow *>(window)->grabWindow();
+            QVERIFY(!screenshot.isNull());
+            auto *other = window->findChild<QQuickItem *>(kind == "gaming" ? "widgetsPage" : "gamingPage");
+            QVERIFY(other);
+            QVERIFY(!other->isVisible());
+            const auto output = qEnvironmentVariable(kind == "gaming" ? "GALLEON_GAMING_SCREENSHOT" : "GALLEON_WIDGETS_SCREENSHOT");
+            if (!output.isEmpty()) QVERIFY(screenshot.save(output));
+            const auto helpOutput = qEnvironmentVariable("GALLEON_GAMING_HELP_SCREENSHOT");
+            if (kind == "gaming" && !helpOutput.isEmpty()) {
+                auto *help = window->findChild<QQuickItem *>("linuxLauncherHelp");
+                auto *contentItem = qvariant_cast<QQuickItem *>(widgets->property("contentItem"));
+                QVERIFY(help && contentItem);
+                widgets->setProperty("contentY", help->mapToItem(contentItem, QPointF()).y());
+                QTest::qWait(100);
+                QVERIFY(qobject_cast<QQuickWindow *>(window)->grabWindow().save(helpOutput));
+                widgets->setProperty("contentY", 0);
+            }
+
+        }
         // A window that is not shown has no picture, but a shown one grabs: the pictures load.
         window->setProperty("currentTab", 0);
         auto *quick = qobject_cast<QQuickWindow *>(window);

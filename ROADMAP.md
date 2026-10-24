@@ -4,6 +4,21 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 
 État au 21 octobre 2026 : socle Linux/Windows, Setup NSIS, pages initiales à 12 touches et aperçus Bosun fusionnés dans `main` jusqu'à la PR #35. La validation complète de l'arbre fusionné et les CI de `main` ont réussi. Le propriétaire a confirmé le fonctionnement du Setup après mise à jour du firmware Stream Deck depuis l'application officielle Elgato, puis désinstallation de cette application. Le tag [`v0.1.0`](https://github.com/Paullux/GalleonCore/tree/v0.1.0) pointe sur `8634920` et a déclenché la [CI de publication](https://github.com/Paullux/GalleonCore/actions/runs/39674680765) : consulter cette exécution et les dépôts pour leur état effectif. COPR a réussi après retrait d'un dépôt externe invalide. Les premières sources PPA ont compilé et passé CTest, mais Launchpad a refusé les binaires à cause de 46 fichiers datés de 1970 ; une révision Debian `-2` corrige les horodatages sans changer l'archive source publiée. Les essais prolongés et le démarrage à froid sous Windows restent à confirmer. La [PR #31](https://github.com/Paullux/GalleonCore/pull/31), ancien contournement HID expérimental non validé sur le matériel, est fermée sans fusion.
 
+### Candidat 0.2.0 — 24 octobre 2026
+
+Retour matériel Windows du propriétaire sur le setup 0.2.0 : mesure des FPS et mode Widgets fonctionnels. Anomalie ouverte : le bouton PresentMon reste sur « Démarrer la capture FPS » alors que les FPS sont affichés ; le message de statut n’a pas été relevé. La logique actuelle et son test natif couvrent déjà la transition `running=true` → « Arrêter » ; le défaut réel n’est donc pas encore reproduit ni corrigé. Ne pas confondre la capture fonctionnelle avec la validation de son bouton.
+
+Correctif du bouton Windows : instantané `c1e3a0b`, [CI Windows réussie](https://github.com/Paullux/GalleonCore/actions/runs/40084070829). Le bouton traite aussi l’état confirmé `capturing` lorsque `running` manque ou vaut faux ; même décision pour le libellé et la commande stop, étape de démarrage visible et désactivée. Tests ciblés Linux et 14 tests natifs Windows réussis, dont la régression sur le bouton et la demande stop. Setup, mise à niveau et conservation des données vérifiés automatiquement. Essai du propriétaire encore nécessaire pour confirmer la disparition du défaut réel, non reproduit avec ses données de statut. Les blocages globaux 0.2.0 ci-dessous restent ouverts.
+
+
+Le propriétaire confirme le mode Jeu CS2/Steam sous Linux après alignement du dossier CSV MangoHud. Le setup Windows candidat `22f1cd6` a passé la [CI Windows](https://github.com/Paullux/GalleonCore/actions/runs/40081354924), y compris déploiement, installation/mise à niveau/désinstallation avec applications ouvertes et conservation des données. Les nouveaux essais matériels Windows restent à effectuer. La [CI Linux](https://github.com/Paullux/GalleonCore/actions/runs/40081356379) passe sous GCC ; Clang + sanitizers échoue dans `test_gpusensors` sur le type de pointeur de fonction NVML et l’analyse statique comporte des diagnostics à corriger. **La 0.2.0 n’est pas validée pour publication. Aucun tag ni publication avant le retour des essais Windows et la résolution des contrôles bloquants.**
+
+### Préparation de v0.2.0
+
+Périmètre : widgets d’accueil, mode Jeu automatique, capteurs GPU, contrôle Game Bar/OBS et aide Linux par lanceur. Le propriétaire a confirmé les widgets et les FPS sous Windows ainsi que CS2/Steam sous Linux, et a autorisé la publication après réussite des tests. Le libellé Windows au repos indique désormais « Prêt — lancez un jeu ».
+
+Les contrôles de sortie obligatoires couvrent GCC, Clang + ASan/UBSan, fuzzing, clang-tidy, QML, tests des outils, REUSE, Windows natif et cycle du Setup, puis les paquets Linux. Le type NVML est partagé entre le collecteur et sa bibliothèque de test ; les notices AMD/Intel sont conservées et le texte MIT canonique est fourni. Les résultats des anciens candidats ci-dessus et ci-dessous sont historiques et ne constituent pas le bilan du contenu final de v0.2.0. Les notes de version sont dans [docs/RELEASE_0.2.0.md](docs/RELEASE_0.2.0.md). Le site sera repris séparément après publication.
+
 ## 1. Implémenté et testé
 
 Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fonds personnels et du bouton « Parcourir » (PR #24).
@@ -12,6 +27,7 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
 
 | Fonction | Tests | Sur le module |
 |---|---|---|
+| **Gaming : logiciel d’enregistrement** (24 octobre) : préférence Automatique/Game Bar/OBS, défaut Windows Game Bar et Linux OBS, logiciels absents grisés ; onglet Gaming unique (réglages Mode Jeu et enregistrement), thème runtime Gaming du pad avec quatre actions adaptées et icônes intégrées, page de touches présente uniquement pendant le jeu et retirée à sa fermeture même après un changement de mode, aide CSV MangoHud dans le dossier utilisateur, commandes OBS WebSocket 5 authentifiées et états confirmés, Game Bar par raccourcis sans état supposé ; réglages locaux persistants | oui, ciblés Linux (`test_recording`, `test_pagescontroller`, `test_bosun`) et rendu QML ; exécution native Windows à faire | à confirmer avec OBS et Game Bar réels ; [configuration](docs/GAMING_RECORDING.md) |
 | Fond d'écran + heure/date (locale du système) sur l'écran 720×384, redessiné chaque minute | oui | oui |
 | Fond retenu (`galleond.conf`) et affiché dès le démarrage ; avertissement si le fond sauvegardé n'existe plus | oui | oui |
 | Images des 12 touches (JPEG 160×160), dessin partiel (seule la touche changée est renvoyée) | oui | oui |
@@ -62,6 +78,12 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
 | **Découverte du site** : descriptions des trois pages, Open Graph et Twitter Card sur l’accueil, `robots.txt`, sitemap XML, favicon SVG/ICO/PNG et icônes Apple/Android dérivées du logo Bosun | oui (validation locale des références, formats et dimensions) ; déploiement Pages à vérifier | sans objet (site web) |
 
 ## 2. En cours
+
+- **Mode Jeu automatique (23 octobre)** : écran dédié au-dessus de l'accueil/du média pendant une capture FPS fraîche, FPS, températures et charges CPU/GPU sur cadrans gradués de style automobile, illustration locale Steam ou association manuelle par exécutable, onglets Bosun Widgets et Mode Jeu séparés, chacun avec bouton Appliquer. Arrêt de la veille du module pendant le jeu, réveil immédiat et délai complet restauré à la sortie. Sources Linux hwmon/MangoHud, NVIDIA Linux/Windows et serveur local LibreHardwareMonitor optionnel. Détection fondée sur la capture active (retour sous dix secondes sans nouvelles données), disposition jeu fixe pour cette première version ; validation native Windows et sur le module à effectuer. [Détails](docs/HOME_WIDGETS.md).
+
+
+- **Widgets de l’accueil (23 octobre)** : première itération dans Bosun, onglet dédié, aperçu QML partagé, visibilité/taille/position, nom de ville météo, taille de police par carte, compteur FPS via CSV MangoHud/PresentMon et bouton Appliquer avant sauvegarde atomique relue par le daemon. Horloge/date locale, météo Open-Meteo sur coordonnées explicites, CPU/RAM Linux/Windows, température CPU Linux et comptage des fichiers partiels de téléchargement. Tests Linux de persistance, géométrie, rendu et onglet ; validation native Windows et sur le module encore nécessaire. Restent les capteurs Windows/GPU, débits réseau/disque, graphes et progression exacte des téléchargements par navigateur. [Détails et limites](docs/HOME_WIDGETS.md).
+
 
 - ~~Aperçu fluide du choix du fond~~ — réglé le 19 octobre (cause : le module n'affiche une image que si un second envoi la suit ; voir `docs/protocol/README.md`). Ancien texte : chaque cran renvoie un JPEG de l'écran. À mesurer sur le module : latence par cran, et si une rotation rapide s'accumule. Piste si trop lent : ne dessiner que le dernier fond demandé (regrouper les crans) et réduire la qualité JPEG pendant la rotation.
 - **Écran de veille : composition** — avec la vraie géométrie (écran 62,6 × 33 mm, touches 13,7 mm, pas 19,1 mm, 5,4 mm entre écran et touches) l'écran n'occupe que **30 % de la hauteur** de l'image : le visage doit être dans les 25 % du haut. Ancien texte : deux vidéos reçues (704×1280, 24 i/s, 9 s) : « Hacker dans la métropole néon » (jaune, réaliste) et « Nuit gaming sous la lune rose » (rose, animée), listées dans `~/.config/galleoncore/pages-veille-test.json` avec une géométrie *estimée* (pas mesurée) ; à ne pas ajouter au dépôt sans vérifier `ASSETS.md` (marques visibles dans l'image, conditions du service de génération). Mesures à la règle (écran, touche, espaces, distance écran → touches) à mettre dans `screensaver.geometry`, puis une vidéo verticale (piste : image générée par ChatGPT puis animée par un outil IA, en boucle ; vérifier les conditions du service et `ASSETS.md`). À confirmer sur le module : fluidité à 15 i/s, continuité de l'image entre l'écran et les touches, réveil.
@@ -221,3 +243,11 @@ panne initiale ; sa capture montre `3.06.005`. Comme les deux changements ont
 ensuite jugé le Setup satisfaisant et demandé le premier tag. Confirmer encore
 la stabilité après démarrage à froid et longue veille ; ne pas attribuer la
 résolution du défaut HID à un correctif logiciel non vérifié.
+
+### Clarification du bouton PresentMon (24 octobre)
+
+Le propriétaire confirme que le bouton devient vert « Arrêter » dès que le jeu est lancé : le défaut observé était le libellé au repos. Correction UI : état `waiting` installé → « Prêt — lancez un jeu » désactivé, démarrage automatique au lancement du jeu ; arrêt/reprise et erreurs conservent leurs actions. Tests QML et scénario natif Windows étendus ; validation native de ce dernier libellé à refaire dans le prochain setup.
+
+### Aide Linux Gaming organisée par lanceur (24 octobre)
+
+Aide de l’interface et guide Linux réorganisés : Commun → Steam → Heroic → Lutris → PlayOnLinux → Bottles. Une préparation commune unique configure les fichiers et applique le dossier FPS ; chaque lanceur dispose de son chemin de menus et de ses propres commandes éventuelles. Les alternatives Steam, les permissions Flatpak et les limites restent dans des sections avancées du guide. Le bouton de dossier seul, redondant avec la configuration commune, a été retiré de cette aide. Compilation, qmllint, test_bosun (rendu QML) et syntaxe des blocs shell du guide réussis. Capture de l’aide contrôlée visuellement.

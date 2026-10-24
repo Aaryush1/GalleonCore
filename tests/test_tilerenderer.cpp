@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <TileRenderer.h>
+#include <RecordingIcons.h>
+#include <QIcon>
 
 #include <QDir>
 #include <QFile>
@@ -44,6 +46,21 @@ class TestTileRenderer : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void recordingIconsWorkWithoutAnyDesktopIconTheme()
+    {
+        const QString original = QIcon::themeName();
+        QIcon::setThemeName(QStringLiteral("galleon-missing-test-theme"));
+        const TileRenderer renderer;
+        const auto record = renderer.render(key("", "galleon-recording-record"), "", false);
+        const auto stop = renderer.render(key("", "galleon-recording-stop"), "", false);
+        QVERIFY(record != stop);
+        QVERIFY(qRed(record.pixel(80,80)) > qGreen(record.pixel(80,80)) + 80);
+        QVERIFY(qGreen(stop.pixel(80,80)) > 200);
+        for (const QString &name : {QStringLiteral("record"),QStringLiteral("stop"),QStringLiteral("pause"),QStringLiteral("resume"),QStringLiteral("save-replay"),QStringLiteral("replay-start"),QStringLiteral("replay-stop"),QStringLiteral("screenshot"),QStringLiteral("gamebar")})
+            QVERIFY(!recordingIcon(name, 128).isNull());
+        QVERIFY(recordingIcon("../../other",128).isNull());
+        QIcon::setThemeName(original);
+    }
     void tilesAreTheKeySize()
     {
         const TileRenderer renderer;

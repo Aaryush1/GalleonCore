@@ -65,6 +65,11 @@ QString DaemonStatus::ask(const QString &verb)
         return QCoreApplication::translate("DaemonStatus", "galleond could not be started.");
     return {};
 }
+QString DaemonStatus::showGaming() {
+    if (!running()) return tr("Start the daemon to display Gaming on the pad");
+    galleond::sendLocalCommand(m_endpoint, {galleond::LocalAction::Gaming, {}}, this);
+    return {};
+}
 QString DaemonStatus::start() { return running() ? QString{} : ask(QStringLiteral("start")); }
 QString DaemonStatus::stop() { return running() ? ask(QStringLiteral("stop")) : QString{}; }
 } // namespace bosun

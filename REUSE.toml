@@ -49,3 +49,13 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 path = ["tools/packaging/windows/assets/*.bmp", "tools/packaging/windows/assets/*.ico"]
 SPDX-FileCopyrightText = "2026 Paul Woisard"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "third_party/notices/AMD-SMI-MIT.txt"
+SPDX-FileCopyrightText = "Advanced Micro Devices, Inc."
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "third_party/notices/PresentMon-API-MIT.txt"
+SPDX-FileCopyrightText = "2017-2024 Intel Corporation"
+SPDX-License-Identifier = "MIT"
