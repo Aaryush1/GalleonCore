@@ -90,6 +90,21 @@ private slots:
         QVERIFY(button);
         QCOMPARE(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"));
         QVERIFY(button->property("enabledLook").toBool());
+        // A confirmed capturing snapshot is authoritative even without a running flag.
+        {
+            QFile state(config + ".runtime.json");
+            QVERIFY(state.open(QIODevice::WriteOnly));
+            state.write(QJsonDocument(QJsonObject{{"at", QDateTime::currentMSecsSinceEpoch()},
+                {"capture", QJsonObject{{"installed", true}, {"running", false}, {"state", "capturing"}}}}).toJson());
+        }
+        QTest::qWait(2200);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"));
+        QVERIFY(button->property("selected").toBool());
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QFile stopRequest(config + ".capture-request.json");
+        QVERIFY(stopRequest.open(QIODevice::ReadOnly));
+        QCOMPARE(QJsonDocument::fromJson(stopRequest.readAll()).object().value("action").toString(), QStringLiteral("stop"));
+        stopRequest.close();
         QVERIFY(writeState(false));
         QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"), 4000);
         QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"));

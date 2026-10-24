@@ -13,6 +13,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
+#include <QQmlPropertyMap>
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QSignalSpy>
@@ -125,6 +126,37 @@ private Q_SLOTS:
         QVERIFY(!widgets.pending());
         galleond::HomeWidgets saved(nullptr, file);
         QCOMPARE(saved.values().value("weatherCity").toString(), QStringLiteral("Lyon"));
+    }
+    void captureButtonTracksConfirmedStateWithoutProcessFlag() {
+        QQmlPropertyMap widgets;
+        widgets.insert("windowsCapture", true);
+        widgets.insert("pending", false);
+        widgets.insert("error", QString());
+        widgets.insert("fpsConfig", QVariantMap{});
+        widgets.insert("gameConfig", QVariantMap{});
+        widgets.insert("gameState", QVariantMap{});
+        widgets.insert("recommendedFpsFolder", QStringLiteral("/tmp/fps"));
+        widgets.insert("steamLaunchOptions", QString());
+        widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "waiting"}});
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/GameModePage.qml")));
+        const std::unique_ptr<QObject> page(component.createWithInitialProperties({{"widgets", QVariant::fromValue(static_cast<QObject *>(&widgets))}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        auto *button = page->findChild<QObject *>("startPresentMon");
+        QVERIFY(button);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"));
+        widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "capturing"}, {"running", false}});
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"));
+        QVERIFY(button->property("selected").toBool());
+        widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "starting"}, {"starting", true}});
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrage de la capture FPS…"));
+        QVERIFY(!button->property("enabledLook").toBool());
+        widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "error"}, {"message", "API inaccessible"}});
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"));
+        QVERIFY(!button->property("selected").toBool());
+        QVERIFY(button->property("enabledLook").toBool());
+        widgets.insert("captureStatus", QVariantMap{{"state", "offline"}});
+        QVERIFY(!button->property("enabledLook").toBool());
     }
     void gameTabAppliesItsOwnFields() {
         QTemporaryDir dir;

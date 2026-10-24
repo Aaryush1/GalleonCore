@@ -7,6 +7,8 @@ Flickable {
     objectName: "gameModePage"
     required property var widgets
     property bool advanced: false
+    // The confirmed capture state also covers snapshots without the process flag.
+    readonly property bool captureRunning: !!widgets.captureStatus.running || widgets.captureStatus.state === "capturing"
     contentWidth: width
     contentHeight: content.height
     clip: true
@@ -64,12 +66,15 @@ Flickable {
             spacing: 12
             Pill {
                 objectName: "startPresentMon"
-                text: page.widgets.captureStatus.running ? qsTr("Arrêter la capture FPS")
+                text: page.captureRunning ? qsTr("Arrêter la capture FPS")
+                    : page.widgets.captureStatus.starting ? qsTr("Démarrage de la capture FPS…")
                     : page.widgets.captureStatus.installed ? qsTr("Démarrer la capture FPS") : qsTr("Installer PresentMon")
+                selected: page.captureRunning
                 enabledLook: !page.widgets.captureStatus.starting && page.widgets.captureStatus.state !== "offline"
                 onClicked: {
-                    if (!page.widgets.captureStatus.installed) Qt.openUrlExternally("https://github.com/GameTechDev/PresentMon/releases/latest")
-                    else page.widgets.requestGameCapture(!page.widgets.captureStatus.running)
+                    if (page.captureRunning) page.widgets.requestGameCapture(false)
+                    else if (!page.widgets.captureStatus.installed) Qt.openUrlExternally("https://github.com/GameTechDev/PresentMon/releases/latest")
+                    else page.widgets.requestGameCapture(true)
                 }
             }
             Pill { text: page.advanced ? qsTr("Hide advanced settings") : qsTr("Advanced settings"); onClicked: page.advanced = !page.advanced }

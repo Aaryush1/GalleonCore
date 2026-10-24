@@ -255,3 +255,7 @@ sensor fallback pending a compatible integration route.
 References: [NVML](https://docs.nvidia.com/deploy/nvml-api/),
 [AMD-SMI API](https://github.com/ROCm/amdsmi/blob/rocm-7.2.4/include/amd_smi/amdsmi.h),
 [ADLX SDK terms](https://github.com/GPUOpen-LibrariesAndSDKs/ADLX/blob/v1.5/ADLX%20SDK%20License%20Agreement.pdf).
+
+### Windows capture button state
+
+The capture button follows both the running helper flag and the confirmed `capturing` state received from the daemon. A capturing snapshot still offers Stop when the optional process flag is missing or false. Starting capture displays a disabled progress label; the UI never assumes success from a click. Windows regression tests also verify the stop request for that snapshot. Hardware confirmation of the fix remains pending.
