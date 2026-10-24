@@ -3,6 +3,9 @@
 
 # Galleon Bosun: the settings window. The logic is a library so that the tests can use it.
 add_library(bosun_core STATIC
+    PackageUpdates.h PackageUpdates.cpp
+    UpdateChecker.h UpdateChecker.cpp
+    UpdateRelease.h UpdateRelease.cpp
     BosunBackend.h BosunBackend.cpp
     CropMath.h CropMath.cpp
     FileNames.h FileNames.cpp
@@ -25,13 +28,14 @@ set_target_properties(bosun_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 qt_add_resources(bosun_core "bosun_ui"
     PREFIX "/bosun"
-    FILES qml/GamingPage.qml qml/GameModePage.qml qml/WidgetsPage.qml qml/Bosun.qml qml/Pill.qml qml/Stepper.qml qml/Field.qml qml/Swatches.qml qml/KeyEditor.qml qml/TabEditor.qml qml/NewTab.qml qml/ScreensaversPage.qml qml/CropEditor.qml qml/WallpapersPage.qml
+    FILES qml/UpdatePanel.qml qml/GamingPage.qml qml/GameModePage.qml qml/WidgetsPage.qml qml/Bosun.qml qml/Pill.qml qml/Stepper.qml qml/Field.qml qml/Swatches.qml qml/KeyEditor.qml qml/TabEditor.qml qml/NewTab.qml qml/ScreensaversPage.qml qml/CropEditor.qml qml/WallpapersPage.qml
           icons/galleon-bosun.svg
 )
 
 # The icon in the notification area needs QSystemTrayIcon (Qt Widgets): only the program has it, not the library the tests use.
 qt_add_executable(galleon-bosun main.cpp Tray.h Tray.cpp FilePicker.h FilePicker.cpp)
 target_compile_definitions(galleon-bosun PRIVATE PROJECT_VERSION_STRING="${PROJECT_VERSION}")
+target_compile_definitions(galleon-bosun PRIVATE GALLEON_PACKAGE_FORMAT="${GALLEON_PACKAGE_FORMAT}")
 if(GALLEON_SOURCE_TREE_PATHS)
     # When run from the build tree, the project's own wallpapers; an installed one finds them in the data folders.
     target_compile_definitions(galleon-bosun PRIVATE GALLEON_SOURCE_WALLPAPERS="${CMAKE_SOURCE_DIR}/public/wallpaper")

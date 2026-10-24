@@ -11,6 +11,13 @@ libgalleon and headers, QML widgets, 24 wallpapers with provenance, desktop icon
 udev rules, an opt-in systemd user unit and modules-load configuration for uinput.
 Screensaver videos, probes, the plasmoid and the OpenRGB plugin are excluded.
 
+DEB builds set `GALLEON_PACKAGE_FORMAT=deb`; RPM builds set it to `rpm`.
+Bosun queries the local APT/DNF metadata before deciding whether a repository
+supplies updates. PPA/COPR users get no duplicate notification; independently
+installed DEB/RPM files retain the GitHub checker when no repository provides the
+package. AppImage/Windows leave the format empty. See [update checks](../../docs/UPDATES.md)
+for cache limitations and fallback behavior.
+
 ## Checks and releases
 
 `.github/workflows/linux-packages.yml` builds and tests on PRs, main and manual

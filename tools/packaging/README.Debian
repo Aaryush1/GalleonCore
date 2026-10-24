@@ -3,7 +3,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 GalleonCore for Ubuntu 24.04 and later (Qt >= 6.4)
 
-Install with: sudo apt install ./galleoncore_0.2.0-1_amd64.deb
+Install with: sudo apt install ./galleoncore_0.2.1-1_amd64.deb
 Enable from your graphical session, without sudo:
   systemctl --user daemon-reload
   systemctl --user enable --now galleond.service

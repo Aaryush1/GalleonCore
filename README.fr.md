@@ -11,7 +11,7 @@
 [![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
 [![Fedora COPR](https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/)
 [![Arch AUR](https://img.shields.io/badge/Arch-AUR-1793D1?logo=archlinux&logoColor=white)](https://aur.archlinux.org/packages/galleoncore)
-[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-0.2.0-x86_64.AppImage)
+[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/GalleonCore-0.2.1-x86_64.AppImage)
 [![Licenses](https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue)](LICENSE.md)
 [![Security policy](https://img.shields.io/badge/security-report%20privately-46505E)](SECURITY.md)
 
@@ -80,6 +80,16 @@ Les captures actualisées pour la 0.2.0 montrent les cinq pages de touches et le
 Les capteurs dépendent du matériel et des pilotes : NVML pour NVIDIA, AMD-SMI/hwmon sous Linux ; ADLX n’est pas encore intégré sous Windows. Les téléchargements sont un compteur de fichiers partiels, pas un pourcentage du navigateur. Voir les [limites par plateforme](docs/HOME_WIDGETS.md).
 
 [Voir la démonstration vidéo de la 0.2.0 sur YouTube](https://youtu.be/eFwru_OMNNI).
+
+### Notifications de mise à jour (0.2.1)
+
+La [vérification des mises à jour](docs/UPDATES.md) de Bosun consulte les versions
+stables sur GitHub et ouvre le téléchargement adapté dans le navigateur. Les
+vérifications automatiques sont désactivables. Les utilisateurs PPA/COPR ne
+reçoivent pas de notification en double lorsqu’un dépôt configuré fournit
+GalleonCore ; les DEB/RPM installés indépendamment conservent les notifications.
+Disponible depuis la 0.2.1 ; `--simulate-update` permet de tester la notification
+sans publier de nouvelle release. Voir les [notes de version 0.2.1](docs/RELEASE_0.2.1.md).
 
 ### Windows : les touches du Stream Deck ne répondent pas
 

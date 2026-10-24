@@ -20,6 +20,8 @@ Window {
     required property var daemon
     required property var library
     property var filePicker: null
+    property var updates: null
+    property bool updatesOpen: false
 
     property int currentTab: 0
     property int selectedKey: -1
@@ -42,7 +44,7 @@ Window {
         }
     }
 
-    title: qsTr("Galleon Bosun")
+    title: updates !== null && updates.simulation ? qsTr("Galleon Bosun — Update simulation") : qsTr("Galleon Bosun")
     width: 1240
     height: 740
     minimumWidth: 1000
@@ -428,14 +430,33 @@ Window {
         }
         Text {
             anchors.right: parent.right
-            anchors.rightMargin: 20
+            anchors.rightMargin: updateButton.visible ? updateButton.width + 28 : 20
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width / 2.4
+            width: parent.width / 2.4 - (updateButton.visible ? updateButton.width + 8 : 0)
             horizontalAlignment: Text.AlignRight
             elide: Text.ElideRight
             color: win.messageIsError ? "#ff8a80" : "#9be7a0"
             font.pixelSize: 13
             text: win.message
         }
+        Pill {
+            id: updateButton
+            objectName: "updatesButton"
+            visible: win.updates !== null && !win.updates.packageManaged
+            anchors.right: parent.right
+            anchors.rightMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            height: 26
+            selected: win.updates !== null && win.updates.available
+            text: win.updates !== null && win.updates.available ? qsTr("Update %1").arg(win.updates.latestVersion) : qsTr("Updates")
+            onClicked: win.updatesOpen = true
+        }
+    }
+
+    UpdatePanel {
+        anchors.fill: parent
+        visible: win.updatesOpen && win.updates !== null
+        updates: win.updates
+        onClosed: win.updatesOpen = false
     }
 }

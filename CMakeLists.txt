@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 cmake_minimum_required(VERSION 3.21)
-project(GalleonCore VERSION 0.2.0 LANGUAGES CXX)
+project(GalleonCore VERSION 0.2.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,6 +14,7 @@ option(BUILD_TESTING "Build the unit tests" ON)
 option(GALLEON_WERROR "Treat compiler warnings as errors" OFF)
 option(GALLEON_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(GALLEON_SOURCE_TREE_PATHS "Let galleond and galleon-bosun find the widgets and wallpapers in the source tree when run from the build folder (turn OFF for a package: the paths of the build machine must not end up in the programs)" ON)
+set(GALLEON_PACKAGE_FORMAT "" CACHE STRING "Native package format for repository detection (deb or rpm)")
 option(GALLEON_FUZZ "Build the libFuzzer targets (Clang only)" OFF)
 
 # Linux desktop integration remains the default. Windows desktop builds are
