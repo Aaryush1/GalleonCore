@@ -6,7 +6,7 @@ name: Website
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", ".github/workflows/pages.yml", "tools/website/download_stats.py", "tools/test_download_stats*"]
   workflow_dispatch:
   schedule:
     - cron: "23 3 * * *"
@@ -30,12 +30,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Update daily release baseline and weekly repository counts
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: Check counter changes
+        if: github.event_name == 'push'
         run: |
           python3 -m unittest discover -s tools -p 'test_download_stats.py'
           node tools/test_download_stats_js.js
+      - name: Collect daily download measurements
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
           python3 tools/website/download_stats.py \
             --previous-url https://galleoncore.xyz/downloads-weekly.json \
             --previous-url https://galleoncore.pages.dev/downloads-weekly.json \

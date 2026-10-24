@@ -7,7 +7,7 @@ import urllib.error
 
 from website.download_stats import (
     build_stats, parse_copr_downloads, platform_for, previous_snapshot,
-    repository_measurements, weekly_refresh_needed,
+    repository_measurements, daily_refresh_needed,
 )
 
 
@@ -90,23 +90,25 @@ class DownloadStatsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_copr_downloads('<title>Making sure you are not a bot</title>')
 
-    def test_repository_counts_refresh_once_per_iso_week(self):
-        self.assertFalse(weekly_refresh_needed("2026-10-19", 12, date(2026, 10, 22)))
-        self.assertTrue(weekly_refresh_needed("2026-10-19", 12, date(2026, 10, 26)))
-        self.assertTrue(weekly_refresh_needed("2026-10-22", None, date(2026, 10, 22)))
-        self.assertTrue(weekly_refresh_needed("invalid", 12, date(2026, 10, 22)))
+    def test_repository_counts_refresh_daily(self):
+        self.assertFalse(daily_refresh_needed("2026-10-22", 12, date(2026, 10, 22)))
+        self.assertTrue(daily_refresh_needed("2026-10-21", 12, date(2026, 10, 22)))
+        self.assertTrue(daily_refresh_needed("2026-10-19", 12, date(2026, 10, 26)))
+        self.assertTrue(daily_refresh_needed("2026-10-22", None, date(2026, 10, 22)))
+        self.assertTrue(daily_refresh_needed("invalid", 12, date(2026, 10, 22)))
 
-    def test_repository_measurements_are_reused_and_preserve_last_weekly_delta(self):
+    def test_same_day_reuse_and_daily_refresh(self):
         previous = {
-            "history": [{"date": "2026-10-19", "repositories": {"ppa": 10, "copr": 20}}],
+            "history": [{"date": "2026-10-19", "repositories": {"ppa": 10, "copr": 20},
+                         "repository_checked_at": {"ppa": "2026-10-19", "copr": "2026-10-19"}}],
             "repository_checked_at": {"ppa": "2026-10-19", "copr": "2026-10-19",
                                       "aur": "2026-10-19"},
             "repository_weekly": {"ppa": 2, "copr": 3}, "aur_votes": 4,
         }
         def unexpected():
-            self.fail("same-week repository check must not make a network request")
+            self.fail("same-day repository check must not make a network request")
         totals, votes, checked, weekly, _ = repository_measurements(
-            previous, date(2026, 10, 22),
+            previous, date(2026, 10, 19),
             (("ppa", unexpected), ("copr", unexpected), ("aur", unexpected)))
         self.assertEqual(totals, {"ppa": 10, "copr": 20})
         self.assertEqual(votes, 4)
@@ -131,11 +133,35 @@ class DownloadStatsTests(unittest.TestCase):
         totals, _, checked, weekly, period = repository_measurements(
             previous, date(2026, 10, 26),
             (("ppa", lambda: 14), ("copr", unavailable)))
-        self.assertEqual(totals, {"ppa": 14, "copr": None})
-        self.assertEqual(weekly, {"ppa": 4, "copr": None})
-        self.assertTrue(weekly_refresh_needed(checked["copr"], totals["copr"],
+        self.assertEqual(totals, {"ppa": 14, "copr": 20})
+        self.assertEqual(weekly, {"ppa": None, "copr": None})
+        self.assertTrue(daily_refresh_needed(checked["copr"], totals["copr"],
                                               date(2026, 10, 27)))
-        self.assertEqual(period["copr"]["to"], "2026-10-26")
+        self.assertEqual(checked["copr"], "2026-10-19")
+        self.assertEqual(period["copr"]["to"], "2026-10-19")
+
+    def test_daily_delta_requires_successful_observations(self):
+        previous = {"history": [{"date": "2026-10-21", "assets": {},
+                    "repositories": {"ppa": 10, "copr": 12},
+                    "repository_checked_at": {"ppa": "2026-10-21"}}]}
+        result = build_stats([], {"ppa": 15, "copr": 9}, 2, previous,
+                             datetime(2026, 10, 22, tzinfo=timezone.utc),
+                             {"ppa": "2026-10-22"})
+        self.assertEqual(result["daily"]["ppa"], 5)
+        self.assertIsNone(result["daily"]["copr"])
+        self.assertIsNone(result["since"])
+        stale = build_stats([], {"ppa": 10}, 2, previous,
+                            datetime(2026, 10, 22, tzinfo=timezone.utc),
+                            {"ppa": "2026-10-21"})
+        self.assertIsNone(stale["daily"]["ppa"])
+
+    def test_history_is_preserved_and_same_day_replaced(self):
+        previous = {"history": [{"date": "2026-09-01", "assets": {}},
+                                 {"date": "2026-10-22", "assets": {}}]}
+        result = build_stats([], {}, None, previous,
+                             datetime(2026, 10, 22, tzinfo=timezone.utc))
+        self.assertEqual([item["date"] for item in result["history"]],
+                         ["2026-09-01", "2026-10-22"])
 
 
 if __name__ == "__main__":

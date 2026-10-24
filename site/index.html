@@ -395,18 +395,17 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
 
   <section class="wrap" id="downloads">
     <h2><span lang="en">Install GalleonCore</span><span lang="fr">Installer GalleonCore</span></h2>
-    <p class="prose"><span lang="en">Choose your operating system. Version 0.2.0 has direct downloads; distribution repositories also provide updates. The keyboard needs its own hardware access rules and a running per-user daemon.</span><span lang="fr">Choisis ton système. La version 0.2.0 propose des téléchargements directs ; les dépôts de distribution facilitent aussi les mises à jour. Le clavier nécessite des règles d’accès au matériel et un démon utilisateur actif.</span></p>
+    <p class="prose"><span lang="en">Choose your operating system. Version 0.2.1 has direct downloads; distribution repositories also provide updates. The keyboard needs its own hardware access rules and a running per-user daemon.</span><span lang="fr">Choisis ton système. La version 0.2.1 propose des téléchargements directs ; les dépôts de distribution facilitent aussi les mises à jour. Le clavier nécessite des règles d’accès au matériel et un démon utilisateur actif.</span></p>
     <div class="download-stats" aria-live="polite">
       <h3><span lang="en">Download counts</span><span lang="fr">Compteurs de téléchargement</span></h3>
       <div class="download-stats-grid">
-        <div><strong data-download-stat="total"><span lang="en">Pending</span><span lang="fr">En attente</span></strong><small><span lang="en">Recent measured (approx.)</span><span lang="fr">Mesurés récemment (approx.)</span></small></div>
-        <div><strong data-download-stat="windows">—</strong><small>Windows · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="windows">—</span></small></div>
-        <div><strong data-download-stat="ubuntu">—</strong><small>Ubuntu .deb · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="ubuntu">—</span></small></div>
-        <div><strong data-download-stat="fedora">—</strong><small>Fedora RPM · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="fedora">—</span></small></div>
-        <div><strong data-download-stat="arch">—</strong><small>Arch package · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="arch">—</span></small></div>
-        <div><strong data-download-stat="appimage">—</strong><small>AppImage · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="appimage">—</span></small></div>
-        <div><strong data-download-stat="ppa">—</strong><small>Ubuntu PPA · <span lang="en">last weekly check</span><span lang="fr">dernier contrôle hebdomadaire</span></small></div>
-        <div><strong data-download-stat="copr">—</strong><small>Fedora COPR · <span lang="en">last weekly check</span><span lang="fr">dernier contrôle hebdomadaire</span></small></div>
+        <div><strong data-download-stat="windows">—</strong><small>Windows · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="windows">—</span></small><small>24h : <span data-download-day="windows">—</span></small></div>
+        <div><strong data-download-stat="ubuntu">—</strong><small>Ubuntu .deb · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="ubuntu">—</span></small><small>24h : <span data-download-day="ubuntu">—</span></small></div>
+        <div><strong data-download-stat="fedora">—</strong><small>Fedora RPM · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="fedora">—</span></small><small>24h : <span data-download-day="fedora">—</span></small></div>
+        <div><strong data-download-stat="arch">—</strong><small>Arch package · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="arch">—</span></small><small>24h : <span data-download-day="arch">—</span></small></div>
+        <div><strong data-download-stat="appimage">—</strong><small>AppImage · <span lang="en">all direct downloads</span><span lang="fr">téléchargements directs cumulés</span></small><small>7d : <span data-download-week="appimage">—</span></small><small>24h : <span data-download-day="appimage">—</span></small></div>
+        <div><strong data-download-stat="ppa">—</strong><small>Ubuntu PPA · <span lang="en">package downloads · cumulative</span><span lang="fr">téléchargements de paquets · cumulés</span></small><small>7d : <span data-download-week="ppa">—</span></small><small>24h : <span data-download-day="ppa">—</span></small></div>
+        <div><strong data-download-stat="copr">—</strong><small>Fedora COPR · <span lang="en">RPM downloads · cumulative</span><span lang="fr">téléchargements RPM · cumulés</span></small><small>7d : <span data-download-week="copr">—</span></small><small>24h : <span data-download-day="copr">—</span></small></div>
         <div><strong data-download-stat="aur">—</strong><small><span lang="en">AUR votes (not downloads)</span><span lang="fr">Votes AUR (pas des téléchargements)</span></small></div>
       </div>
       <p class="download-stats-note"><span lang="en">Direct source: </span><span lang="fr">Source directe : </span><span id="direct-count-source">—</span></p>
@@ -416,7 +415,7 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
       <article class="download-card">
         <h3>Windows x86_64</h3>
         <p><span lang="en">The Setup installs Bosun and galleond for your user. The ZIP is a portable alternative.</span><span lang="fr">Le Setup installe Bosun et galleond pour ta session. Le ZIP est une variante portable.</span></p>
-        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-0.2.0-Windows-x86_64-Setup.exe">Setup .exe</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-Windows-x86_64.zip">ZIP</a></div>
+        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/GalleonCore-0.2.1-Windows-x86_64-Setup.exe">Setup .exe</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/GalleonCore-Windows-x86_64.zip">ZIP</a></div>
       </article>
       <article class="download-card">
         <h3>Ubuntu 24.04 / 26.04</h3>
@@ -424,29 +423,29 @@ p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4
         <pre><code>sudo add-apt-repository ppa:paulwoisard/galleoncore
 sudo apt update
 sudo apt install galleoncore</code></pre>
-        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/galleoncore_0.2.0-1.noble_amd64.deb">.deb 24.04</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/galleoncore_0.2.0-1.resolute_amd64.deb">.deb 26.04</a><a href="https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore">PPA</a></div>
+        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/galleoncore_0.2.1-1.noble_amd64.deb">.deb 24.04</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/galleoncore_0.2.1-1.resolute_amd64.deb">.deb 26.04</a><a href="https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore">PPA</a></div>
       </article>
       <article class="download-card">
         <h3>Fedora 43 / 44 / 45</h3>
         <p><span lang="en">Use COPR for updates, or download the RPM built for your Fedora release.</span><span lang="fr">Utilise COPR pour les mises à jour, ou télécharge le RPM construit pour ta version de Fedora.</span></p>
         <pre><code>sudo dnf copr enable paullux/GalleonCore
 sudo dnf install galleoncore</code></pre>
-        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/galleoncore-0.2.0-1.fc43.x86_64.rpm">RPM 43</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/galleoncore-0.2.0-1.fc44.x86_64.rpm">RPM 44</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/galleoncore-0.2.0-1.fc45.x86_64.rpm">RPM 45</a><a href="https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/">COPR</a></div>
+        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/galleoncore-0.2.1-1.fc43.x86_64.rpm">RPM 43</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/galleoncore-0.2.1-1.fc44.x86_64.rpm">RPM 44</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/galleoncore-0.2.1-1.fc45.x86_64.rpm">RPM 45</a><a href="https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/">COPR</a></div>
       </article>
       <article class="download-card">
         <h3>Arch Linux</h3>
         <p><span lang="en">AUR builds the package on your machine. The release also offers a binary package and its PKGBUILD recipe.</span><span lang="fr">L’AUR construit le paquet sur ta machine. La release propose aussi un paquet binaire et sa recette PKGBUILD.</span></p>
         <pre><code>yay -S galleoncore</code></pre>
-        <div class="actions"><a class="btn btn-primary" href="https://aur.archlinux.org/packages/galleoncore">AUR</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/galleoncore-0.2.0-1-x86_64.pkg.tar.zst"><span lang="en">Arch package</span><span lang="fr">Paquet Arch</span></a><a href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/PKGBUILD">PKGBUILD</a></div>
+        <div class="actions"><a class="btn btn-primary" href="https://aur.archlinux.org/packages/galleoncore">AUR</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/galleoncore-0.2.1-1-x86_64.pkg.tar.zst"><span lang="en">Arch package</span><span lang="fr">Paquet Arch</span></a><a href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/PKGBUILD">PKGBUILD</a></div>
       </article>
       <article class="download-card">
         <h3><span lang="en">Other Linux x86_64</span><span lang="fr">Autres Linux x86_64</span></h3>
         <p><span lang="en">Run the AppImage directly. Its separate host-integration archive installs the hardware rules and an optional user service; follow its instructions before using the keyboard.</span><span lang="fr">Lance directement l’AppImage. L’archive d’intégration séparée installe les règles matérielles et un service utilisateur facultatif ; suis ses instructions avant d’utiliser le clavier.</span></p>
-        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-0.2.0-x86_64.AppImage">AppImage</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-host-integration.tar.gz"><span lang="en">Host integration</span><span lang="fr">Intégration système</span></a></div>
+        <div class="actions"><a class="btn btn-primary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/GalleonCore-0.2.1-x86_64.AppImage">AppImage</a><a class="btn btn-secondary" href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/GalleonCore-host-integration.tar.gz"><span lang="en">Host integration</span><span lang="fr">Intégration système</span></a></div>
       </article>
     </div>
     <p class="prose"><span lang="en">Native Linux packages include galleond, Bosun, libgalleon, widgets, wallpapers and udev rules. Enable the optional user service with <code>systemctl --user enable --now galleond.service</code>. Fedora RPMs are Fedora-specific. On other distributions, check AppImage compatibility with your system and install the separate hardware integration.</span><span lang="fr">Les paquets Linux natifs incluent galleond, Bosun, libgalleon, les widgets, les fonds d’écran et les règles udev. Active le service utilisateur facultatif avec <code>systemctl --user enable --now galleond.service</code>. Les RPM Fedora sont propres à Fedora. Sur les autres distributions, vérifie la compatibilité de l’AppImage avec ton système et installe l’intégration matérielle séparée.</span></p>
-    <p class="prose"><a href="https://github.com/Paullux/GalleonCore/releases/tag/v0.2.0"><span lang="en">What each release file contains and its checksums</span><span lang="fr">Contenu de chaque fichier de la release et sommes de contrôle</span></a></p>
+    <p class="prose"><a href="https://github.com/Paullux/GalleonCore/releases/tag/v0.2.1"><span lang="en">What each release file contains and its checksums</span><span lang="fr">Contenu de chaque fichier de la release et sommes de contrôle</span></a></p>
     <h3><span lang="en">Project and build links</span><span lang="fr">Liens du projet et des compilations</span></h3>
     <div class="badges">
       <a href="https://galleoncore.xyz/"><img data-external-src="https://img.shields.io/badge/website-GalleonCore-46505E" alt="Website" height="20" loading="lazy"></a>
@@ -458,7 +457,7 @@ sudo dnf install galleoncore</code></pre>
       <a href="https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore"><img data-external-src="https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&amp;logoColor=white" alt="Ubuntu PPA" height="20" loading="lazy"></a>
       <a href="https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/"><img data-external-src="https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&amp;logoColor=white" alt="Fedora COPR" height="20" loading="lazy"></a>
       <a href="https://aur.archlinux.org/packages/galleoncore"><img data-external-src="https://img.shields.io/badge/Arch-AUR-1793D1?logo=archlinux&amp;logoColor=white" alt="Arch AUR" height="20" loading="lazy"></a>
-      <a href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-0.2.0-x86_64.AppImage"><img data-external-src="https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&amp;logoColor=white" alt="AppImage" height="20" loading="lazy"></a>
+      <a href="https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/GalleonCore-0.2.1-x86_64.AppImage"><img data-external-src="https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&amp;logoColor=white" alt="AppImage" height="20" loading="lazy"></a>
       <a href="https://github.com/Paullux/GalleonCore/blob/main/LICENSE.md"><img data-external-src="https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue" alt="Licenses" height="20" loading="lazy"></a>
       <a href="https://github.com/Paullux/GalleonCore/blob/main/SECURITY.md"><img data-external-src="https://img.shields.io/badge/security-report%20privately-46505E" alt="Security policy" height="20" loading="lazy"></a>
     </div>
@@ -472,6 +471,13 @@ sudo dnf install galleoncore</code></pre>
       <a href="https://github.com/Paullux/GalleonCore/blob/main/SECURITY.md"><span lang="en">Security policy</span><span lang="fr">Politique de sécurité</span></a>
       <a href="https://github.com/Paullux/GalleonCore/blob/main/LICENSE.md"><span lang="en">Licenses</span><span lang="fr">Licences</span></a>
     </nav>
+  </section>
+
+  <section class="wrap" id="new-in-021">
+    <h2><span lang="en">New in 0.2.1: update checks in Bosun</span><span lang="fr">Nouveau en 0.2.1 : vérification des mises à jour dans Bosun</span></h2>
+    <p class="prose"><span lang="en">Bosun can notify you when a newer stable GitHub release is available. Choose optional daily checks or check manually, then open the matching download in your browser. Installation remains your choice.</span><span lang="fr">Bosun peut te prévenir lorsqu’une nouvelle version stable est disponible sur GitHub. Active la vérification quotidienne facultative ou lance-la manuellement, puis ouvre le téléchargement adapté dans ton navigateur. Tu gardes le choix de l’installation.</span></p>
+    <p class="prose"><span lang="en">When a configured repository supplies GalleonCore, including PPA or COPR, your package manager handles updates without duplicate notifications. Independently installed DEB/RPM packages retain update notifications. Users of 0.2.0 or earlier must first install 0.2.1 manually or through their package manager.</span><span lang="fr">Lorsqu’un dépôt configuré fournit GalleonCore, notamment PPA ou COPR, le gestionnaire de paquets gère les mises à jour sans notification en double. Les DEB/RPM installés indépendamment conservent les notifications. Depuis la 0.2.0 ou une version antérieure, installe d’abord la 0.2.1 manuellement ou avec ton gestionnaire de paquets.</span></p>
+    <p><a href="https://github.com/Paullux/GalleonCore/blob/v0.2.1/docs/UPDATES.md"><span lang="en">Update checks: settings and limitations</span><span lang="fr">Vérification des mises à jour : réglages et limites</span></a></p>
   </section>
 
   <section class="wrap" id="new-in-020">
@@ -570,7 +576,7 @@ sudo dnf install galleoncore</code></pre>
       <li><span><span lang="en">KDE Plasma widgets</span><span lang="fr">Widgets KDE Plasma</span></span><span class="state state-skeleton"><span lang="en">Skeleton</span><span lang="fr">Squelette</span></span></li>
       <li><span><span lang="en">OpenRGB dial-ring lighting</span><span lang="fr">Éclairage des anneaux via OpenRGB</span></span><span class="state state-active"><span lang="en">Hardware confirmed</span><span lang="fr">Confirmé sur le module</span></span></li>
       <li><span><span lang="en">Per-key RGB on the main keyboard</span><span lang="fr">RVB par touche du clavier principal</span></span><span class="state state-research"><span lang="en">Protocol blocked</span><span lang="fr">Protocole bloqué</span></span></li>
-      <li><span><span lang="en">Windows Setup and distribution packages</span><span lang="fr">Setup Windows et paquets de distribution</span></span><span class="state state-active"><span lang="en">v0.2.0 released</span><span lang="fr">v0.2.0 publiée</span></span></li>
+      <li><span><span lang="en">Windows Setup and distribution packages</span><span lang="fr">Setup Windows et paquets de distribution</span></span><span class="state state-active"><span lang="en">v0.2.1 released</span><span lang="fr">v0.2.1 publiée</span></span></li>
       <li><span><span lang="en">Extended Windows hardware checks</span><span lang="fr">Essais matériels prolongés sous Windows</span></span><span class="state state-research"><span lang="en">Still to confirm</span><span lang="fr">Encore à confirmer</span></span></li>
     </ul>
     <p class="status-legend">

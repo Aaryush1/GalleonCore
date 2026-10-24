@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Paul Woisard
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build daily release baselines and weekly repository download deltas."""
+"""Collect daily download measurements without triggering application CI."""
 
 import argparse
 from datetime import date, datetime, timedelta, timezone
@@ -16,7 +16,7 @@ import urllib.request
 
 PLATFORMS = ("windows", "ubuntu", "fedora", "arch", "appimage")
 REPOSITORIES = ("ppa", "copr")
-MAX_HISTORY = 9
+MAX_HISTORY = 366
 
 
 def platform_for(name):
@@ -49,14 +49,14 @@ def snapshot(releases, date):
     return {"date": date, "assets": assets}
 
 
-def weekly_refresh_needed(last_checked, previous_value, today):
+def daily_refresh_needed(last_checked, previous_value, today):
     if type(previous_value) is not int or previous_value < 0:
         return True
     try:
         checked = date.fromisoformat(last_checked)
     except (TypeError, ValueError):
         return True
-    return checked.isocalendar()[:2] != today.isocalendar()[:2]
+    return checked != today
 
 
 def build_stats(releases, repository_totals, aur_votes, previous, now,
@@ -65,7 +65,7 @@ def build_stats(releases, repository_totals, aur_votes, previous, now,
     today = now.date().isoformat()
     current = snapshot(releases, today)
     current["repositories"] = repository_totals
-    cutoff = (now.date() - timedelta(days=7)).isoformat()
+    cutoff = (now.date() - timedelta(days=365)).isoformat()
     history = []
     for item in previous.get("history", []):
         if not isinstance(item, dict) or not isinstance(item.get("assets"), dict):
@@ -74,7 +74,11 @@ def build_stats(releases, repository_totals, aur_votes, previous, now,
         if isinstance(date, str) and cutoff <= date < today:
             history.append(item)
     history = sorted(history, key=lambda item: item["date"])[-MAX_HISTORY:]
-    baseline = history[0] if history else None
+    week_start = (now.date() - timedelta(days=7)).isoformat()
+    baseline = next((item for item in history if item["date"] == week_start), None)
+    yesterday = (now.date() - timedelta(days=1)).isoformat()
+    daily_baseline = next((item for item in history if item["date"] == yesterday), None)
+    current["repository_checked_at"] = dict(repository_checked_at or {})
     # A first snapshot cannot reveal downloads from the preceding seven days.
     by_channel = None
     if baseline:
@@ -94,6 +98,8 @@ def build_stats(releases, repository_totals, aur_votes, previous, now,
     return {
         "generated_at": now.isoformat().replace("+00:00", "Z"),
         "since": baseline["date"] if baseline else None,
+        "daily": interval_deltas(current, daily_baseline),
+        "measurement_timezone": "UTC",
         "by_channel": by_channel,
         "total": total,
         "aur_votes": aur_votes,
@@ -102,6 +108,24 @@ def build_stats(releases, repository_totals, aur_votes, previous, now,
         "repository_period": repository_period or {},
         "history": history,
     }
+
+
+def interval_deltas(current, baseline):
+    """Changes between daily observations; not calendar-day activity."""
+    if not baseline:
+        return None
+    result = {name: 0 for name in PLATFORMS}
+    for asset_id, item in current["assets"].items():
+        old = baseline["assets"].get(asset_id, {}).get("count", 0)
+        result[item["platform"]] += max(0, item["count"] - old)
+    for name in REPOSITORIES:
+        value = current.get("repositories", {}).get(name)
+        old = baseline.get("repositories", {}).get(name)
+        fresh = current.get("repository_checked_at", {}).get(name) == current["date"]
+        old_fresh = baseline.get("repository_checked_at", {}).get(name) == baseline["date"]
+        result[name] = (max(0, value - old) if fresh and old_fresh
+                        and type(value) is int and type(old) is int else None)
+    return result
 
 
 def get_json(url, token=None, missing_ok=False):
@@ -217,20 +241,28 @@ def repository_measurements(previous, today, fetchers):
     votes = None
     for name, fetch in fetchers:
         prior_value = previous.get("aur_votes") if name == "aur" else prior_repositories.get(name)
-        if not weekly_refresh_needed(prior_checked.get(name), prior_value, today):
+        if not daily_refresh_needed(prior_checked.get(name), prior_value, today):
             value = prior_value
         else:
-            checked_at[name] = today.isoformat()
             try:
                 value = fetch()
-            except (ValueError, urllib.error.URLError) as error:
+                if type(value) is not int or value < 0:
+                    raise ValueError("Invalid download measurement")
+                checked_at[name] = today.isoformat()
+            except (ValueError, OSError) as error:
                 print(f"{name}: {error}")
-                value = None
+                value = prior_value
             if name in REPOSITORIES:
-                weekly[name] = (max(0, value - prior_value)
-                                if type(value) is int and type(prior_value) is int else None)
-                period[name] = {"from": prior_checked.get(name) or latest.get("date"),
-                                "to": today.isoformat()}
+                baseline_date = (today - timedelta(days=7)).isoformat()
+                baseline = next((item for item in previous_history
+                                 if item.get("date") == baseline_date), {})
+                old = baseline.get("repositories", {}).get(name)
+                old_checked = baseline.get("repository_checked_at", {}).get(name)
+                fresh = checked_at.get(name) == today.isoformat()
+                # Both providers expose cumulative package download counts.
+                weekly[name] = (max(0, value - old) if fresh and old_checked == baseline_date
+                                and type(old) is int and type(value) is int else None)
+                period[name] = {"from": baseline_date, "to": checked_at.get(name)}
         if name == "aur":
             votes = value
         else:
