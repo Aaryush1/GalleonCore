@@ -11,7 +11,7 @@
 [![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
 [![Fedora COPR](https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/)
 [![Arch AUR](https://img.shields.io/badge/Arch-AUR-1793D1?logo=archlinux&logoColor=white)](https://aur.archlinux.org/packages/galleoncore)
-[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-0.1.0-x86_64.AppImage)
+[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-0.2.0-x86_64.AppImage)
 [![Licenses](https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue)](LICENSE.md)
 [![Security policy](https://img.shields.io/badge/security-report%20privately-46505E)](SECURITY.md)
 
@@ -55,7 +55,7 @@ An automatic game screen now shows local game artwork, FPS and CPU/GPU temperatu
 
 ### Galleon Bosun screenshots
 
-The five default pages below show applications installed on one Linux desktop; the apps and icons vary by computer. The last two pictures show the wallpaper and screensaver selectors. [Open the full gallery on the website](https://galleoncore.xyz/#previews).
+The captures refreshed for 0.2.0 show the five key pages alongside Wallpapers, Widgets, Gaming and Screensavers. Installed applications and their icons vary by computer; live readings depend on the capture host. [Open the full gallery on the website](https://galleoncore.xyz/#previews).
 
 | Control | Multimedia |
 |---|---|
@@ -64,8 +64,22 @@ The five default pages below show applications installed on one Linux desktop; t
 | ![Bosun Games page with installed games](site/screenshots/games.png) | ![Bosun System page with useful tools](site/screenshots/system.png) |
 | Numeric keypad | Wallpaper choice |
 | ![Bosun numeric keypad](site/screenshots/numpad.png) | ![Bosun wallpaper collection](site/screenshots/wallpapers.png) |
+| Widgets: layout and text size | Gaming: game and recording |
+| ![Integrated Widgets tab in Bosun](site/screenshots/widgets.png) | ![Integrated Gaming tab in Bosun](site/screenshots/gaming.png) |
 | Screensaver choice | |
 | ![Bosun screensaver selector with the two bundled videos](site/screenshots/screensavers.png) | |
+
+
+### Widgets and Gaming in Bosun
+
+- **Widgets**: local clock and date, weather for your city, CPU/RAM, CPU temperature, partial downloads and FPS. Edit position, dimensions, text size and visibility in the preview, then save with **Apply**.
+- **Gaming**: local game artwork, FPS, CPU/GPU load gauges and available temperatures. The module screensaver is suspended during capture. Pad controls appear only while the game is active and disappear when it closes, even after switching key pages.
+- **Recording**: a saved choice of Automatic, OBS or Game Bar. Automatic uses OBS on Linux and Game Bar on Windows. OBS uses WebSocket with confirmed states; Game Bar uses shortcuts without claiming an unconfirmed state. See the [recording guide](docs/GAMING_RECORDING.md).
+- **FPS**: on Windows, detection of the installed PresentMon service and capture through its API, without opening its interface. On Linux, a MangoHud configuration button and instructions for Steam, Heroic, Lutris, PlayOnLinux and Bottles; initial launcher setup is still required. See the [Linux guide (French)](docs/MODE_JEU_LINUX.fr.md).
+
+Sensors depend on hardware and drivers: NVML for NVIDIA, AMD-SMI/hwmon on Linux; ADLX is not yet integrated on Windows. Downloads are a partial-file count, rather than browser progress percentages. See the [platform limitations](docs/HOME_WIDGETS.md).
+
+[Watch the 0.2.0 demonstration on YouTube](https://youtu.be/eFwru_OMNNI).
 
 ### Windows: Stream Deck input does not respond
 
