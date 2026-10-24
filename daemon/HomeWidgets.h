@@ -52,6 +52,7 @@ public:
     Q_INVOKABLE bool setFpsSource(const QString &source, const QString &process);
     Q_INVOKABLE bool setCity(const QString &city);
     Q_INVOKABLE bool setGameOptions(bool automatic, bool localSensors);
+    Q_INVOKABLE bool requestGameCapture();
     Q_INVOKABLE bool authorizeWindowsCapture();
     Q_INVOKABLE bool setCaptureOptions(bool managed, const QString &program);
     Q_INVOKABLE bool setGameProfile(const QString &process, const QString &title, const QString &image);
@@ -75,6 +76,8 @@ private:
     GameMode m_gameMode;
     GameCapture m_capture;
     CaptureTarget m_captureTarget;
+    QString m_captureProgram, m_capturePathOption;
+    qint64 m_captureDiscoveryAt = 0;
     QVariantMap m_captureStatus;
     QVariantMap m_gameConfig, m_gameState, m_gameSensors;
     bool m_sensorPending = false;
@@ -85,7 +88,7 @@ private:
     QVariantMap m_values;
     QVariantMap m_location;
     QVariantMap m_fpsConfig;
-    QByteArray m_lastFile;
+    QByteArray m_lastFile, m_lastCaptureRequest;
     QTimer m_timer;
     QNetworkAccessManager m_network;
     bool m_weatherPending = false;

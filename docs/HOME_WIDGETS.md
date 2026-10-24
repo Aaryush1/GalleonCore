@@ -106,12 +106,23 @@ Steam game: the daemon identifies its running executable under
 one), and starts the PresentMon console itself. Bosun displays the daemon's real
 capture state; it never starts a second capture.
 
-The MSI console is found under
-`%ProgramFiles%/Intel/PresentMon/PresentMonConsoleApplication/PresentMon-*-x64.exe`
-(and `%ProgramW6432%`), or in `bin/PresentMon` next to Galleon. The MSI GUI named
+Discovery checks a valid explicit console override first, then the MSI registry
+key `Software/Intel/PresentMon/PresentMonInstallFolder` and matching uninstall
+`InstallLocation` records (user/machine, 32/64-bit views). It verifies the console
+file actually exists, then tries directories on `PATH`, and finally the usual
+`%ProgramFiles%/Intel/PresentMon/PresentMonConsoleApplication` directory
+(and `%ProgramW6432%`) or `bin/PresentMon` next to Galleon. A stale registered or
+saved path does not mask a valid fallback. Discovery is refreshed every ten
+seconds, or immediately when the configured path changes or the file disappears. The MSI GUI named
 `PresentMon.exe` is intentionally not auto-selected. **Advanced settings** offers
 a console path override and the previous manual CSV mode, without exposing CSV
 paths in the normal Windows flow. Linux MangoHud settings remain unchanged.
+The **Lancer PresentMon** button requests a capture retry from the daemon for the
+detected game. It does not open PresentMon's GUI or apply unrelated pending edits.
+While the owned capture process runs, it reads **PresentMon lancé** and is greyed
+out. With no detected game, no daemon or no console, it stays disabled; the status
+explains what is missing. Automatic capture remains enabled independently of this
+retry button.
 
 For non-Steam games, add the executable name in **Game artwork override**, then
 Apply; its title/image are optional. This is a saved detection rule. Arbitrary
@@ -203,8 +214,11 @@ Temperature sources:
 The LibreHardwareMonitor option requires its local server to be running; an
 administrator/elevated daemon is not required by Galleon itself. Sensor access
 permissions depend on the provider. Authentication-enabled local servers are
-not supported yet. Windows native execution and real-game validation of this
-new mode remain to be done; the shared parser/state/rendering tests run on Linux.
+not supported yet. Native Windows CI covers compilation, process detection with a fixture in a
+Steam library, capture lifecycle, runtime-state freshness and installed app
+launching. Real-game FPS capture, UAC authorization and physical keyboard
+validation still need testing on the owner’s Windows PC. Shared regression tests
+also run on Linux.
 
 Provider reference: [LibreHardwareMonitor HTTP server](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LibreHardwareMonitor.Windows.Forms/Utilities/HttpServer.cs).
 

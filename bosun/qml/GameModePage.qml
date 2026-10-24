@@ -62,8 +62,10 @@ Flickable {
             visible: page.widgets.windowsCapture
             spacing: 12
             Pill {
-                text: qsTr("Install PresentMon (MSI)")
-                onClicked: Qt.openUrlExternally("https://github.com/GameTechDev/PresentMon/releases/latest")
+                objectName: "startPresentMon"
+                text: page.widgets.captureStatus.running ? qsTr("PresentMon lancé") : qsTr("Lancer PresentMon")
+                enabledLook: !!page.widgets.captureStatus.canStart && !page.widgets.captureStatus.running && !page.widgets.captureStatus.starting
+                onClicked: page.widgets.requestGameCapture()
             }
             Pill { text: page.advanced ? qsTr("Hide advanced settings") : qsTr("Advanced settings"); onClicked: page.advanced = !page.advanced }
         }

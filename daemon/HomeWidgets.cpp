@@ -3,6 +3,7 @@
 #include "HomeWidgets.h"
 #include "FpsReader.h"
 #include <QUrl>
+#include <QUuid>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -146,6 +147,21 @@ bool HomeWidgets::setFpsSource(const QString &source, const QString &process) {
 bool HomeWidgets::setGameOptions(bool automatic, bool localSensors) {
     load(); m_gameConfig["automatic"] = automatic; m_gameConfig["localSensors"] = localSensors;
     return save();
+}
+bool HomeWidgets::requestGameCapture() {
+#ifdef Q_OS_WIN
+    if (!m_draftMode) return false;
+    QDir().mkpath(QFileInfo(m_file).absolutePath());
+    QSaveFile request(m_file + QStringLiteral(".capture-request.json"));
+    const auto bytes = QJsonDocument(QJsonObject{{"at", QDateTime::currentMSecsSinceEpoch()},
+        {"id", QUuid::createUuid().toString(QUuid::Id128)}}).toJson(QJsonDocument::Compact);
+    if (!request.open(QIODevice::WriteOnly) || request.write(bytes) != bytes.size() || !request.commit()) {
+        m_error = tr("Cannot request FPS capture: %1").arg(request.errorString()); Q_EMIT changed(); return false;
+    }
+    return true;
+#else
+    return false;
+#endif
 }
 bool HomeWidgets::authorizeWindowsCapture() {
 #ifdef Q_OS_WIN
@@ -339,9 +355,24 @@ void HomeWidgets::refresh() {
 #ifdef Q_OS_WIN
     const bool managed = m_gameConfig.value("managedCapture", true).toBool();
     if (!m_draftMode) {
+        QFile request(m_file + QStringLiteral(".capture-request.json"));
+        const auto bytes = request.open(QIODevice::ReadOnly) ? request.read(4096) : QByteArray();
+        if (bytes != m_lastCaptureRequest) {
+            m_lastCaptureRequest = bytes;
+            const auto object = QJsonDocument::fromJson(bytes).object();
+            const auto age = QDateTime::currentMSecsSinceEpoch() - object.value("at").toVariant().toLongLong();
+            if (!object.value("id").toString().isEmpty() && age >= 0 && age < 10000) m_capture.retry();
+        }
         if (capture && managed) m_captureTarget = GameCapture::detectGame(m_gameConfig.value("profiles").toMap().keys(), m_captureTarget.pid);
         else m_captureTarget = {};
-        m_capture.tick(capture && managed, m_captureTarget, GameCapture::findPresentMon(m_gameConfig.value("presentMon").toString()));
+        const auto option = m_gameConfig.value("presentMon").toString();
+        const auto now = QDateTime::currentMSecsSinceEpoch();
+        if (!m_captureDiscoveryAt || option != m_capturePathOption || now - m_captureDiscoveryAt >= 10000
+            || (!m_captureProgram.isEmpty() && !QFileInfo(m_captureProgram).isFile())) {
+            m_captureProgram = GameCapture::findPresentMon(option);
+            m_capturePathOption = option; m_captureDiscoveryAt = now;
+        }
+        m_capture.tick(capture && managed, m_captureTarget, m_captureProgram);
         m_captureStatus = m_capture.status();
         if (capture && managed) { sample = m_capture.sample(); m_captureStatus = m_capture.status(); }
     }

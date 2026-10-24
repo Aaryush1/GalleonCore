@@ -19,6 +19,8 @@ public:
     ~GameCapture() override;
     void tick(bool enabled, const CaptureTarget &target, const QString &program);
     FpsSample sample();
+    void retry() { m_retryAt = 0; }
+    static QStringList registeredPresentMonFolders();
     QVariantMap status() const;
     static QString findPresentMon(const QString &overridePath = {}, const QStringList &roots = {});
     static bool isGamePath(QString path, const QStringList &profiles = {});

@@ -10,6 +10,10 @@
 #include "FakeTransport.h"
 #include <galleon/StreamDeck.h>
 #include <QThread>
+#include <HomeWidgets.h>
+#include <QQmlEngine>
+#include <QQmlComponent>
+#include <QQuickItem>
 #include <QSet>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -47,6 +51,35 @@ class TestWindowsDesktop : public QObject
 {
     Q_OBJECT
 private slots:
+    void presentMonButtonReflectsCaptureAndRequestsRetryWithoutApplyingEdits() {
+        QTemporaryDir dir;
+        const auto config = dir.filePath("widgets.json");
+        const auto writeState = [&](bool running) {
+            QFile file(config + ".runtime.json");
+            if (!file.open(QIODevice::WriteOnly)) return false;
+            file.write(QJsonDocument(QJsonObject{{"at", QDateTime::currentMSecsSinceEpoch()},
+                {"capture", QJsonObject{{"running", running}, {"canStart", !running}, {"state", running ? "capturing" : "error"}}}}).toJson());
+            return true;
+        };
+        QVERIFY(writeState(true));
+        galleond::HomeWidgets editor(nullptr, config, true);
+        QVERIFY(editor.setCity("Pending city"));
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/GameModePage.qml")));
+        QScopedPointer<QObject> page(component.createWithInitialProperties({{"widgets", QVariant::fromValue(static_cast<QObject *>(&editor))}, {"width", 1100}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        auto *button = page->findChild<QObject *>(QStringLiteral("startPresentMon"));
+        QVERIFY(button);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("PresentMon lancé"));
+        QVERIFY(!button->property("enabledLook").toBool());
+        QVERIFY(writeState(false));
+        QTRY_VERIFY_WITH_TIMEOUT(button->property("enabledLook").toBool(), 4000);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Lancer PresentMon"));
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QVERIFY(QFile::exists(config + ".capture-request.json"));
+        QVERIFY(!QFile::exists(config));
+        QVERIFY(editor.pending());
+    }
     void registeredApplicationWithoutShortcutIsListed()
     {
         if (qEnvironmentVariable("GITHUB_ACTIONS") != QStringLiteral("true"))

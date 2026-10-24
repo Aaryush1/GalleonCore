@@ -6,6 +6,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
+#include <QSettings>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTimer>
 #ifdef Q_OS_WIN
@@ -128,25 +130,82 @@ FpsSample GameCapture::sample() {
     return result;
 }
 QVariantMap GameCapture::status() const {
-    return {{"state", m_state}, {"message", m_message}, {"program", m_program},
+    const bool running = !m_stopping && m_process.state() == QProcess::Running;
+    const bool starting = !m_stopping && m_process.state() == QProcess::Starting;
+    return {{"running", running}, {"starting", starting},
+            {"canStart", m_target.pid != 0 && !m_program.isEmpty() && !m_stopping && !running && !starting},
+            {"state", m_state}, {"message", m_message}, {"program", m_program},
             {"process", m_target.name}, {"detail", QString::fromLocal8Bit(m_diagnostics).left(4096)}};
 }
-QString GameCapture::findPresentMon(const QString &overridePath, const QStringList &roots) {
-    if (!overridePath.isEmpty()) return QFileInfo(overridePath).isAbsolute() && QFileInfo(overridePath).isFile() ? overridePath : QString();
-    auto folders = roots;
-    if (folders.isEmpty()) {
-        folders << QCoreApplication::applicationDirPath() + QStringLiteral("/PresentMon");
-        for (const auto &variable : {"ProgramW6432", "ProgramFiles"}) {
-            const auto base = qEnvironmentVariable(variable);
-            if (!base.isEmpty()) folders << base + QStringLiteral("/Intel/PresentMon/PresentMonConsoleApplication");
+QStringList GameCapture::registeredPresentMonFolders() {
+    QStringList result;
+#ifdef Q_OS_WIN
+    // The official MSI writes this per-user key; inspect both registry views
+    // and machine installations as well. Registry reads never execute commands.
+    for (const auto format : {QSettings::Registry64Format, QSettings::Registry32Format}) {
+        for (const auto &hive : {QStringLiteral("HKEY_CURRENT_USER"), QStringLiteral("HKEY_LOCAL_MACHINE")}) {
+            QSettings intel(hive + QStringLiteral("\\Software\\Intel\\PresentMon"), format);
+            const auto folder = intel.value(QStringLiteral("PresentMonInstallFolder")).toString().trimmed();
+            if (!folder.isEmpty()) result << folder;
+            QSettings uninstall(hive + QStringLiteral("\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall"), format);
+            const auto groups = uninstall.childGroups();
+            for (int i = 0; i < qMin(2048, int(groups.size())); ++i) {
+                uninstall.beginGroup(groups[i]);
+                const auto name = uninstall.value(QStringLiteral("DisplayName")).toString();
+                if (name.contains(QStringLiteral("PresentMon"), Qt::CaseInsensitive)) {
+                    const auto location = uninstall.value(QStringLiteral("InstallLocation")).toString().trimmed();
+                    if (!location.isEmpty()) result << location;
+                }
+                uninstall.endGroup();
+            }
         }
     }
-    for (const auto &folder : folders) {
-        const auto files = QDir(folder).entryInfoList({QStringLiteral("PresentMon-*-x64.exe"), QStringLiteral("PresentMonConsole.exe")}, QDir::Files, QDir::Name | QDir::Reversed);
-        if (!files.isEmpty()) return files.first().absoluteFilePath();
+#endif
+    result.removeDuplicates();
+    return result;
+}
+namespace {
+QString consoleIn(QString folder) {
+    folder = folder.trimmed();
+    if (folder.startsWith('"') && folder.endsWith('"')) folder = folder.mid(1, folder.size() - 2);
+    // Expand registry REG_EXPAND_SZ paths without interpreting command lines.
+    const QRegularExpression variable(QStringLiteral("%([^%]+)%"));
+    auto matches = variable.globalMatch(folder);
+    QList<QPair<QString, QString>> replacements;
+    while (matches.hasNext()) { const auto match = matches.next(); replacements.append({match.captured(0), qEnvironmentVariable(qPrintable(match.captured(1)))}); }
+    for (const auto &entry : replacements) if (!entry.second.isEmpty()) folder.replace(entry.first, entry.second);
+    if (!QFileInfo(folder).isAbsolute()) return {};
+    const auto acceptable = [](const QString &path) {
+        const QFileInfo file(path);
+        return file.isFile() && (file.fileName().compare(QStringLiteral("PresentMonConsole.exe"), Qt::CaseInsensitive) == 0
+            || QRegularExpression(QStringLiteral("^PresentMon-[0-9.]+-x64\\.exe$"), QRegularExpression::CaseInsensitiveOption).match(file.fileName()).hasMatch());
+    };
+    if (acceptable(folder)) return QFileInfo(folder).absoluteFilePath();
+    for (const auto &directory : {folder, QDir(folder).filePath(QStringLiteral("PresentMonConsoleApplication"))}) {
+        const auto files = QDir(directory).entryInfoList({QStringLiteral("PresentMon-*-x64.exe"), QStringLiteral("PresentMonConsole.exe")}, QDir::Files, QDir::Name | QDir::Reversed);
+        for (const auto &file : files) if (acceptable(file.absoluteFilePath())) return file.absoluteFilePath();
     }
-    // Do not accidentally launch the MSI's GUI, also named PresentMon.exe.
-    return roots.isEmpty() ? QStandardPaths::findExecutable(QStringLiteral("PresentMonConsole.exe")) : QString();
+    return {};
+}
+}
+QString GameCapture::findPresentMon(const QString &overridePath, const QStringList &roots) {
+    // An invalid saved path does not mask a working MSI/PATH/default installation.
+    if (!overridePath.isEmpty() && QFileInfo(overridePath).isAbsolute() && QFileInfo(overridePath).isFile()) return overridePath;
+    if (!roots.isEmpty()) {
+        for (const auto &root : roots) { const auto found = consoleIn(root); if (!found.isEmpty()) return found; }
+        return {};
+    }
+    for (const auto &root : registeredPresentMonFolders()) { const auto found = consoleIn(root); if (!found.isEmpty()) return found; }
+    for (const auto &root : qEnvironmentVariable("PATH").split(QDir::listSeparator(), Qt::SkipEmptyParts)) {
+        const auto found = consoleIn(root); if (!found.isEmpty()) return found;
+    }
+    QStringList folders{QCoreApplication::applicationDirPath() + QStringLiteral("/PresentMon")};
+    for (const auto &variable : {"ProgramW6432", "ProgramFiles"}) {
+        const auto base = qEnvironmentVariable(variable);
+        if (!base.isEmpty()) folders << base + QStringLiteral("/Intel/PresentMon/PresentMonConsoleApplication");
+    }
+    for (const auto &root : folders) { const auto found = consoleIn(root); if (!found.isEmpty()) return found; }
+    return {};
 }
 bool GameCapture::isGamePath(QString path, const QStringList &profiles) {
     path.replace('\\', '/'); path = path.toLower();
