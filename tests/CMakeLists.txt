@@ -84,6 +84,12 @@ galleond_add_test(test_launchercache)
 target_compile_definitions(test_launchercache PRIVATE GALLEON_TEST_LAUNCHER="$<TARGET_FILE:galleon_test_launcher>")
 add_dependencies(test_launchercache galleon_test_launcher)
 
+add_executable(galleon_test_capture FakeCapture.cpp)
+target_link_libraries(galleon_test_capture PRIVATE Qt6::Core galleon_warnings)
+galleond_add_test(test_gamecapture)
+target_compile_definitions(test_gamecapture PRIVATE GALLEON_TEST_CAPTURE="$<TARGET_FILE:galleon_test_capture>")
+add_dependencies(test_gamecapture galleon_test_capture)
+
 galleond_add_test(test_homewidgets)
 galleond_add_test(test_fpsreader)
 galleond_add_test(test_gamemode)

@@ -96,25 +96,63 @@ logs are per game. Capture logs grow while logging remains active.
 Sources: [MangoHud configuration](https://github.com/flightlessmango/MangoHud/blob/master/data/MangoHud.conf),
 [live CSV writer](https://github.com/flightlessmango/MangoHud/blob/master/src/logging.cpp).
 
-### Windows — PresentMon
+### Windows — automatic capture (PresentMon MSI)
 
-Use Intel's PresentMon console capture, targeting the game's executable. Example
-(adapt paths, executable and required capture permissions to your installation):
+Install the official [PresentMon MSI](https://github.com/GameTechDev/PresentMon/releases/latest)
+with its console component. Restart the daemon once after installation. In
+**Bosun → Mode Jeu**, leave **Automatic** enabled and click **Apply**. Start a
+Steam game: the daemon identifies its running executable under
+`steamapps/common`, selects a foreground game first (otherwise keeps the current
+one), and starts the PresentMon console itself. Bosun displays the daemon's real
+capture state; it never starts a second capture.
+
+The MSI console is found under
+`%ProgramFiles%/Intel/PresentMon/PresentMonConsoleApplication/PresentMon-*-x64.exe`
+(and `%ProgramW6432%`), or in `bin/PresentMon` next to Galleon. The MSI GUI named
+`PresentMon.exe` is intentionally not auto-selected. **Advanced settings** offers
+a console path override and the previous manual CSV mode, without exposing CSV
+paths in the normal Windows flow. Linux MangoHud settings remain unchanged.
+
+For non-Steam games, add the executable name in **Game artwork override**, then
+Apply; its title/image are optional. This is a saved detection rule. Arbitrary
+browser/desktop processes are not treated as games. Known launcher, crash and
+anti-cheat helper names are excluded from Steam detection; an explicit saved
+executable rule can override the name exclusion. Protected processes whose path
+cannot be queried cannot be detected by this iteration.
+
+Capture uses `--process_id`, `--v1_metrics`, `--output_stdout` and a private
+`Galleon-<daemon PID>` ETW session. Complete CSV rows are retained in a bounded
+64 KiB ring plus header, written to a local cache only when data changes. It
+stops when the game exits or automatic capture is disabled. Failures are shown
+with bounded diagnostic output and a 30-second retry backoff. Stopping a capture
+requests termination of only its own named ETW session; other PresentMon
+sessions are not stopped. The GUI observes a timestamped runtime file beside
+`widgets.json`, so stale daemon state is not shown as an active capture.
+
+PresentMon ETW capture may require membership in **Performance Log Users**.
+If access is denied, Bosun offers **Authorize Windows FPS capture**. Clicking
+this explicitly requests Windows UAC approval to add the current account to the
+localized Performance Log Users group (SID `S-1-5-32-559`). Sign out and back in
+afterwards. Cancellation leaves the capture in its error state. The daemon itself
+is not elevated; no graphics driver is disabled. You can also add the account
+through Windows Computer Management. The MSI installation alone does not
+guarantee that ETW permissions have been granted.
+
+Advanced manual CSV example (not needed in automatic mode):
 
 ```powershell
-PresentMon.exe --process_name Game.exe --v1_metrics --output_file C:\Temp\galleon-fps.csv
+PresentMon-2.6.0-x64.exe --process_name cs2.exe --v1_metrics --output_file C:\Temp\galleon-fps.csv
 ```
 
-Set the FPS source to `C:\Temp\galleon-fps.csv`. Optionally enter `Game.exe`
-as the executable filter. The adapter uses `MsBetweenPresents`, averaging up to
-120 samples / about one second from the latest swapchain. Mixed-process logs
-require an executable filter rather than choosing an arbitrary application.
-This is the application's presentation cadence, including frames the system may
-drop, not a count of physically displayed frames. Other PresentMon schemas
-without `MsBetweenPresents` are intentionally rejected. Native Windows and
-real-game capture still need testing; CSV fixtures are covered on Linux.
+Set the manual source to `C:\Temp\galleon-fps.csv` and the executable filter
+to `cs2.exe`. The parser uses `MsBetweenPresents` and the latest swapchain,
+averaging up to 120 samples / about one second. It measures presentation
+cadence, including frames the system may drop, rather than physically displayed
+frames. Mixed-process manual logs require an executable filter.
 
-Source: [PresentMon console documentation](https://github.com/GameTechDev/PresentMon/blob/main/README-ConsoleApplication.md).
+Sources: [PresentMon console documentation](https://github.com/GameTechDev/PresentMon/blob/main/README-ConsoleApplication.md),
+[official MSI layout](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/IntelPresentMon/PMInstaller/PresentMon.wxs),
+[ETW permissions](https://github.com/GameTechDev/PresentMon#user-access-denied).
 
 ## Automatic game screen (first iteration)
 

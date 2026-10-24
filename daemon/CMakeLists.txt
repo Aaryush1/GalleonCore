@@ -3,6 +3,7 @@
 
 # The daemon's logic, as a library so that the tests can use it.
 add_library(galleond_core STATIC
+    GameCapture.h GameCapture.cpp
     GameMode.h GameMode.cpp
     FpsReader.h FpsReader.cpp
     HomeWidgets.h HomeWidgets.cpp
@@ -32,7 +33,7 @@ target_include_directories(galleond_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(galleond_core PUBLIC galleon galleon_media galleon_keys galleon_platform Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network PRIVATE galleon_warnings)
 if(WIN32)
     target_sources(galleond_core PRIVATE WindowsDesktopEntries.cpp)
-    target_link_libraries(galleond_core PUBLIC galleon_smtc PRIVATE shell32 ole32 uuid)
+    target_link_libraries(galleond_core PUBLIC galleon_smtc PRIVATE shell32 ole32 uuid advapi32)
     target_compile_definitions(galleond_core PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 else()
     target_sources(galleond_core PRIVATE LinuxKeyInjector.h LinuxKeyInjector.cpp LinuxPlatformBackends.cpp

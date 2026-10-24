@@ -16,6 +16,9 @@
 #include <cmath>
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <shellapi.h>
+#include <sddl.h>
+#include <array>
 #endif
 static void initHomeWidgets() { Q_INIT_RESOURCE(home_widgets); }
 namespace galleond {
@@ -29,7 +32,10 @@ QVariantList defaults() {
     return result;
 }
 }
-HomeWidgets::HomeWidgets(QObject *parent, QString file, bool draftMode) : QObject(parent), m_draftMode(draftMode), m_file(std::move(file)), m_layout(defaults()) {
+HomeWidgets::HomeWidgets(QObject *parent, QString file, bool draftMode) : QObject(parent), m_capture(file.isEmpty()
+        ? QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/galleoncore/widgets.json.capture.csv")
+        : file + QStringLiteral(".capture.csv")),
+    m_draftMode(draftMode), m_file(std::move(file)), m_layout(defaults()) {
     initHomeWidgets();
     if (m_file.isEmpty()) m_file = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/galleoncore/widgets.json");
     load();
@@ -141,6 +147,49 @@ bool HomeWidgets::setGameOptions(bool automatic, bool localSensors) {
     load(); m_gameConfig["automatic"] = automatic; m_gameConfig["localSensors"] = localSensors;
     return save();
 }
+bool HomeWidgets::authorizeWindowsCapture() {
+#ifdef Q_OS_WIN
+    if (!m_draftMode) return false;
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return false;
+    alignas(TOKEN_USER) std::array<unsigned char, 4096> buffer{};
+    DWORD size = 0;
+    const bool ok = GetTokenInformation(token, TokenUser, buffer.data(), DWORD(buffer.size()), &size);
+    CloseHandle(token);
+    if (!ok) return false;
+    LPWSTR text = nullptr;
+    if (!ConvertSidToStringSidW(reinterpret_cast<TOKEN_USER *>(buffer.data())->User.Sid, &text)) return false;
+    const auto sid = QString::fromWCharArray(text); LocalFree(text);
+    wchar_t windows[MAX_PATH];
+    const auto length = GetWindowsDirectoryW(windows, MAX_PATH);
+    if (!length || length >= MAX_PATH) return false;
+    const auto program = QString::fromWCharArray(windows) + QStringLiteral("/System32/WindowsPowerShell/v1.0/powershell.exe");
+    // Only a Windows-generated SID is interpolated; no user field, path or executable.
+    const auto arguments = QStringLiteral("-NoProfile -Command \"$ErrorActionPreference='Stop'; try { "
+        "$g=Get-LocalGroup -SID 'S-1-5-32-559'; "
+        "if (-not (Get-LocalGroupMember -Group $g | Where-Object { $_.SID.Value -eq '%1' })) { "
+        "Add-LocalGroupMember -Group $g -Member '%1' }; "
+        "Write-Host 'Galleon: sign out and back in to enable FPS capture.' } "
+        "catch { Write-Error $_ }; Read-Host 'Enter to close'\"").arg(sid);
+    const auto result = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"runas", reinterpret_cast<LPCWSTR>(program.utf16()),
+        reinterpret_cast<LPCWSTR>(arguments.utf16()), nullptr, SW_SHOWNORMAL));
+    if (result <= 32) { m_error = tr("Windows capture authorization was cancelled or could not start."); Q_EMIT changed(); return false; }
+    return true;
+#else
+    return false;
+#endif
+}
+bool HomeWidgets::setCaptureOptions(bool managed, const QString &program) {
+    load();
+    const auto path = program.trimmed();
+    if (path.size() > 4096 || path.contains(QChar::Null) || path.contains(QChar::LineFeed)
+        || (!path.isEmpty() && !QFileInfo(path).isAbsolute())) {
+        m_error = tr("Choose an absolute path to the PresentMon console executable.");
+        Q_EMIT changed(); return false;
+    }
+    m_gameConfig["managedCapture"] = managed; m_gameConfig["presentMon"] = path;
+    return save();
+}
 bool HomeWidgets::setGameProfile(const QString &process, const QString &title, const QString &image) {
     load();
     auto key = process.trimmed().toLower(); key.replace('\\', '/'); key = key.section('/', -1);
@@ -231,6 +280,7 @@ void HomeWidgets::weather() {
     });
 }
 void HomeWidgets::refresh() {
+    const auto previousCaptureStatus = m_captureStatus;
     const auto previousGameConfig = m_gameConfig;
     const auto previousGameState = m_gameState;
     const auto previousFpsConfig = m_fpsConfig;
@@ -286,7 +336,19 @@ void HomeWidgets::refresh() {
         if (item.value("id").toString() == "fps" && item.value("enabled").toBool()) capture = true;
     }
     FpsSample sample;
+#ifdef Q_OS_WIN
+    const bool managed = m_gameConfig.value("managedCapture", true).toBool();
+    if (!m_draftMode) {
+        if (capture && managed) m_captureTarget = GameCapture::detectGame(m_gameConfig.value("profiles").toMap().keys(), m_captureTarget.pid);
+        else m_captureTarget = {};
+        m_capture.tick(capture && managed, m_captureTarget, GameCapture::findPresentMon(m_gameConfig.value("presentMon").toString()));
+        m_captureStatus = m_capture.status();
+        if (capture && managed) { sample = m_capture.sample(); m_captureStatus = m_capture.status(); }
+    }
+    if (capture && !managed) sample = readFpsLog(m_fpsConfig.value("source").toString(), m_fpsConfig.value("process").toString());
+#else
     if (capture) sample = readFpsLog(m_fpsConfig.value("source").toString(), m_fpsConfig.value("process").toString());
+#endif
     m_values["fps"] = sample.fps ? QLocale().toString(*sample.fps, 'f', 0) + QStringLiteral(" FPS") : sample.status;
     pollGameSensors();
     auto sensors = m_gameSensors;
@@ -316,12 +378,35 @@ void HomeWidgets::refresh() {
 #endif
     }
     m_gameState = m_gameMode.update(sample, m_gameConfig, sensors);
+#ifdef Q_OS_WIN
+    // Bosun observes the daemon's actual capture, never launches a second ETW session.
+    const auto runtimePath = m_file + QStringLiteral(".runtime.json");
+    if (!m_draftMode) {
+        QDir().mkpath(QFileInfo(runtimePath).absolutePath());
+        QSaveFile runtime(runtimePath);
+        const auto data = QJsonDocument(QJsonObject::fromVariantMap({{"at", QDateTime::currentMSecsSinceEpoch()},
+            {"capture", m_captureStatus}, {"game", m_gameState}})).toJson(QJsonDocument::Compact);
+        if (runtime.open(QIODevice::WriteOnly) && runtime.write(data) == data.size()) runtime.commit();
+    } else {
+        QFile runtime(runtimePath);
+        const auto data = runtime.open(QIODevice::ReadOnly) ? runtime.read(65536) : QByteArray();
+        const auto state = QJsonDocument::fromJson(data).object().toVariantMap();
+        const auto age = QDateTime::currentMSecsSinceEpoch() - state.value("at").toLongLong();
+        if (!state.isEmpty() && age >= 0 && age < 10000) {
+            m_captureStatus = state.value("capture").toMap();
+            m_gameState = state.value("game").toMap();
+        } else {
+            m_captureStatus = {{"state", "offline"}, {"message", tr("Start the Galleon daemon to detect games automatically.")}};
+            m_gameState.clear();
+        }
+    }
+#endif
     weather();
     // Disabled cards do not wake the renderer: the default remains a minute clock.
     for (const auto &entry : m_layout) {
         const auto item = entry.toMap();
         if (!item.value("enabled").toBool()) m_values.remove(item.value("id").toString());
     }
-    if (previousGameConfig != m_gameConfig || previousGameState != m_gameState || previousFpsConfig != m_fpsConfig || previousLocation != m_location || previousLayout != m_layout || previousValues != m_values) Q_EMIT changed();
+    if (previousCaptureStatus != m_captureStatus || previousGameConfig != m_gameConfig || previousGameState != m_gameState || previousFpsConfig != m_fpsConfig || previousLocation != m_location || previousLayout != m_layout || previousValues != m_values) Q_EMIT changed();
 }
 }

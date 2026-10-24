@@ -6,16 +6,21 @@ Flickable {
     id: page
     objectName: "gameModePage"
     required property var widgets
+    property bool advanced: false
     contentWidth: width
     contentHeight: content.height
     clip: true
     function applyEdits() {
         // Keep pending text before backend notifications refresh the bound fields.
         const source = fpsSource.input.text, process = fpsProcess.input.text
+        const program = presentMon.input.text
         const key = gameProcess.input.text.trim().toLowerCase()
         const title = gameTitle.input.text, image = gameImage.input.text
         if (source !== (widgets.fpsConfig.source || "") || process !== (widgets.fpsConfig.process || "")) {
             if (!widgets.setFpsSource(source, process)) return
+        }
+        if (widgets.windowsCapture && program !== (widgets.gameConfig.presentMon || "")) {
+            if (!widgets.setCaptureOptions(widgets.gameConfig.managedCapture !== false, program)) return
         }
         if (key !== "") {
             const existing = (widgets.gameConfig.profiles || {})[key] || {}
@@ -32,7 +37,9 @@ Flickable {
         Text { text: qsTr("Mode Jeu · 720 × 384"); color: "white"; font.pixelSize: 20; font.bold: true }
         Text {
             width: parent.width; wrapMode: Text.Wrap; color: "#c9ced6"
-            text: qsTr("Automatic game artwork, FPS and CPU/GPU gauges. The keyboard screensaver stays off during an active capture. Click Apply to save changes.")
+            text: page.widgets.windowsCapture
+                ? qsTr("Start your Steam game: Galleon detects it and starts FPS capture automatically. Install the official PresentMon MSI once, including its console component. Click Apply to save changes.")
+                : qsTr("Automatic game artwork, FPS and CPU/GPU gauges. The keyboard screensaver stays off during an active capture. Click Apply to save changes.")
         }
         Row {
             spacing: 12
@@ -51,6 +58,30 @@ Flickable {
                 color: page.widgets.pending ? "#ffb74d" : "#9be7a0"
             }
         }
+        Row {
+            visible: page.widgets.windowsCapture
+            spacing: 12
+            Pill {
+                text: qsTr("Install PresentMon (MSI)")
+                onClicked: Qt.openUrlExternally("https://github.com/GameTechDev/PresentMon/releases/latest")
+            }
+            Pill { text: page.advanced ? qsTr("Hide advanced settings") : qsTr("Advanced settings"); onClicked: page.advanced = !page.advanced }
+        }
+        Column {
+            visible: page.widgets.windowsCapture && (page.widgets.captureStatus.state === "error" || page.widgets.captureStatus.state === "no_frames")
+            width: parent.width; spacing: 8
+            Text {
+                width: parent.width; wrapMode: Text.Wrap; color: "#ffb74d"
+                text: qsTr("If Windows denies FPS capture, this button requests administrator approval to add your account to Performance Log Users. Sign out and back in afterwards. Keep the graphics driver enabled.")
+            }
+            Pill { text: qsTr("Authorize Windows FPS capture"); onClicked: page.widgets.authorizeWindowsCapture() }
+        }
+        Text {
+            objectName: "gameCaptureStatus"
+            visible: page.widgets.windowsCapture
+            width: parent.width; wrapMode: Text.Wrap; color: "#aebac6"
+            text: page.widgets.captureStatus.message || qsTr("Waiting for the daemon…")
+        }
         Text {
             width: parent.width; wrapMode: Text.Wrap; color: "#aebac6"
             text: page.widgets.gameState.active ? qsTr("Capture active: ") + page.widgets.gameState.title + " (" + page.widgets.gameState.process + ")"
@@ -66,8 +97,30 @@ Flickable {
                 onLoaded: item.stateData = Qt.binding(() => page.widgets.gameState)
             }
         }
-        Text { text: qsTr("FPS capture source"); color: "white"; font.pixelSize: 18; font.bold: true }
         Row {
+            visible: page.widgets.windowsCapture && page.advanced
+            spacing: 12
+            Pill {
+                text: page.widgets.gameConfig.managedCapture !== false ? qsTr("Capture: automatic") : qsTr("Capture: manual CSV")
+                onClicked: page.widgets.setCaptureOptions(page.widgets.gameConfig.managedCapture === false, presentMon.input.text)
+            }
+        }
+        Field {
+            id: presentMon; objectName: "presentMonPath"
+            visible: page.widgets.windowsCapture && page.advanced
+            width: Math.min(720, page.width); maximumLength: 4096
+            value: page.widgets.gameConfig.presentMon || ""
+            placeholder: qsTr("PresentMon console path (optional; MSI detected automatically)")
+            onEdited: text => page.widgets.setCaptureOptions(page.widgets.gameConfig.managedCapture !== false, text)
+        }
+        Text {
+            visible: page.widgets.windowsCapture && page.advanced
+            width: parent.width; wrapMode: Text.Wrap; color: "#aebac6"
+            text: (page.widgets.captureStatus.program || "") + "\n" + (page.widgets.captureStatus.detail || "")
+        }
+        Text { visible: !page.widgets.windowsCapture || (page.advanced && page.widgets.gameConfig.managedCapture === false); text: qsTr("FPS capture source"); color: "white"; font.pixelSize: 18; font.bold: true }
+        Row {
+            visible: !page.widgets.windowsCapture || (page.advanced && page.widgets.gameConfig.managedCapture === false)
             spacing: 12
             Field {
                 id: fpsSource; objectName: "gameFpsSource"
@@ -85,12 +138,13 @@ Flickable {
         }
         Text {
             width: parent.width; wrapMode: Text.Wrap; color: "#aebac6"
+            visible: !page.widgets.windowsCapture || page.advanced
             text: qsTr("MangoHud CSV on Linux, PresentMon --v1_metrics CSV on Windows. The source is shared with the home FPS widget. Local sensors optionally read LibreHardwareMonitor at 127.0.0.1:8085; missing measurements show a dash.")
         }
         Text { text: qsTr("Game artwork override (optional)"); color: "white"; font.pixelSize: 18; font.bold: true }
         Text {
             width: parent.width; wrapMode: Text.Wrap; color: "#aebac6"
-            text: qsTr("Steam uses cached artwork when the process is identified. For other games, enter its captured executable name, title and local image, then Apply.")
+            text: qsTr("Steam uses cached artwork when the process is identified. For non-Steam games on Windows, add the executable name here to enable detection. The title and image are optional. Click Apply.")
         }
         Row {
             spacing: 12

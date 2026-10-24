@@ -75,6 +75,18 @@ private Q_SLOTS:
         QVERIFY(reader.setWidget("fps", true, 400, 20, 200, 60));
         QCOMPARE(reader.layout().last().toMap().value("textSize").toInt(), 40);
     }
+    void managedCaptureSettingsAreStagedAndValidated() {
+        QTemporaryDir dir;
+        const auto file = dir.filePath("widgets.json");
+        HomeWidgets editor(nullptr, file, true);
+        QVERIFY(!editor.setCaptureOptions(true, "relative.exe"));
+        QVERIFY(editor.setCaptureOptions(false, dir.filePath("console.exe")));
+        QVERIFY(!QFile::exists(file));
+        QVERIFY(editor.apply());
+        HomeWidgets reader(nullptr, file);
+        QVERIFY(!reader.gameConfig().value("managedCapture").toBool());
+        QCOMPARE(reader.gameConfig().value("presentMon").toString(), dir.filePath("console.exe"));
+    }
     void rejectsInvalidGeometryAndLocation() {
         QTemporaryDir dir;
         HomeWidgets widgets(nullptr, dir.filePath("widgets.json"));

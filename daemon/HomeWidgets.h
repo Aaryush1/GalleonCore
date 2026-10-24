@@ -3,6 +3,7 @@
 #pragma once
 #include <QObject>
 #include "GameMode.h"
+#include "GameCapture.h"
 #include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
@@ -18,6 +19,8 @@ class HomeWidgets : public QObject {
     Q_PROPERTY(QVariantMap fpsConfig READ fpsConfig NOTIFY changed)
     Q_PROPERTY(QVariantMap gameState READ gameState NOTIFY changed)
     Q_PROPERTY(QVariantMap gameConfig READ gameConfig NOTIFY changed)
+    Q_PROPERTY(QVariantMap captureStatus READ captureStatus NOTIFY changed)
+    Q_PROPERTY(bool windowsCapture READ windowsCapture CONSTANT)
     Q_PROPERTY(bool pending READ pending NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
@@ -33,6 +36,14 @@ public:
     QVariantMap fpsConfig() const { return m_fpsConfig; }
     QVariantMap gameState() const { return m_gameState; }
     QVariantMap gameConfig() const { return m_gameConfig; }
+    QVariantMap captureStatus() const { return m_captureStatus; }
+    bool windowsCapture() const {
+#ifdef Q_OS_WIN
+        return true;
+#else
+        return false;
+#endif
+    }
     bool pending() const { return m_pending; }
     QString error() const { return m_error; }
     Q_INVOKABLE bool setWidget(const QString &id, bool enabled, int x, int y, int width, int height);
@@ -41,6 +52,8 @@ public:
     Q_INVOKABLE bool setFpsSource(const QString &source, const QString &process);
     Q_INVOKABLE bool setCity(const QString &city);
     Q_INVOKABLE bool setGameOptions(bool automatic, bool localSensors);
+    Q_INVOKABLE bool authorizeWindowsCapture();
+    Q_INVOKABLE bool setCaptureOptions(bool managed, const QString &program);
     Q_INVOKABLE bool setGameProfile(const QString &process, const QString &title, const QString &image);
     Q_INVOKABLE bool reset();
     Q_INVOKABLE bool apply();
@@ -60,6 +73,9 @@ private:
     std::optional<double> m_gpuTemperature;
     std::optional<double> m_gpuLoad;
     GameMode m_gameMode;
+    GameCapture m_capture;
+    CaptureTarget m_captureTarget;
+    QVariantMap m_captureStatus;
     QVariantMap m_gameConfig, m_gameState, m_gameSensors;
     bool m_sensorPending = false;
     qint64 m_sensorAt = 0;
