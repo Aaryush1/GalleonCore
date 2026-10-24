@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Paul Woisard
+# SPDX-License-Identifier: GPL-3.0-or-later
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability / Signaler une faille de sécurité
+    url: https://github.com/Paullux/GalleonCore/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue. See SECURITY.md.
+  - name: Documentation and downloads / Documentation et téléchargements
+    url: https://galleoncore.xyz/
+    about: Installation steps, known limits and the Windows troubleshooting section.
