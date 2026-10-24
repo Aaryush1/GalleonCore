@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Paul Woisard
 # SPDX-License-Identifier: GPL-3.0-or-later
 Name:           galleoncore
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        Corsair Galleon Stream Deck support and settings
 License:        GPL-3.0-or-later AND LGPL-3.0-or-later AND CC-BY-SA-4.0
@@ -66,6 +66,9 @@ if command -v udevadm >/dev/null 2>&1; then udevadm control --reload-rules || :;
 %{_docdir}/galleoncore/
 
 %changelog
+* Sat Oct 24 2026 Paul Woisard <paulwoisard@gmail.com> - 0.2.1-1
+- Add repository-aware update notifications and update simulation in Bosun
+
 * Sat Oct 24 2026 Paul Woisard <paulwoisard@gmail.com> - 0.2.0-1
 - Add home widgets, automatic Gaming mode and recording controls
 

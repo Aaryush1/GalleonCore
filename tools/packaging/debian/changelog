@@ -1,3 +1,9 @@
+galleoncore (0.2.1-1) unstable; urgency=medium
+
+  * Add repository-aware update notifications and update simulation in Bosun.
+
+ -- Paul Woisard <paulwoisard@gmail.com>  Sat, 24 Oct 2026 17:23:00 +0200
+
 galleoncore (0.2.0-1) unstable; urgency=medium
 
   * Add home widgets, automatic Gaming mode and recording controls.

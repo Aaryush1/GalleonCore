@@ -3,9 +3,9 @@ SPDX-FileCopyrightText: 2026 Paul Woisard
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# Bosun update checks (next release)
+# Bosun update checks
 
-This feature is being prepared for the next release; it is not in v0.2.0.
+Available since GalleonCore 0.2.1.
 
 For Windows Setup/portable installations and Linux AppImages, **Updates** in
 Bosun's bottom bar opens the installed version, latest stable version and last

@@ -11,7 +11,7 @@
 [![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
 [![Fedora COPR](https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/)
 [![Arch AUR](https://img.shields.io/badge/Arch-AUR-1793D1?logo=archlinux&logoColor=white)](https://aur.archlinux.org/packages/galleoncore)
-[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-0.2.0-x86_64.AppImage)
+[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.2.1/GalleonCore-0.2.1-x86_64.AppImage)
 [![Licenses](https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue)](LICENSE.md)
 [![Security policy](https://img.shields.io/badge/security-report%20privately-46505E)](SECURITY.md)
 
@@ -81,13 +81,13 @@ Sensors depend on hardware and drivers: NVML for NVIDIA, AMD-SMI/hwmon on Linux;
 
 [Watch the 0.2.0 demonstration on YouTube](https://youtu.be/eFwru_OMNNI).
 
-### Update notifications (next release)
+### Update notifications (0.2.1)
 
 Bosun's [update checker](docs/UPDATES.md) checks stable GitHub releases and opens
 the appropriate download in your browser. Automatic checks can be disabled.
 PPA/COPR users receive no duplicate alert when a configured repository supplies
-GalleonCore; standalone DEB/RPM installations retain notifications. This feature
-is in development for the next release and is not included in v0.2.0.
+GalleonCore; standalone DEB/RPM installations retain notifications. Available since 0.2.1; use `--simulate-update` to test the notification without
+publishing a new release. See the [0.2.1 release notes](docs/RELEASE_0.2.1.md).
 
 ### Windows: Stream Deck input does not respond
 
