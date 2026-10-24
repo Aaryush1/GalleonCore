@@ -657,6 +657,20 @@ sudo udevadm control --reload &amp;&amp; sudo udevadm trigger</code></pre>
     </ul>
   </section>
 
+  <section class="wrap" id="how-made">
+    <h2><span lang="en">How this project is made</span><span lang="fr">Comment ce projet est fait</span></h2>
+    <div class="prose">
+      <p>
+        <span lang="en">Most of the code is written with AI coding agents (Claude Code and Codex), following the rules in <a href="https://github.com/Paullux/GalleonCore/blob/main/CLAUDE.md">CLAUDE.md</a> and under the maintainer's direction. The maintainer owns the keyboard, decides what is built, tests on the real hardware and reviews every change before it reaches the protected <code>main</code> branch.</span>
+        <span lang="fr">L'essentiel du code est écrit avec des agents de programmation IA (Claude Code et Codex), selon les règles de <a href="https://github.com/Paullux/GalleonCore/blob/main/CLAUDE.md">CLAUDE.md</a> et sous la direction du mainteneur. Le mainteneur possède le clavier, décide de ce qui est construit, teste sur le matériel réel et relit chaque changement avant qu'il n'atteigne la branche protégée <code>main</code>.</span>
+      </p>
+      <p>
+        <span lang="en">Generated code is not trusted on its own. What backs it is public, so anyone can check it: protocol facts come only from cited sources or real captures, device input is validated before use, every change of behaviour comes with a test, and the status above separates “tested” (automatic tests) from “confirmed on the module” (checked by a person on the hardware).</span>
+        <span lang="fr">Le code généré n'est pas cru sur parole. Ce qui le soutient est public, donc vérifiable par tous : les faits de protocole viennent uniquement de sources citées ou de captures réelles, les données du module sont validées avant usage, chaque changement de comportement s'accompagne d'un test, et l'avancement ci-dessus distingue « testé » (tests automatiques) de « confirmé sur le module » (vérifié par une personne sur le matériel).</span>
+      </p>
+    </div>
+  </section>
+
   <section class="wrap" id="credits">
     <div class="two-col">
       <div>
