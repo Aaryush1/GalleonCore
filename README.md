@@ -202,6 +202,12 @@ checked by anyone:
   "tested" (automatic tests) apart from "confirmed on the module" (a person
   checked it on the hardware).
 
+Every push runs compilation tests (GCC and Clang, warnings as errors), the unit
+tests and the lint (clang-tidy, qmllint, REUSE). They do not catch every
+mistake, and passing them does not mean the code is bug-free; they guarantee a
+minimum level of quality against established standards, and nothing is merged
+without them.
+
 If something is wrong, open an issue; reports with a firmware version, a
 distribution and a log are the most useful.
 

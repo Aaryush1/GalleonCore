@@ -210,6 +210,12 @@ vérifiable par tous :
   « testé » (tests automatiques) de « confirmé sur le module » (une personne l'a
   vérifié sur le matériel).
 
+À chaque push, les tests de compilation (GCC et Clang, avertissements traités
+en erreurs), les tests unitaires et le lint (clang-tidy, qmllint, REUSE) sont
+exécutés. Ils n'évitent pas toutes les erreurs, et les réussir ne veut pas dire
+que le code est sans bug ; ils garantissent un niveau de qualité minimal selon
+les standards établis, et rien n'est fusionné sans eux.
+
 En cas de problème, ouvre une issue ; les rapports avec la version du firmware,
 la distribution et un journal sont les plus utiles.
 
