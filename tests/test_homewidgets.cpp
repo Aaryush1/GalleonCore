@@ -74,7 +74,7 @@ private Q_SLOTS:
     void defaultsAndCrossProcessReload() {
         const QTemporaryDir dir;
         HomeWidgets writer(nullptr, dir.filePath("widgets.json"));
-        const HomeWidgets reader(nullptr, dir.filePath("widgets.json"));
+        HomeWidgets reader(nullptr, dir.filePath("widgets.json"));
         QCOMPARE(writer.layout().size(), 7);
         QVERIFY(writer.layout()[0].toMap().value("enabled").toBool());
         for (int i = 1; i < writer.layout().size(); ++i) QVERIFY(!writer.layout()[i].toMap().value("enabled").toBool());
