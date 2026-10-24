@@ -19,6 +19,19 @@ Périmètre : widgets d’accueil, mode Jeu automatique, capteurs GPU, contrôle
 
 Les contrôles de sortie obligatoires couvrent GCC, Clang + ASan/UBSan, fuzzing, clang-tidy, QML, tests des outils, REUSE, Windows natif et cycle du Setup, puis les paquets Linux. Le type NVML est partagé entre le collecteur et sa bibliothèque de test ; les notices AMD/Intel sont conservées et le texte MIT canonique est fourni. Les résultats des anciens candidats ci-dessus et ci-dessous sont historiques et ne constituent pas le bilan du contenu final de v0.2.0. Les notes de version sont dans [docs/RELEASE_0.2.0.md](docs/RELEASE_0.2.0.md). Le site sera repris séparément après publication.
 
+### Prochaine version — vérification des mises à jour Bosun
+
+Implémentation sur `codex/bosun-update-check`, sans nouvelle release dédiée :
+comparaison numérique avec la dernière release stable GitHub, panneau et lien
+navigateur vers le fichier adapté, préférence automatique persistante, cache et
+limites réseau. Les DEB/RPM interrogent les métadonnées locales APT/DNF : pas de
+notification si un dépôt fournit GalleonCore (PPA/COPR), notifications conservées
+pour les installations indépendantes. Détection indéterminée : vérification
+manuelle disponible, automatique suspendue pour la session. Les 47 suites Qt passent sous GCC et Clang avec ASan/UBSan ; le nouveau
+contrôleur est testé hors réseau avec les cas de téléchargement et d’erreur.
+Essais interactifs Windows/PPA/COPR encore à confirmer.
+Voir [le fonctionnement et les limites](docs/UPDATES.md).
+
 ## 1. Implémenté et testé
 
 Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fonds personnels et du bouton « Parcourir » (PR #24).

@@ -4,6 +4,9 @@
 #include "BosunBackend.h"
 #include "DaemonStatus.h"
 #include "FilePicker.h"
+#include "UpdateChecker.h"
+#include "PackageUpdates.h"
+#include <QDesktopServices>
 #include "Tray.h"
 #include "WallpaperLibrary.h"
 
@@ -105,12 +108,29 @@ int main(int argc, char *argv[])
 #endif
 
     const auto filePicker = std::make_unique<bosun::FilePicker>();
+    bosun::UpdateChecker updates({QCoreApplication::applicationVersion(), {}, bosun::currentUpdatePlatform(), 15000,
+                                  !QStringLiteral(GALLEON_PACKAGE_FORMAT).isEmpty()});
+    QObject::connect(&updates, &bosun::UpdateChecker::openUrlRequested, &app, [](const QUrl &url) {
+        if (!QDesktopServices::openUrl(url)) qWarning() << "Could not open update link in the browser";
+    });
+    bosun::PackageUpdates packageUpdates;
+    QObject::connect(&packageUpdates, &bosun::PackageUpdates::detected, &updates, [&updates](bool managed, bool known) {
+        updates.setRepositoryManaged(managed, known);
+        if (known) updates.startAutomaticChecks();
+    });
+    if (!parser.isSet(shotOption) && !parser.isSet(pagesOption)) {
+        QTimer::singleShot(5000, &updates, [&updates, &packageUpdates] {
+            if (QStringLiteral(GALLEON_PACKAGE_FORMAT).isEmpty()) updates.startAutomaticChecks();
+            else packageUpdates.start(QStringLiteral(GALLEON_PACKAGE_FORMAT));
+        });
+    }
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
     engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
     engine.addImageProvider(QStringLiteral("wallpapers"), new bosun::WallpaperThumbnails(&library));
     engine.addImageProvider(QStringLiteral("wallpaperpreview"), new bosun::WallpaperPreview(&library));
     engine.setInitialProperties({{QStringLiteral("startMinimized"), parser.isSet(minimizedOption) && !parser.isSet(shotOption) && bosun::Tray::isAvailable()},
+                                 {QStringLiteral("updates"), QVariant::fromValue(&updates)},
                                  {QStringLiteral("filePicker"), QVariant::fromValue(filePicker.get())},
                                  {QStringLiteral("backend"), QVariant::fromValue(&backend)},
                                  {QStringLiteral("daemon"), QVariant::fromValue(&daemon)},

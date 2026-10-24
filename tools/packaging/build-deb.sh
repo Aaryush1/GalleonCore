@@ -12,7 +12,7 @@ trap 'rm -rf "$work"' EXIT
 stage=$work/stage
 cmake -S /src -B "$work/release" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR="lib/$triplet" \
-    -DGALLEON_SOURCE_TREE_PATHS=OFF -DBUILD_TESTING=OFF -DGALLEON_WERROR=ON
+    -DGALLEON_SOURCE_TREE_PATHS=OFF -DGALLEON_PACKAGE_FORMAT=deb -DBUILD_TESTING=OFF -DGALLEON_WERROR=ON
 cmake --build "$work/release" -j "$jobs"
 DESTDIR="$stage" cmake --install "$work/release"
 mkdir -p "$stage/DEBIAN" "$stage/usr/share/doc/galleoncore" "$stage/usr/lib/modules-load.d"
@@ -58,7 +58,7 @@ chmod 755 "$stage/DEBIAN/postinst" "$stage/DEBIAN/postrm"
 dpkg-deb --root-owner-group --build "$stage" "/out/galleoncore_${version}-1_${arch}.deb"
 # Separate build: tests retain their source fixtures, release binaries do not.
 cmake -S /src -B "$work/tests" -DCMAKE_BUILD_TYPE=Release \
-    -DGALLEON_SOURCE_TREE_PATHS=OFF -DBUILD_TESTING=ON -DGALLEON_WERROR=ON
+    -DGALLEON_SOURCE_TREE_PATHS=OFF -DGALLEON_PACKAGE_FORMAT=deb -DBUILD_TESTING=ON -DGALLEON_WERROR=ON
 cmake --build "$work/tests" -j "$jobs"
 ctest --test-dir "$work/tests" --output-on-failure -j "$jobs"
 (cd /src && reuse lint)

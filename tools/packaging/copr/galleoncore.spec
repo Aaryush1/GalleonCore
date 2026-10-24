@@ -25,7 +25,7 @@ Includes udev access rules and an opt-in systemd user service.
 %autosetup -n galleoncore-%{version}
 
 %build
-%cmake -DGALLEON_SOURCE_TREE_PATHS=OFF -DBUILD_TESTING=ON -DGALLEON_WERROR=OFF
+%cmake -DGALLEON_SOURCE_TREE_PATHS=OFF -DGALLEON_PACKAGE_FORMAT=rpm -DBUILD_TESTING=ON -DGALLEON_WERROR=OFF
 %cmake_build
 
 %install

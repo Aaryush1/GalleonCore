@@ -81,6 +81,14 @@ Sensors depend on hardware and drivers: NVML for NVIDIA, AMD-SMI/hwmon on Linux;
 
 [Watch the 0.2.0 demonstration on YouTube](https://youtu.be/eFwru_OMNNI).
 
+### Update notifications (next release)
+
+Bosun's [update checker](docs/UPDATES.md) checks stable GitHub releases and opens
+the appropriate download in your browser. Automatic checks can be disabled.
+PPA/COPR users receive no duplicate alert when a configured repository supplies
+GalleonCore; standalone DEB/RPM installations retain notifications. This feature
+is in development for the next release and is not included in v0.2.0.
+
 ### Windows: Stream Deck input does not respond
 
 On the owner's Galleon 100 SD, images updated but the LCD keys and dials did not

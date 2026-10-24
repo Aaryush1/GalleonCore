@@ -112,6 +112,9 @@ galleond_add_test(test_homewidgets)
 galleond_add_test(test_fpsreader)
 galleond_add_test(test_gamemode)
 
+galleon_add_test(test_updatechecker)
+target_link_libraries(test_updatechecker PRIVATE bosun_core)
+
 galleond_add_test(test_recording)
 
 if(WIN32)

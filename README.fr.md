@@ -81,6 +81,15 @@ Les capteurs dépendent du matériel et des pilotes : NVML pour NVIDIA, AMD-SMI/
 
 [Voir la démonstration vidéo de la 0.2.0 sur YouTube](https://youtu.be/eFwru_OMNNI).
 
+### Notifications de mise à jour (prochaine version)
+
+La [vérification des mises à jour](docs/UPDATES.md) de Bosun consulte les versions
+stables sur GitHub et ouvre le téléchargement adapté dans le navigateur. Les
+vérifications automatiques sont désactivables. Les utilisateurs PPA/COPR ne
+reçoivent pas de notification en double lorsqu’un dépôt configuré fournit
+GalleonCore ; les DEB/RPM installés indépendamment conservent les notifications.
+Cette fonction est préparée pour la prochaine version et n’est pas dans la v0.2.0.
+
 ### Windows : les touches du Stream Deck ne répondent pas
 
 Sur le Galleon 100 SD du propriétaire, les images se mettaient à jour mais les
