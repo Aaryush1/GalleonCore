@@ -3,6 +3,8 @@
 #include <HomeWidgets.h>
 #include <ScreenRenderer.h>
 #include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QGuiApplication>
 #include <QTemporaryDir>
 #include <QTest>
@@ -75,6 +77,27 @@ private Q_SLOTS:
         QVERIFY(reader.setWidget("fps", true, 400, 20, 200, 60));
         QCOMPARE(reader.layout().last().toMap().value("textSize").toInt(), 40);
     }
+#ifdef Q_OS_WIN
+    void bosunObservesFreshDaemonStateAndRejectsStaleState() {
+        QTemporaryDir dir;
+        const auto config = dir.filePath("widgets.json");
+        const auto write = [&](qint64 at) {
+            QFile file(config + ".runtime.json");
+            if (!file.open(QIODevice::WriteOnly)) return false;
+            file.write(QJsonDocument(QJsonObject{{"at", at},
+                {"capture", QJsonObject{{"state", "capturing"}, {"message", "Fixture active"}}},
+                {"game", QJsonObject{{"active", true}, {"title", "Fixture"}}}}).toJson());
+            return true;
+        };
+        QVERIFY(write(QDateTime::currentMSecsSinceEpoch()));
+        HomeWidgets editor(nullptr, config, true);
+        QVERIFY(editor.gameState().value("active").toBool());
+        QCOMPARE(editor.captureStatus().value("state").toString(), QStringLiteral("capturing"));
+        QVERIFY(write(QDateTime::currentMSecsSinceEpoch() - 20000));
+        QTRY_COMPARE(editor.captureStatus().value("state").toString(), QStringLiteral("offline"));
+        QVERIFY(!editor.gameState().value("active").toBool());
+    }
+#endif
     void managedCaptureSettingsAreStagedAndValidated() {
         QTemporaryDir dir;
         const auto file = dir.filePath("widgets.json");

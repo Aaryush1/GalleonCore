@@ -3,6 +3,7 @@
 #include <GameCapture.h>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTest>
 using namespace galleond;
@@ -47,6 +48,30 @@ private Q_SLOTS:
         QVERIFY(!QFile::exists(path));
         QCOMPARE(capture.status().value("state").toString(), QStringLiteral("disabled"));
     }
+    void highFrameRateCaptureRetainsBoundedCache() {
+        QTemporaryDir dir;
+        const auto path = dir.filePath("capture.csv");
+        GameCapture capture(path);
+        capture.tick(true, {13, "fixture.exe"}, QStringLiteral(GALLEON_TEST_CAPTURE));
+        QTRY_VERIFY(capture.sample().fps.has_value());
+        QVERIFY(QFileInfo(path).size() < 70000);
+        QCOMPARE(capture.sample().fps.value_or(0), 100.0);
+    }
+#ifdef Q_OS_WIN
+    void nativeDetectionFindsAProcessInASteamLibrary() {
+        QTemporaryDir dir;
+        QVERIFY(QDir(dir.path()).mkpath("steamapps/common/TestGame"));
+        const auto executable = dir.filePath("steamapps/common/TestGame/fixture.exe");
+        QVERIFY(QFile::copy(QStringLiteral(GALLEON_TEST_CAPTURE), executable));
+        QProcess process;
+        process.start(executable, {"--process_id", "12"});
+        QVERIFY(process.waitForStarted());
+        const auto pid = quint32(process.processId());
+        QTRY_COMPARE(GameCapture::detectGame({}, pid).pid, pid);
+        process.kill(); QVERIFY(process.waitForFinished());
+        QVERIFY(GameCapture::detectGame({}, pid).pid != pid);
+    }
+#endif
     void unusedObserverDoesNotDeleteTheDaemonsCapture() {
         QTemporaryDir dir;
         const auto path = dir.filePath("capture.csv");
