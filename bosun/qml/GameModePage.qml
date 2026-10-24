@@ -38,7 +38,7 @@ Flickable {
         Text {
             width: parent.width; wrapMode: Text.Wrap; color: "#c9ced6"
             text: page.widgets.windowsCapture
-                ? qsTr("Start your Steam game: Galleon detects it and starts FPS capture automatically. Install the official PresentMon MSI once, including its console component. Click Apply to save changes.")
+                ? qsTr("Start your Steam game: Galleon detects it and starts FPS capture automatically. Install the official PresentMon MSI once, with its shared service. Click Apply to save changes.")
                 : qsTr("Automatic game artwork, FPS and CPU/GPU gauges. The keyboard screensaver stays off during an active capture. Click Apply to save changes.")
         }
         Row {
@@ -63,20 +63,15 @@ Flickable {
             spacing: 12
             Pill {
                 objectName: "startPresentMon"
-                text: page.widgets.captureStatus.running ? qsTr("PresentMon lancé") : qsTr("Lancer PresentMon")
-                enabledLook: !!page.widgets.captureStatus.canStart && !page.widgets.captureStatus.running && !page.widgets.captureStatus.starting
-                onClicked: page.widgets.requestGameCapture()
+                text: page.widgets.captureStatus.running ? qsTr("Arrêter la capture FPS")
+                    : page.widgets.captureStatus.installed ? qsTr("Démarrer la capture FPS") : qsTr("Installer PresentMon")
+                enabledLook: !page.widgets.captureStatus.starting && page.widgets.captureStatus.state !== "offline"
+                onClicked: {
+                    if (!page.widgets.captureStatus.installed) Qt.openUrlExternally("https://github.com/GameTechDev/PresentMon/releases/latest")
+                    else page.widgets.requestGameCapture(!page.widgets.captureStatus.running)
+                }
             }
             Pill { text: page.advanced ? qsTr("Hide advanced settings") : qsTr("Advanced settings"); onClicked: page.advanced = !page.advanced }
-        }
-        Column {
-            visible: page.widgets.windowsCapture && (page.widgets.captureStatus.state === "error" || page.widgets.captureStatus.state === "no_frames")
-            width: parent.width; spacing: 8
-            Text {
-                width: parent.width; wrapMode: Text.Wrap; color: "#ffb74d"
-                text: qsTr("If Windows denies FPS capture, this button requests administrator approval to add your account to Performance Log Users. Sign out and back in afterwards. Keep the graphics driver enabled.")
-            }
-            Pill { text: qsTr("Authorize Windows FPS capture"); onClicked: page.widgets.authorizeWindowsCapture() }
         }
         Text {
             objectName: "gameCaptureStatus"
@@ -109,7 +104,7 @@ Flickable {
         }
         Field {
             id: presentMon; objectName: "presentMonPath"
-            visible: page.widgets.windowsCapture && page.advanced
+            visible: false
             width: Math.min(720, page.width); maximumLength: 4096
             value: page.widgets.gameConfig.presentMon || ""
             placeholder: qsTr("PresentMon console path (optional; MSI detected automatically)")

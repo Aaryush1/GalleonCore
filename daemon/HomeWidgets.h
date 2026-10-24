@@ -52,8 +52,7 @@ public:
     Q_INVOKABLE bool setFpsSource(const QString &source, const QString &process);
     Q_INVOKABLE bool setCity(const QString &city);
     Q_INVOKABLE bool setGameOptions(bool automatic, bool localSensors);
-    Q_INVOKABLE bool requestGameCapture();
-    Q_INVOKABLE bool authorizeWindowsCapture();
+    Q_INVOKABLE bool requestGameCapture(bool start = true);
     Q_INVOKABLE bool setCaptureOptions(bool managed, const QString &program);
     Q_INVOKABLE bool setGameProfile(const QString &process, const QString &title, const QString &image);
     Q_INVOKABLE bool reset();
@@ -71,11 +70,16 @@ private:
     QProcess m_gpuProcess;
     qint64 m_gpuAt = 0;
     int m_gpuSerial = 0;
+    bool m_gpuUsesProbe = false;
+    qint64 m_nativeGpuRetryAt = 0;
+    QString m_gpuProvider;
     std::optional<double> m_gpuTemperature;
     std::optional<double> m_gpuLoad;
     GameMode m_gameMode;
     GameCapture m_capture;
     CaptureTarget m_captureTarget;
+    quint32 m_captureStoppedPid = 0;
+    QVariantMap m_captureInstallation;
     QString m_captureProgram, m_capturePathOption;
     qint64 m_captureDiscoveryAt = 0;
     QVariantMap m_captureStatus;

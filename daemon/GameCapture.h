@@ -17,7 +17,7 @@ class GameCapture : public QObject {
 public:
     explicit GameCapture(QString output, QObject *parent = nullptr);
     ~GameCapture() override;
-    void tick(bool enabled, const CaptureTarget &target, const QString &program);
+    void tick(bool enabled, const CaptureTarget &target, const QString &program, const QString &apiPath = {});
     FpsSample sample();
     void retry() { m_retryAt = 0; }
     static QStringList registeredPresentMonFolders();
@@ -29,7 +29,7 @@ private:
     void consume();
     void stop();
     QProcess m_process, m_cleanup;
-    QString m_output, m_program, m_state = QStringLiteral("waiting"), m_message;
+    QString m_output, m_program, m_apiPath, m_state = QStringLiteral("waiting"), m_message;
     CaptureTarget m_target;
     QByteArray m_header, m_tail, m_partial, m_diagnostics;
     qint64 m_retryAt = 0, m_startedAt = 0;

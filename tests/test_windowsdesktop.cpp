@@ -54,11 +54,11 @@ private slots:
     void presentMonButtonReflectsCaptureAndRequestsRetryWithoutApplyingEdits() {
         QTemporaryDir dir;
         const auto config = dir.filePath("widgets.json");
-        const auto writeState = [&](bool running) {
+        const auto writeState = [&](bool running, bool installed = true) {
             QFile file(config + ".runtime.json");
             if (!file.open(QIODevice::WriteOnly)) return false;
             file.write(QJsonDocument(QJsonObject{{"at", QDateTime::currentMSecsSinceEpoch()},
-                {"capture", QJsonObject{{"running", running}, {"canStart", !running}, {"state", running ? "capturing" : "error"}}}}).toJson());
+                {"capture", QJsonObject{{"installed", installed}, {"running", running}, {"canStart", !running}, {"state", running ? "capturing" : "error"}}}}).toJson());
             return true;
         };
         QVERIFY(writeState(true));
@@ -70,15 +70,23 @@ private slots:
         QVERIFY2(page, qPrintable(component.errorString()));
         auto *button = page->findChild<QObject *>(QStringLiteral("startPresentMon"));
         QVERIFY(button);
-        QCOMPARE(button->property("text").toString(), QStringLiteral("PresentMon lancé"));
-        QVERIFY(!button->property("enabledLook").toBool());
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"));
+        QVERIFY(button->property("enabledLook").toBool());
         QVERIFY(writeState(false));
-        QTRY_VERIFY_WITH_TIMEOUT(button->property("enabledLook").toBool(), 4000);
-        QCOMPARE(button->property("text").toString(), QStringLiteral("Lancer PresentMon"));
+        QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"), 4000);
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"));
         QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
         QVERIFY(QFile::exists(config + ".capture-request.json"));
         QVERIFY(!QFile::exists(config));
         QVERIFY(editor.pending());
+        QVERIFY(writeState(true));
+        QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"), 4000);
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QFile request(config + ".capture-request.json"); QVERIFY(request.open(QIODevice::ReadOnly));
+        QCOMPARE(QJsonDocument::fromJson(request.readAll()).object().value("action").toString(), QStringLiteral("stop"));
+        request.close();
+        QVERIFY(writeState(false, false));
+        QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Installer PresentMon"), 4000);
     }
     void registeredApplicationWithoutShortcutIsListed()
     {

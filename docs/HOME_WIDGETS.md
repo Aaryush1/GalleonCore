@@ -96,74 +96,53 @@ logs are per game. Capture logs grow while logging remains active.
 Sources: [MangoHud configuration](https://github.com/flightlessmango/MangoHud/blob/master/data/MangoHud.conf),
 [live CSV writer](https://github.com/flightlessmango/MangoHud/blob/master/src/logging.cpp).
 
-### Windows — automatic capture (PresentMon MSI)
+### Windows — PresentMon shared service and direct API
 
-Install the official [PresentMon MSI](https://github.com/GameTechDev/PresentMon/releases/latest)
-with its console component. Restart the daemon once after installation. In
-**Bosun → Mode Jeu**, leave **Automatic** enabled and click **Apply**. Start a
-Steam game: the daemon identifies its running executable under
-`steamapps/common`, selects a foreground game first (otherwise keeps the current
-one), and starts the PresentMon console itself. Bosun displays the daemon's real
-capture state; it never starts a second capture.
+Install the official [PresentMon MSI](https://github.com/GameTechDev/PresentMon/releases/latest).
+The console and GUI do not need to be launched. Galleon queries Windows Service
+Control Manager for **PresentMonSharedService**, obtains its configured executable
+path and checks that **PresentMonService.exe** and **PresentMonAPI2.dll** exist in
+that installation directory. The service configuration is authoritative; paths
+from an unrelated console or GUI installation are not used for this capture.
 
-Discovery checks a valid explicit console override first, then the MSI registry
-key `Software/Intel/PresentMon/PresentMonInstallFolder` and matching uninstall
-`InstallLocation` records (user/machine, 32/64-bit views). It verifies the console
-file actually exists, then tries directories on `PATH`, and finally the usual
-`%ProgramFiles%/Intel/PresentMon/PresentMonConsoleApplication` directory
-(and `%ProgramW6432%`) or `bin/PresentMon` next to Galleon. A stale registered or
-saved path does not mask a valid fallback. Discovery is refreshed every ten
-seconds, or immediately when the configured path changes or the file disappears. The MSI GUI named
-`PresentMon.exe` is intentionally not auto-selected. **Advanced settings** offers
-a console path override and the previous manual CSV mode, without exposing CSV
-paths in the normal Windows flow. Linux MangoHud settings remain unchanged.
-The **Lancer PresentMon** button requests a capture retry from the daemon for the
-detected game. It does not open PresentMon's GUI or apply unrelated pending edits.
-While the owned capture process runs, it reads **PresentMon lancé** and is greyed
-out. With no detected game, no daemon or no console, it stays disabled; the status
-explains what is missing. Automatic capture remains enabled independently of this
-retry button.
+Start a Steam game with **Automatic** enabled in Bosun. The daemon detects the
+running game and starts its isolated `galleon-presentmon-probe` helper. This loads
+the installed API DLL, opens a session, tracks the game PID and polls the
+`PM_METRIC_PRESENTED_FPS` average over one second. When several swapchains exist,
+the highest valid FPS average is selected. No PresentMon GUI, console command or
+external CSV configuration is needed. The bounded internal cache transfers the
+API samples to the existing renderer; it is not a user-managed capture log.
 
-For non-Steam games, add the executable name in **Game artwork override**, then
-Apply; its title/image are optional. This is a saved detection rule. Arbitrary
-browser/desktop processes are not treated as games. Known launcher, crash and
-anti-cheat helper names are excluded from Steam detection; an explicit saved
-executable rule can override the name exclusion. Protected processes whose path
-cannot be queried cannot be detected by this iteration.
+The button has three states:
 
-Capture uses `--process_id`, `--v1_metrics`, `--output_stdout` and a private
-`Galleon-<daemon PID>` ETW session. Complete CSV rows are retained in a bounded
-64 KiB ring plus header, written to a local cache only when data changes. It
-stops when the game exits or automatic capture is disabled. Failures are shown
-with bounded diagnostic output and a 30-second retry backoff. Stopping a capture
-requests termination of only its own named ETW session; other PresentMon
-sessions are not stopped. The GUI observes a timestamped runtime file beside
-`widgets.json`, so stale daemon state is not shown as an active capture.
+- **Installer PresentMon**: the service installation or required files are absent.
+- **Démarrer la capture FPS**: installed, capture inactive. A click enables/retries
+  capture for the detected game without applying unrelated pending edits.
+- **Arrêter la capture FPS**: the Galleon capture helper is running. Stopping
+  closes only Galleon's API session, not the shared Windows service or other
+  clients. Automatic restart is suppressed for that game until the user starts
+  capture again, or a new game is detected.
 
-PresentMon ETW capture may require membership in **Performance Log Users**.
-If access is denied, Bosun offers **Authorize Windows FPS capture**. Clicking
-this explicitly requests Windows UAC approval to add the current account to the
-localized Performance Log Users group (SID `S-1-5-32-559`). Sign out and back in
-afterwards. Cancellation leaves the capture in its error state. The daemon itself
-is not elevated; no graphics driver is disabled. You can also add the account
-through Windows Computer Management. The MSI installation alone does not
-guarantee that ETW permissions have been granted.
+An installed but stopped service is started through Service Control Manager if
+Windows permits it. Access denied, missing DLL, incompatible API version, session
+or query errors appear in Bosun. No silent elevation, group membership change or
+graphics-driver disabling is performed. If service startup is denied, start it
+through Windows Services with appropriate authorization or repair the MSI.
+The SDK API major version must match the vendored public v2.6.0 API header (major
+3); DLL symbols and returned buffer layouts are checked before reading FPS.
 
-Advanced manual CSV example (not needed in automatic mode):
+Game detection prefers the foreground Steam process, otherwise retains the
+current game. For non-Steam games, add the executable name once in **Game artwork
+override**, then Apply; title and image are optional. Desktop/browser processes
+are excluded. Protected processes may remain inaccessible. Advanced manual CSV
+mode remains available as a compatibility option; Linux MangoHud is unchanged.
 
-```powershell
-PresentMon-2.6.0-x64.exe --process_name cs2.exe --v1_metrics --output_file C:\Temp\galleon-fps.csv
-```
+The service-backed FPS path still needs physical Windows game validation. Native
+CI covers the adapter using a fake API DLL, file checks, error handling, UI states,
+and installed program lifecycle. Shared regression tests run on Linux as well.
 
-Set the manual source to `C:\Temp\galleon-fps.csv` and the executable filter
-to `cs2.exe`. The parser uses `MsBetweenPresents` and the latest swapchain,
-averaging up to 120 samples / about one second. It measures presentation
-cadence, including frames the system may drop, rather than physically displayed
-frames. Mixed-process manual logs require an executable filter.
-
-Sources: [PresentMon console documentation](https://github.com/GameTechDev/PresentMon/blob/main/README-ConsoleApplication.md),
-[official MSI layout](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/IntelPresentMon/PMInstaller/PresentMon.wxs),
-[ETW permissions](https://github.com/GameTechDev/PresentMon#user-access-denied).
+Sources: [public API](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/IntelPresentMon/PresentMonAPI2/PresentMonAPI.h),
+[official service MSI layout](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/IntelPresentMon/PMInstallerLib/Library.wxs).
 
 ## Automatic game screen (first iteration)
 
@@ -248,3 +227,28 @@ missing telemetry, allowing the native GPU provider to supply the gauge. A zero
 load with valid nonzero GPU telemetry remains a genuine idle reading.
 
 NVIDIA provider reference: [query fields](https://nvidia.custhelp.com/app/answers/detail/a_id/3751/~/useful-nvidia-smi-queries).
+
+### Native GPU telemetry
+
+`galleon-gpu-probe` loads the installed driver libraries dynamically. NVIDIA uses
+NVML on Linux and Windows (`libnvidia-ml.so.1`/`.so`, or the system/NVSMI
+`nvml.dll`). Linux AMD uses AMD-SMI (`libamd_smi.so`, optionally under
+`/opt/rocm/lib` or `lib64`) when installed and supported. AMD-SMI is not guaranteed
+to be installed with every consumer AMD graphics driver. Native valid GPU load
+and temperature take priority over capture-log GPU fields. Unsupported values
+and sentinels are rejected; a genuine 0% is kept. The first readable GPU is used.
+
+Driver calls run outside the daemon with a two-second deadline. If native APIs
+are unavailable, `nvidia-smi`, capture fields, Linux amdgpu hwmon and the optional
+local LibreHardwareMonitor provider remain fallbacks. Native probing retries
+after 60 seconds following a failure. AMD-SMI types are pinned to the MIT-licensed
+ROCm 7.2.4 ABI; the proprietary libraries themselves are never bundled.
+
+ADLX for AMD Windows is not integrated: the consulted SDK v1.5 licensing restricts
+source redistribution and Free Software License combinations. No ADLX SDK header
+or binary is copied into this GPL project. AMD Windows keeps its existing local
+sensor fallback pending a compatible integration route.
+
+References: [NVML](https://docs.nvidia.com/deploy/nvml-api/),
+[AMD-SMI API](https://github.com/ROCm/amdsmi/blob/rocm-7.2.4/include/amd_smi/amdsmi.h),
+[ADLX SDK terms](https://github.com/GPUOpen-LibrariesAndSDKs/ADLX/blob/v1.5/ADLX%20SDK%20License%20Agreement.pdf).

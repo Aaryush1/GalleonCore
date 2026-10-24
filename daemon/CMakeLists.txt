@@ -70,3 +70,31 @@ qt_add_resources(galleond_core "home_widgets"
     BASE "${CMAKE_SOURCE_DIR}/widgets"
     FILES "${CMAKE_SOURCE_DIR}/widgets/HomeOverlay.qml" "${CMAKE_SOURCE_DIR}/widgets/GameScreen.qml" "${CMAKE_SOURCE_DIR}/widgets/CarGauge.qml"
 )
+
+# Driver calls are isolated so a stalled vendor library cannot block the display.
+add_library(galleon_gpu_sensors STATIC GpuSensors.h GpuSensors.cpp)
+target_include_directories(galleon_gpu_sensors PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(galleon_gpu_sensors PUBLIC Qt6::Core PRIVATE galleon_warnings)
+if(WIN32)
+    target_compile_definitions(galleon_gpu_sensors PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+qt_add_executable(galleon-gpu-probe GpuProbe.cpp)
+target_link_libraries(galleon-gpu-probe PRIVATE galleon_gpu_sensors galleon_warnings)
+install(TARGETS galleon-gpu-probe RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES ${PROJECT_SOURCE_DIR}/LICENSES/AMD-SMI-MIT.txt DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/galleoncore)
+
+add_library(galleon_presentmon_api STATIC PresentMonService.h PresentMonService.cpp)
+target_include_directories(galleon_presentmon_api PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(galleon_presentmon_api PUBLIC Qt6::Core PRIVATE galleon_warnings)
+if(WIN32)
+    target_compile_definitions(galleon_presentmon_api PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_link_libraries(galleon_presentmon_api PRIVATE advapi32)
+endif()
+target_link_libraries(galleond_core PUBLIC galleon_presentmon_api)
+qt_add_executable(galleon-presentmon-probe PresentMonProbe.cpp)
+target_link_libraries(galleon-presentmon-probe PRIVATE galleon_presentmon_api galleon_warnings)
+if(WIN32)
+    target_compile_definitions(galleon-presentmon-probe PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+install(TARGETS galleon-presentmon-probe RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES ${PROJECT_SOURCE_DIR}/LICENSES/PresentMon-API-MIT.txt DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/galleoncore)

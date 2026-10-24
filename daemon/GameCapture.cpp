@@ -27,9 +27,12 @@ GameCapture::GameCapture(QString output, QObject *parent) : QObject(parent), m_o
     });
     connect(&m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this](int code, QProcess::ExitStatus) {
         consume();
+        m_diagnostics = (m_diagnostics + m_process.readAllStandardError()).right(4096);
         if (m_stopping) return;
         m_state = QStringLiteral("error");
-        m_message = tr("PresentMon stopped (code %1). Check capture permissions (Performance Log Users), then sign out and back in. No driver needs disabling.").arg(code);
+        m_message = m_apiPath.isEmpty()
+            ? tr("PresentMon stopped (code %1). Check capture permissions (Performance Log Users), then sign out and back in. No driver needs disabling.").arg(code)
+            : tr("PresentMon service/API inaccessible (code %1): %2").arg(code).arg(QString::fromLocal8Bit(m_diagnostics).left(400));
         m_retryAt = QDateTime::currentMSecsSinceEpoch() + 30000;
         QFile::remove(m_output);
     });
@@ -53,9 +56,12 @@ GameCapture::~GameCapture() {
 void GameCapture::stop() {
     if (!m_stopping && m_process.state() != QProcess::NotRunning) {
 #ifdef Q_OS_WIN
-        // Ask PresentMon to close only our named ETW session before killing a stuck child.
-        m_cleanup.start(m_program, {QStringLiteral("--session_name"),
-            QStringLiteral("Galleon-%1").arg(QCoreApplication::applicationPid()), QStringLiteral("--terminate_existing_session")});
+        if (!m_apiPath.isEmpty()) m_process.write("stop\n");
+        else {
+            // Legacy console captures own only their private ETW session.
+            m_cleanup.start(m_program, {QStringLiteral("--session_name"),
+                QStringLiteral("Galleon-%1").arg(QCoreApplication::applicationPid()), QStringLiteral("--terminate_existing_session")});
+        }
 #else
         m_process.terminate();
 #endif
@@ -72,7 +78,7 @@ void GameCapture::consume() {
     qsizetype at = 0, next = 0;
     while ((next = m_partial.indexOf('\n', at)) >= 0) {
         const auto row = m_partial.mid(at, next - at + 1);
-        if (row.startsWith("Application,") && row.toLower().contains("msbetweenpresents")) m_header = row;
+        if (row.startsWith("Application,") && (row.toLower().contains("msbetweenpresents") || row.toLower().contains(",fps,"))) m_header = row;
         else if (!m_header.isEmpty() && row.size() < 16384) m_tail += row;
         at = next + 1;
     }
@@ -80,7 +86,7 @@ void GameCapture::consume() {
     if (m_partial.size() > 16384) m_partial.clear();
     if (m_tail.size() > 65536) { m_tail = m_tail.right(65536); m_tail.remove(0, m_tail.indexOf('\n') + 1); }
 }
-void GameCapture::tick(bool enabled, const CaptureTarget &target, const QString &program) {
+void GameCapture::tick(bool enabled, const CaptureTarget &target, const QString &program, const QString &apiPath) {
     if (!enabled || !target.pid || program.isEmpty()) {
         stop(); m_target = {}; m_retryAt = 0;
         m_program = program;
@@ -90,8 +96,8 @@ void GameCapture::tick(bool enabled, const CaptureTarget &target, const QString 
             : tr("Ready. Start a Steam game; capture starts automatically.");
         return;
     }
-    if (target != m_target || program != m_program) {
-        stop(); m_target = target; m_program = program; m_retryAt = 0;
+    if (target != m_target || program != m_program || apiPath != m_apiPath) {
+        stop(); m_target = target; m_program = program; m_apiPath = apiPath; m_retryAt = 0;
     }
     if (m_stopping && (m_process.state() != QProcess::NotRunning || m_cleanup.state() != QProcess::NotRunning)) return;
     if (m_process.state() != QProcess::NotRunning || QDateTime::currentMSecsSinceEpoch() < m_retryAt) return;
@@ -101,6 +107,10 @@ void GameCapture::tick(bool enabled, const CaptureTarget &target, const QString 
     m_state = QStringLiteral("starting"); m_message = tr("Starting capture for %1").arg(target.name);
     m_startedAt = QDateTime::currentMSecsSinceEpoch();
     m_ownsOutput = true;
+    if (!apiPath.isEmpty()) {
+        m_process.start(program, {QStringLiteral("--api"), apiPath, QStringLiteral("--pid"), QString::number(target.pid), QStringLiteral("--name"), target.name});
+        return;
+    }
     m_process.start(program, {QStringLiteral("--process_id"), QString::number(target.pid),
         QStringLiteral("--v1_metrics"), QStringLiteral("--output_stdout"), QStringLiteral("--no_console_stats"),
         QStringLiteral("--terminate_on_proc_exit"), QStringLiteral("--stop_existing_session"), QStringLiteral("--session_name"),

@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "HomeWidgets.h"
 #include "FpsReader.h"
+#include "PresentMonService.h"
 #include <QUrl>
+#include <QCoreApplication>
 #include <QUuid>
 #include <QDateTime>
 #include <QDir>
@@ -17,9 +19,6 @@
 #include <cmath>
 #ifdef Q_OS_WIN
 #include <windows.h>
-#include <shellapi.h>
-#include <sddl.h>
-#include <array>
 #endif
 static void initHomeWidgets() { Q_INIT_RESOURCE(home_widgets); }
 namespace galleond {
@@ -38,6 +37,9 @@ HomeWidgets::HomeWidgets(QObject *parent, QString file, bool draftMode) : QObjec
         : file + QStringLiteral(".capture.csv")),
     m_draftMode(draftMode), m_file(std::move(file)), m_layout(defaults()) {
     initHomeWidgets();
+#ifdef Q_OS_WIN
+    m_gpuProcess.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) { args->flags |= CREATE_NO_WINDOW; });
+#endif
     if (m_file.isEmpty()) m_file = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/galleoncore/widgets.json");
     load();
     connect(&m_gpuProcess, &QProcess::readyReadStandardOutput, this, [this] {
@@ -46,7 +48,20 @@ HomeWidgets::HomeWidgets(QObject *parent, QString file, bool draftMode) : QObjec
     connect(&m_gpuProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError) { m_gpuTemperature.reset(); m_gpuLoad.reset(); });
     connect(&m_gpuProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this](int code, QProcess::ExitStatus status) {
         m_gpuTemperature.reset(); m_gpuLoad.reset();
-        if (code || status != QProcess::NormalExit) return;
+        if (code || status != QProcess::NormalExit) {
+            if (m_gpuUsesProbe) m_nativeGpuRetryAt = QDateTime::currentSecsSinceEpoch() + 60;
+            return;
+        }
+        if (m_gpuUsesProbe) {
+            const auto data = QJsonDocument::fromJson(m_gpuProcess.readAllStandardOutput()).object();
+            const auto temperature = data.value("gpu"), load = data.value("gpuLoad");
+            if (temperature.isDouble() && temperature.toDouble() > 0 && temperature.toDouble() < 150) m_gpuTemperature = temperature.toDouble();
+            if (load.isDouble() && load.toDouble() >= 0 && load.toDouble() <= 100) m_gpuLoad = load.toDouble();
+            m_gpuProvider = data.value("provider").toString().left(32);
+            if (!m_gpuTemperature && !m_gpuLoad) m_nativeGpuRetryAt = QDateTime::currentSecsSinceEpoch() + 60;
+            return;
+        }
+        m_gpuProvider = QStringLiteral("nvidia-smi");
         bool ok = false;
         const auto fields = m_gpuProcess.readAllStandardOutput().split('\n').value(0).split(',');
         const double value = fields.value(0).trimmed().toDouble(&ok);
@@ -148,48 +163,19 @@ bool HomeWidgets::setGameOptions(bool automatic, bool localSensors) {
     load(); m_gameConfig["automatic"] = automatic; m_gameConfig["localSensors"] = localSensors;
     return save();
 }
-bool HomeWidgets::requestGameCapture() {
+bool HomeWidgets::requestGameCapture(bool start) {
+#ifndef Q_OS_WIN
+    Q_UNUSED(start)
+#endif
 #ifdef Q_OS_WIN
     if (!m_draftMode) return false;
     QDir().mkpath(QFileInfo(m_file).absolutePath());
     QSaveFile request(m_file + QStringLiteral(".capture-request.json"));
-    const auto bytes = QJsonDocument(QJsonObject{{"at", QDateTime::currentMSecsSinceEpoch()},
+    const auto bytes = QJsonDocument(QJsonObject{{"action", start ? "start" : "stop"}, {"at", QDateTime::currentMSecsSinceEpoch()},
         {"id", QUuid::createUuid().toString(QUuid::Id128)}}).toJson(QJsonDocument::Compact);
     if (!request.open(QIODevice::WriteOnly) || request.write(bytes) != bytes.size() || !request.commit()) {
         m_error = tr("Cannot request FPS capture: %1").arg(request.errorString()); Q_EMIT changed(); return false;
     }
-    return true;
-#else
-    return false;
-#endif
-}
-bool HomeWidgets::authorizeWindowsCapture() {
-#ifdef Q_OS_WIN
-    if (!m_draftMode) return false;
-    HANDLE token = nullptr;
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return false;
-    alignas(TOKEN_USER) std::array<unsigned char, 4096> buffer{};
-    DWORD size = 0;
-    const bool ok = GetTokenInformation(token, TokenUser, buffer.data(), DWORD(buffer.size()), &size);
-    CloseHandle(token);
-    if (!ok) return false;
-    LPWSTR text = nullptr;
-    if (!ConvertSidToStringSidW(reinterpret_cast<TOKEN_USER *>(buffer.data())->User.Sid, &text)) return false;
-    const auto sid = QString::fromWCharArray(text); LocalFree(text);
-    wchar_t windows[MAX_PATH];
-    const auto length = GetWindowsDirectoryW(windows, MAX_PATH);
-    if (!length || length >= MAX_PATH) return false;
-    const auto program = QString::fromWCharArray(windows) + QStringLiteral("/System32/WindowsPowerShell/v1.0/powershell.exe");
-    // Only a Windows-generated SID is interpolated; no user field, path or executable.
-    const auto arguments = QStringLiteral("-NoProfile -Command \"$ErrorActionPreference='Stop'; try { "
-        "$g=Get-LocalGroup -SID 'S-1-5-32-559'; "
-        "if (-not (Get-LocalGroupMember -Group $g | Where-Object { $_.SID.Value -eq '%1' })) { "
-        "Add-LocalGroupMember -Group $g -Member '%1' }; "
-        "Write-Host 'Galleon: sign out and back in to enable FPS capture.' } "
-        "catch { Write-Error $_ }; Read-Host 'Enter to close'\"").arg(sid);
-    const auto result = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"runas", reinterpret_cast<LPCWSTR>(program.utf16()),
-        reinterpret_cast<LPCWSTR>(arguments.utf16()), nullptr, SW_SHOWNORMAL));
-    if (result <= 32) { m_error = tr("Windows capture authorization was cancelled or could not start."); Q_EMIT changed(); return false; }
     return true;
 #else
     return false;
@@ -224,10 +210,16 @@ bool HomeWidgets::setGameProfile(const QString &process, const QString &title, c
 void HomeWidgets::pollGpu() {
     if (m_gpuProcess.state() != QProcess::NotRunning || QDateTime::currentSecsSinceEpoch() - m_gpuAt < 5) return;
     m_gpuAt = QDateTime::currentSecsSinceEpoch();
-    const auto command = QStandardPaths::findExecutable(QStringLiteral("nvidia-smi"));
+#ifdef Q_OS_WIN
+    const auto probe = QCoreApplication::applicationDirPath() + QStringLiteral("/galleon-gpu-probe.exe");
+#else
+    const auto probe = QCoreApplication::applicationDirPath() + QStringLiteral("/galleon-gpu-probe");
+#endif
+    m_gpuUsesProbe = QFileInfo(probe).isFile() && QDateTime::currentSecsSinceEpoch() >= m_nativeGpuRetryAt;
+    const auto command = m_gpuUsesProbe ? probe : QStandardPaths::findExecutable(QStringLiteral("nvidia-smi"));
     if (command.isEmpty()) { m_gpuTemperature.reset(); m_gpuLoad.reset(); return; }
     const int serial = ++m_gpuSerial;
-    m_gpuProcess.start(command, {QStringLiteral("--query-gpu=temperature.gpu,utilization.gpu"), QStringLiteral("--format=csv,noheader,nounits")});
+    m_gpuProcess.start(command, m_gpuUsesProbe ? QStringList() : QStringList{QStringLiteral("--query-gpu=temperature.gpu,utilization.gpu"), QStringLiteral("--format=csv,noheader,nounits")});
     QTimer::singleShot(2000, this, [this, serial] { if (serial == m_gpuSerial && m_gpuProcess.state() != QProcess::NotRunning) m_gpuProcess.kill(); });
 }
 void HomeWidgets::pollGameSensors() {
@@ -355,26 +347,38 @@ void HomeWidgets::refresh() {
 #ifdef Q_OS_WIN
     const bool managed = m_gameConfig.value("managedCapture", true).toBool();
     if (!m_draftMode) {
+        if (capture && managed) m_captureTarget = GameCapture::detectGame(m_gameConfig.value("profiles").toMap().keys(), m_captureTarget.pid);
+        else m_captureTarget = {};
+        if (!m_captureTarget.pid) m_captureStoppedPid = 0;
         QFile request(m_file + QStringLiteral(".capture-request.json"));
         const auto bytes = request.open(QIODevice::ReadOnly) ? request.read(4096) : QByteArray();
         if (bytes != m_lastCaptureRequest) {
             m_lastCaptureRequest = bytes;
             const auto object = QJsonDocument::fromJson(bytes).object();
             const auto age = QDateTime::currentMSecsSinceEpoch() - object.value("at").toVariant().toLongLong();
-            if (!object.value("id").toString().isEmpty() && age >= 0 && age < 10000) m_capture.retry();
+            if (!object.value("id").toString().isEmpty() && age >= 0 && age < 10000) {
+                const bool start = object.value("action").toString() != QStringLiteral("stop");
+                m_captureStoppedPid = start ? 0 : m_captureTarget.pid;
+                if (start) m_capture.retry();
+            }
         }
-        if (capture && managed) m_captureTarget = GameCapture::detectGame(m_gameConfig.value("profiles").toMap().keys(), m_captureTarget.pid);
-        else m_captureTarget = {};
         const auto option = m_gameConfig.value("presentMon").toString();
         const auto now = QDateTime::currentMSecsSinceEpoch();
         if (!m_captureDiscoveryAt || option != m_capturePathOption || now - m_captureDiscoveryAt >= 10000
             || (!m_captureProgram.isEmpty() && !QFileInfo(m_captureProgram).isFile())) {
-            m_captureProgram = GameCapture::findPresentMon(option);
+            m_captureInstallation = findPresentMonService();
+            m_captureProgram = QCoreApplication::applicationDirPath() + QStringLiteral("/galleon-presentmon-probe.exe");
             m_capturePathOption = option; m_captureDiscoveryAt = now;
         }
-        m_capture.tick(capture && managed, m_captureTarget, m_captureProgram);
+        const auto program = m_captureInstallation.value("installed").toBool() && QFileInfo(m_captureProgram).isFile() ? m_captureProgram : QString();
+        const bool stopped = m_captureTarget.pid && m_captureTarget.pid == m_captureStoppedPid;
+        m_capture.tick(capture && managed && !stopped, m_captureTarget, program, m_captureInstallation.value("apiPath").toString());
+        if (capture && managed && !stopped) sample = m_capture.sample();
         m_captureStatus = m_capture.status();
-        if (capture && managed) { sample = m_capture.sample(); m_captureStatus = m_capture.status(); }
+        for (auto it = m_captureInstallation.cbegin(); it != m_captureInstallation.cend(); ++it) m_captureStatus[it.key()] = it.value();
+        if (!m_captureInstallation.value("error").toString().isEmpty()) m_captureStatus["message"] = m_captureInstallation.value("error");
+        else if (stopped) m_captureStatus["message"] = tr("Capture FPS arrêtée pour ce jeu. Cliquez sur Démarrer pour reprendre.");
+        else if (!QFileInfo(m_captureProgram).isFile()) m_captureStatus["message"] = tr("Galleon FPS helper missing. Reinstall Galleon.");
     }
     if (capture && !managed) sample = readFpsLog(m_fpsConfig.value("source").toString(), m_fpsConfig.value("process").toString());
 #else
@@ -395,11 +399,10 @@ void HomeWidgets::refresh() {
         if (ok) sensors["cpu"] = value;
     }
 #endif
-    if (sample.fps && ((!sample.gpuTemperature && !sensors.contains("gpu"))
-                       || (!sample.gpuLoad && !sensors.contains("gpuLoad")))) {
+    if (sample.fps) {
         pollGpu();
-        if (m_gpuLoad && QDateTime::currentSecsSinceEpoch() - m_gpuAt < 10 && !sensors.contains("gpuLoad")) sensors["gpuLoad"] = *m_gpuLoad;
-        if (m_gpuTemperature && QDateTime::currentSecsSinceEpoch() - m_gpuAt < 10) sensors["gpu"] = *m_gpuTemperature;
+        if (m_gpuLoad && QDateTime::currentSecsSinceEpoch() - m_gpuAt < 10) { sensors["gpuLoad"] = *m_gpuLoad; sample.gpuLoad = *m_gpuLoad; }
+        if (m_gpuTemperature && QDateTime::currentSecsSinceEpoch() - m_gpuAt < 10) { sensors["gpu"] = *m_gpuTemperature; sample.gpuTemperature = *m_gpuTemperature; }
 #ifndef Q_OS_WIN
         if (!sensors.contains("gpu") || !sensors.contains("gpuLoad")) {
             const auto amd = GameMode::readAmdGpuSensors();
@@ -409,6 +412,7 @@ void HomeWidgets::refresh() {
 #endif
     }
     m_gameState = m_gameMode.update(sample, m_gameConfig, sensors);
+    if (m_gameState.value("active").toBool() && (m_gpuLoad || m_gpuTemperature)) m_gameState["gpuProvider"] = m_gpuProvider;
 #ifdef Q_OS_WIN
     // Bosun observes the daemon's actual capture, never launches a second ETW session.
     const auto runtimePath = m_file + QStringLiteral(".runtime.json");
