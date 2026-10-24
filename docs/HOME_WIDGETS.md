@@ -29,7 +29,7 @@ inhibits the module screensaver, as described below. Disabled cards do not trigg
 | CPU usage | `/proc/stat` deltas | `GetSystemTimes` deltas |
 | RAM usage | `/proc/meminfo`, available memory | `GlobalMemoryStatusEx` |
 | CPU temperature | Intel coretemp / AMD k10temp or zenpower via hwmon, first readable channel | Unavailable pending a sensor provider |
-| Game FPS | Live MangoHud CSV | Live PresentMon v1-metrics CSV |
+| Game FPS | Live MangoHud CSV | PresentMon shared-service API; optional manual CSV |
 | Downloads | Counts `.part` / `.crdownload` in the system Downloads folder | Same |
 
 CPU/RAM/temperature/download data refresh every two seconds. Missing values say
@@ -77,6 +77,9 @@ A folder selects its newest CSV, excluding MangoHud `_summary.csv` files; use a
 dedicated folder for this purpose.
 
 ### Linux — MangoHud
+
+For launcher checkboxes, shared configuration and Steam Vulkan alternatives to
+per-game options, see the [detailed French guide](MODE_JEU_LINUX.fr.md).
 
 Install MangoHud using your distribution's package manager and create a dedicated
 log folder, for example `/tmp/galleon-fps`. For Steam, adapt the following launch
