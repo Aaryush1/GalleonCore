@@ -1,6 +1,6 @@
 # Gaming recording controls
 
-Bosun's **Gaming** tab selects the recorder independently of the FPS provider:
+Bosun's unified **Gaming** tab contains automatic game-mode/FPS settings and recording controls. Recording is independent of the FPS provider:
 
 | Preference | Windows | Linux |
 |---|---|---|
@@ -16,7 +16,15 @@ identified and the relevant capabilities/status have arrived.
 
 ## The pad
 
-Select **Gaming** using the pad's theme dial. The daemon adds this runtime theme;
+The Gaming key page exists only while Galleon detects an active game. It is
+selected on game-mode entry and removed from the dial's choices on game-mode
+exit, including when the user selected another key page during the game. If
+Gaming is still displayed at exit, the previous page is restored; otherwise the
+current ordinary page stays selected. Opening Bosun does not activate this mode.
+The preview/buttons in Bosun are visible only during an active game. The **Show
+on pad** button can return to Gaming during that game; it cannot create a Gaming
+page when no game is active. Built-in vector icons are shared with the pad and
+do not need a desktop icon theme. The daemon adds this temporary runtime theme;
 it does not replace the game launcher page or rewrite the user's pages JSON.
 Bosun shows a preview of the same twelve positions. Four positions are used;
 the remaining eight are blank. Unavailable actions are dimmed and ignored.

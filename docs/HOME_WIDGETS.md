@@ -149,8 +149,8 @@ Sources: [public API](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/Inte
 
 ## Automatic game screen (first iteration)
 
-Bosun has separate **Widgets** and **Mode Jeu** tabs. Widgets edits only the
-home cards; Mode Jeu contains the automatic activation switch, game preview,
+Bosun has separate **Widgets** and **Gaming** tabs. Widgets edits only the
+home cards; Gaming combines recorder controls with the automatic activation switch, game preview,
 FPS source, optional **Local sensors**, and per-game artwork associations. Each page has an **Apply** button to save the shared settings draft. The FPS
 source is shared by game mode and the optional home FPS card.
 A valid fresh capture activates the dedicated game screen even when the home

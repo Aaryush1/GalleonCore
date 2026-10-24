@@ -182,6 +182,83 @@ void PagesController::setRecordingController(RecordingController *recording)
     }
 }
 
+bool PagesController::showGaming()
+{
+    if (!m_gameActive || !m_recording || m_suspended || !m_deck->isOpen()) return false;
+    for (std::size_t i = 0; i < m_config.themes.size(); ++i) {
+        if (m_config.themes[i].page == m_recordingPage) {
+            m_themeApply.stop();
+            m_themePending = false;
+            m_themeTimeout.stop();
+            m_themeDial = -1;
+            setWallpaperMode(-1);
+            m_sent.fill(QImage());
+            selectTheme(static_cast<int>(i));
+            Q_EMIT themeModeChanged();
+            return true;
+        }
+    }
+    return false;
+}
+
+void PagesController::addGamingPage()
+{
+    if (!m_gameActive || !m_recording || !m_recordingPage.isEmpty()) return;
+    QString name = QStringLiteral("_galleon_gaming");
+    while (m_config.pages.contains(name)) name += QLatin1Char('_');
+    m_recordingPage = name;
+    Page gaming;
+    for (int i = 0; i < 4; ++i) {
+        KeyConfig key; key.key = i;
+        gaming.keys.at(static_cast<std::size_t>(i)) = key;
+    }
+    m_config.pages.insert(name, gaming);
+    m_config.themes.push_back(Theme{.name = QStringLiteral("Gaming"), .page = name, .rgb = 0x80e5d1, .when = ThemeTrigger::None});
+}
+
+void PagesController::setGameActive(bool active)
+{
+    if (active == m_gameActive) return;
+    m_gameActive = active;
+    if (active) {
+        m_beforeGameTheme = m_theme;
+        m_beforeGameStack = m_stack;
+        addGamingPage();
+        showGaming();
+        return;
+    }
+    if (m_recordingPage.isEmpty()) return;
+    const bool restore = currentPage() == m_recordingPage;
+    m_themeApply.stop();
+    m_themePending = false;
+    const QString removedPage = m_recordingPage;
+    // This runtime theme was appended, so removing it leaves all ordinary indices stable.
+    std::erase_if(m_config.themes, [&removedPage](const Theme &theme) { return theme.page == removedPage; });
+    m_config.pages.remove(removedPage);
+    m_recordingPage.clear();
+    if (restore) {
+        const bool validPrevious = m_beforeGameTheme >= 0 && std::cmp_less(m_beforeGameTheme, m_config.themes.size());
+        if (validPrevious || !m_config.themes.empty()) {
+            selectTheme(validPrevious ? m_beforeGameTheme : 0);
+            if (m_beforeGameStack.size() > 1 && std::ranges::all_of(m_beforeGameStack,
+                [this](const QString &name) { return m_config.pages.contains(name); })) {
+                m_stack = m_beforeGameStack;
+                rebuildPage();
+                redraw();
+            }
+        } else {
+            m_theme = -1;
+            m_stack = {m_config.home};
+            rebuildPage();
+            redraw();
+        }
+    } else {
+        // A manually selected ordinary page stays selected, but Gaming disappears everywhere.
+        applyTheme();
+    }
+    m_beforeGameStack.clear();
+}
+
 void PagesController::setConfig(const PagesConfig &config)
 {
     m_apps.clear();
@@ -196,15 +273,7 @@ void PagesController::setConfig(const PagesConfig &config)
     m_sourceConfig = config;
     m_config = config;
     m_recordingPage.clear();
-    if (m_recording) {
-        QString name = QStringLiteral("_galleon_gaming");
-        while (m_config.pages.contains(name)) name += QLatin1Char('_');
-        m_recordingPage = name;
-        Page gaming;
-        for (int i = 0; i < 4; ++i) { KeyConfig key; key.key = i; gaming.keys.at(static_cast<std::size_t>(i)) = key; }
-        m_config.pages.insert(name, gaming);
-        m_config.themes.push_back(Theme{.name = QStringLiteral("Gaming"), .page = name, .rgb = 0x80e5d1, .when = ThemeTrigger::None});
-    }
+    addGamingPage();
     releaseHeldKeys();
     m_stack = {config.home};
     m_theme = -1;
@@ -379,10 +448,7 @@ void PagesController::drawKey(int key, bool force)
         if (m_recording && currentPage() == m_recordingPage) {
             const auto button = m_recording->buttons().at(key).toMap();
             shown.label = button.value(QStringLiteral("label")).toString().left(MaxLabelLength);
-            const bool bar = m_recording->backend() == QStringLiteral("gamebar");
-            const QStringList barIcons{QStringLiteral("media-record"), QStringLiteral("document-save"), QStringLiteral("camera-photo"), QStringLiteral("applications-games")};
-            const QStringList obsIcons{QStringLiteral("media-record"), QStringLiteral("media-playback-pause"), QStringLiteral("document-save"), QStringLiteral("media-record")};
-            shown.icon.name = (bar ? barIcons : obsIcons).value(key);
+            shown.icon.name = QStringLiteral("galleon-recording-") + button.value(QStringLiteral("icon")).toString();
             active = button.value(QStringLiteral("active")).toBool();
             recordingDisabled = !button.value(QStringLiteral("enabled")).toBool();
         }
@@ -564,7 +630,7 @@ void PagesController::onMediaChanged()
     m_mediaPresent = present;
     // The theme tied to this moment, unless the user is choosing one right now.
     const int index = themeFor(present ? ThemeTrigger::Media : ThemeTrigger::NoMedia);
-    if (index >= 0 && index != m_theme && !themeMode() && !m_suspended)
+    if (index >= 0 && index != m_theme && !themeMode() && !m_suspended && !m_gameActive)
         selectTheme(index);
 }
 

@@ -11,7 +11,7 @@ capture des images, tandis que NVML et AMD-SMI servent aux capteurs GPU.
 Le plus simple est de configurer l'enregistrement une seule fois, puis d'activer
 MangoHud dans le lanceur. Il n'est pas nécessaire de recopier une longue variable
 `MANGOHUD_CONFIG` dans chaque jeu. Les procédures ci-dessous utilisent ton dossier
-`/home/paul/Documents/GalleonFPS` ; adapte ce chemin pour un autre compte.
+`/home/paul/.local/share/galleoncore/fps` ; adapte ce chemin pour un autre compte.
 
 ## Comparaison des cinq lanceurs
 
@@ -35,7 +35,7 @@ de logiciels, ou dans un terminal :
 
 ```sh
 sudo apt install mangohud
-mkdir -p "$HOME/.config/MangoHud" "$HOME/Documents/GalleonFPS"
+mkdir -p "$HOME/.config/MangoHud" "$HOME/.local/share/galleoncore/fps"
 ```
 
 Ouvrir `~/.config/MangoHud/MangoHud.conf` dans un éditeur. S'il existe déjà,
@@ -44,7 +44,7 @@ conserver ses réglages et ajouter/corriger uniquement ces options, sans doublon
 ```ini
 autostart_log=1
 log_interval=500
-output_folder=/home/paul/Documents/GalleonFPS
+output_folder=/home/paul/.local/share/galleoncore/fps
 ```
 
 L'enregistrement commence une seconde après l'activation de MangoHud ; les
@@ -55,14 +55,56 @@ Une ancienne variable `MANGOHUD_CONFIG` peut prendre le dessus sur ce fichier.
 Supprimer seulement les anciennes valeurs ajoutées pour Galleon si elles le
 contredisent. Un fichier MangoHud propre à un jeu peut également avoir priorité.
 
-Dans **Bosun → Mode Jeu**, renseigner comme source FPS :
+Dans **Bosun → Gaming**, renseigner comme source FPS :
 
 ```text
-/home/paul/Documents/GalleonFPS
+/home/paul/.local/share/galleoncore/fps
 ```
 
 Laisser le filtre exécutable vide pour MangoHud, activer Automatique et appliquer.
 Galleon sélectionne le CSV récent ; un ancien journal ne simule pas un jeu actif.
+
+### Steam : commande complète et endroit où la coller
+
+Après avoir créé le dossier CSV ci-dessus, ouvrir **Steam → Bibliothèque → clic
+droit sur le jeu → Propriétés → Général → Options de lancement**. Coller sur une
+seule ligne :
+
+```sh
+MANGOHUD_CONFIG="autostart_log=1,log_interval=500,output_folder=$HOME/.local/share/galleoncore/fps" mangohud %command%
+```
+
+`%command%` est remplacé par Steam : ne jamais exécuter cette ligne dans un
+terminal. Si d'autres options existent déjà, ne pas les effacer aveuglément et
+ne pas doubler `%command%`. La variable de cette ligne fixe les trois options
+sans modifier les réglages MangoHud globaux.
+
+Le fichier de configuration, facultatif avec cette ligne complète, reste dans
+`~/.config/MangoHud/MangoHud.conf`. Les CSV sont des données produites pendant le
+jeu : `~/.local/share/galleoncore/fps` convient mieux que `.config`. Bosun → Gaming
+propose **Préparer et sélectionner ce dossier**, affiche la commande adaptée au
+chemin utilisateur, puis demande **Appliquer** pour enregistrer la source FPS.
+Les réglages existants ne sont pas déplacés automatiquement.
+
+Pour un dossier propre à un jeu, remplacer partout le dossier par exemple par
+`/home/paul/.local/share/galleoncore/fps/cs2`, le créer avec `mkdir -p`, puis choisir
+exactement ce dossier dans Bosun. Le lecteur actuel ne parcourt pas les sous-dossiers.
+Le dossier commun est donc le plus simple pour passer automatiquement d'un jeu à l'autre.
+
+### Heroic et Lutris : valeur de la variable, sans commande Steam
+
+Dans **Heroic → paramètres du jeu → Avancé → Variables d'environnement**, ou
+**Lutris → clic droit sur le jeu → Configurer → Options système → Variables
+d'environnement**, ajouter :
+
+- nom : `MANGOHUD_CONFIG`
+- valeur pour ce PC : `autostart_log=1,log_interval=500,output_folder=/home/paul/.local/share/galleoncore/fps`
+
+Activer aussi l'interrupteur MangoHud du lanceur. Ne rien mettre dans
+**Arguments du jeu** et ne pas mettre `%command%` dans ces lanceurs. Les champs
+valeur n'exécutent pas nécessairement un shell : utiliser le chemin absolu,
+sans `$HOME`, `~` ou guillemets ajoutés. Pour Bottles et PlayOnLinux, utiliser le
+fichier commun de la section 1 et les méthodes des sections 7 et 8.
 
 ## 2. Heroic : activer la case MangoHud
 
@@ -167,7 +209,7 @@ Afin de partager le fichier de configuration et les journaux avec Galleon,
 accorder les accès suivants au lanceur concerné. Exemple Heroic :
 
 ```sh
-flatpak override --user --filesystem="$HOME/.config/MangoHud:ro" --filesystem="$HOME/Documents/GalleonFPS" --env=MANGOHUD_CONFIGFILE="$HOME/.config/MangoHud/MangoHud.conf" com.heroicgameslauncher.hgl
+flatpak override --user --filesystem="$HOME/.config/MangoHud:ro" --filesystem="$HOME/.local/share/galleoncore/fps" --env=MANGOHUD_CONFIGFILE="$HOME/.config/MangoHud/MangoHud.conf" com.heroicgameslauncher.hgl
 ```
 
 Pour Steam Flatpak, remplacer l'identifiant final par `com.valvesoftware.Steam`.
@@ -185,6 +227,7 @@ Il faut sélectionner le programme, pas seulement son disque virtuel. Dans
 conservant les autres commandes éventuelles :
 
 ```sh
+export MANGOHUD_CONFIG="autostart_log=1,log_interval=500,output_folder=$HOME/.local/share/galleoncore/fps"
 export BEFORE_WINE="mangohud${BEFORE_WINE:+ $BEFORE_WINE}"
 ```
 
@@ -197,7 +240,7 @@ Ne pas mettre simplement `mangohud` seul dans ce champ : dans le code de POL 4,
 ce contenu est un script exécuté avant le raccourci, et non le champ Préfixe de
 commande de Lutris. Ne pas y mettre `%command%` non plus.
 
-Pour retirer la configuration, supprimer seulement la ligne ajoutée. Cette
+Pour retirer la configuration, supprimer seulement les deux lignes ajoutées. Cette
 vérification porte sur **PlayOnLinux 4**, pas sur Phoenicis/PlayOnLinux 5.
 
 Sources : [champ de configuration](https://github.com/PlayOnLinux/POL-POM-4/blob/master/python/configurewindow/ConfigureWindowNotebook.py),
@@ -206,7 +249,8 @@ Sources : [champ de configuration](https://github.com/PlayOnLinux/POL-POM-4/blob
 
 ## 8. Bottles : activer la surveillance dans la bouteille
 
-Ouvrir la bouteille du jeu → **Préférences → Affichage / Display**, puis activer
+Ouvrir la bouteille du jeu → **Préférences → Performances / Performance**
+(ou **Affichage / Display** selon la version), puis activer
 **Monitor Performance / Surveillance des performances**. Bottles utilise MangoHud
 pour OpenGL et Vulkan et conserve cette option dans la bouteille : elle peut donc
 servir à plusieurs programmes sans modifier leurs arguments.
@@ -230,7 +274,7 @@ Sources : [interrupteur de surveillance](https://github.com/bottlesdevs/Bottles/
 ## 9. Vérifier puis dépanner
 
 1. Lancer un jeu avec la case ou la méthode choisie.
-2. Attendre quelques secondes et ouvrir `Documents/GalleonFPS` : un CSV doit
+2. Attendre quelques secondes et ouvrir `.local/share/galleoncore/fps` : un CSV doit
    apparaître et continuer à être modifié pendant le jeu.
 3. Vérifier l'état de la capture dans Bosun et les FPS sur le module.
 4. Quitter le jeu : Galleon revient à l'accueil après expiration des données.
@@ -339,3 +383,7 @@ et la journalisation. Vérifier un CSV frais qui évolue, un compteur cohérent 
 l'overlay, le passage de Galleon en mode Jeu puis le retour à l'accueil après
 fermeture. Conserver le résultat par jeu ; un test de traduction ne valide pas
 les quatre API à lui seul.
+
+### Configuration par bouton dans Bosun
+
+Dans **Gaming → Linux · CSV MangoHud**, le bouton **Créer / configurer MangoHud et le dossier CSV** crée le dossier utilisateur des FPS ainsi que `~/.config/MangoHud/MangoHud.conf` (ou le dossier XDG configuré). Il remplace uniquement `autostart_log`, `log_interval` et `output_folder`, conserve les autres options et sauvegarde le fichier existant avant modification. Ce bouton applique aussi la source FPS dans Galleon pour que la détection surveille immédiatement le même dossier que MangoHud. Activez toujours MangoHud dans votre lanceur et relancez le jeu. Une variable `MANGOHUD_CONFIG` existante peut remplacer ces réglages communs ; les extensions et permissions Flatpak restent nécessaires.

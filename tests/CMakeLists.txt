@@ -162,4 +162,3 @@ galleon_add_test(test_cropmath)
 target_link_libraries(test_cropmath PRIVATE bosun_core)
 galleon_add_test(test_videoconverter)
 target_link_libraries(test_videoconverter PRIVATE bosun_core)
-

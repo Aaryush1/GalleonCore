@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "DaemonStatus.h"
+#include "BosunBackend.h"
 #include "DesktopEntries.h"
 #include "AppsBackend.h"
 #include "PagesEditor.h"
@@ -55,9 +56,11 @@ private slots:
         QTemporaryDir dir;
         galleond::RecordingController recording(nullptr, dir.filePath("recording.ini"));
         recording.setPlatformForTest(true, true, false, [](int) { return true; });
+        galleond::HomeWidgets widgets(nullptr, dir.filePath("widgets.json"), true);
         QQmlEngine engine;
+        engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(nullptr));
         QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/GamingPage.qml")));
-        QScopedPointer<QObject> page(component.createWithInitialProperties({{"recording", QVariant::fromValue(static_cast<QObject *>(&recording))}, {"width", 1100}, {"height", 650}}));
+        QScopedPointer<QObject> page(component.createWithInitialProperties({{"widgets", QVariant::fromValue(static_cast<QObject *>(&widgets))}, {"recording", QVariant::fromValue(static_cast<QObject *>(&recording))}, {"width", 1100}, {"height", 650}}));
         QVERIFY2(page, qPrintable(component.errorString()));
         QCOMPARE(recording.backend(), QStringLiteral("gamebar"));
         QCOMPARE(recording.buttons().size(), 12);

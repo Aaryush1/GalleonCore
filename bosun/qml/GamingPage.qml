@@ -5,17 +5,27 @@ import QtQuick
 Flickable {
     id: page
     objectName: "gamingPage"
+    required property var widgets
     required property var recording
+    property var daemon: null
     property bool menuOpen: false
     property bool obsSettings: false
     property string error: ""
+    function showPad() {
+        if (!daemon) return
+        error = daemon.showGaming()
+    }
+    Connections {
+        target: page.daemon
+        function onCommandError(message) { page.error = message }
+    }
     clip: true
     contentHeight: content.height
     Column {
         id: content
         width: page.width
         spacing: 16
-        Text { text: qsTr("Gaming · Enregistrement"); color: "white"; font.pixelSize: 24; font.bold: true }
+        Text { text: qsTr("Gaming · Jeu et enregistrement"); color: "white"; font.pixelSize: 24; font.bold: true }
         Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: qsTr("Automatique : Game Bar sur Windows, OBS sur Linux. Les logiciels indisponibles sont grisés. Le choix est mémorisé immédiatement.") }
         Rectangle {
             width: 320; height: 38; color: "#2e3238"; radius: 5
@@ -68,19 +78,68 @@ Flickable {
         }
         Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: page.recording.status }
         Text { visible: page.error !== ""; color: "#ff8a80"; text: page.error }
-        Text { color: "white"; text: qsTr("Touches du pad · thème Gaming (sélection avec la molette)"); font.pixelSize: 18 }
+        Text {
+            visible: !page.widgets.gameState.active
+            width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"
+            text: qsTr("Les boutons Gaming apparaissent uniquement pendant un jeu détecté, puis disparaissent du choix des touches à sa fermeture.")
+        }
+        Row {
+            visible: !!page.widgets.gameState.active
+            spacing: 12
+            Text { color: "white"; text: qsTr("Touches du pad · Gaming"); font.pixelSize: 18 }
+            Pill {
+                objectName: "showGamingOnPad"
+                text: qsTr("Afficher sur le pad")
+                enabledLook: page.daemon !== null && page.daemon.running
+                onClicked: page.showPad()
+            }
+        }
         Grid {
+            objectName: "gamingPadButtons"
+            visible: !!page.widgets.gameState.active
             columns: 3; spacing: 10
             Repeater {
                 model: page.recording.buttons
                 delegate: Rectangle {
+                    id: padButton
                     required property var modelData
-                    width: 180; height: 60; radius: 8
+                    objectName: "gamingPadButton" + modelData.index
+                    signal clicked()
+                    onClicked: page.recording.trigger(modelData.index)
+                    width: 180; height: 90; radius: 8
                     color: modelData.active ? "#285e43" : "#2e3238"
                     opacity: modelData.enabled ? 1 : 0.35
-                    Text { anchors.fill: parent; anchors.margins: 8; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; wrapMode: Text.Wrap; color: "white"; text: parent.modelData.label; font.pixelSize: 16 }
+                    Image {
+                        anchors.top: parent.top; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter
+                        width: 42; height: 42
+                        visible: parent.modelData.icon !== ""
+                        source: visible ? "image://tiles/recording/" + parent.modelData.icon : ""
+                        sourceSize.width: 128; sourceSize.height: 128
+                    }
+                    Text {
+                        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 6
+                        height: 30; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                        wrapMode: Text.Wrap; color: "white"; text: parent.modelData.label; font.pixelSize: 14
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: parent.modelData.enabled
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: padButton.clicked()
+                    }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: modelData.label
+                    Accessible.onPressAction: if (modelData.enabled) padButton.clicked()
                 }
             }
         }
+        Rectangle { width: parent.width; height: 1; color: "#44ffffff" }
+        GameModePage {
+            width: parent.width
+            height: contentHeight
+            interactive: false
+            widgets: page.widgets
+        }
+
     }
 }

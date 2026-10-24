@@ -140,6 +140,11 @@ QVariantList RecordingController::buttons() const {
         : QStringList{m_recordKnown && m_record ? tr("Stop recording") : tr("Start recording"),
             m_paused ? tr("Resume recording") : tr("Pause recording"), tr("Save replay"), m_replay ? tr("Stop replay buffer") : tr("Start replay buffer")};
     const QStringList commands{QStringLiteral("ToggleRecord"), QStringLiteral("ToggleRecordPause"), QStringLiteral("SaveReplayBuffer"), QStringLiteral("ToggleReplayBuffer")};
+    QStringList icons;
+    if (bar) icons = {QStringLiteral("record"), QStringLiteral("save-replay"), QStringLiteral("screenshot"), QStringLiteral("gamebar")};
+    else icons = {m_recordKnown && m_record ? QStringLiteral("stop") : QStringLiteral("record"),
+        m_paused ? QStringLiteral("resume") : QStringLiteral("pause"), QStringLiteral("save-replay"),
+        m_replay ? QStringLiteral("replay-stop") : QStringLiteral("replay-start")};
     for (int i = 0; i < 12; ++i) {
         bool enabled = i < 4 && (bar ? m_windows && m_gameBar : m_ready && m_requests.contains(commands.value(i)));
         if (!bar && i == 0) enabled = enabled && m_recordKnown;
@@ -147,7 +152,7 @@ QVariantList RecordingController::buttons() const {
         if (!bar && i == 2) enabled = enabled && m_replayKnown && m_replay;
         if (!bar && i == 3) enabled = enabled && m_replayKnown;
         if (!bar && !m_pending.isEmpty()) enabled = false;
-        result.append(QVariantMap{{"index", i}, {"label", labels.value(i)}, {"enabled", enabled},
+        result.append(QVariantMap{{"icon", icons.value(i)}, {"index", i}, {"label", labels.value(i)}, {"enabled", enabled},
             {"active", !bar && ((i == 0 && m_recordKnown && m_record) || (i == 1 && m_recordKnown && m_paused) || (i == 3 && m_replayKnown && m_replay))}});
     }
     return result;

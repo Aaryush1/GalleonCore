@@ -18,6 +18,18 @@ private slots:
                  QByteArray(R"({"action":"wallpaper","name":""})"), QByteArray(4097, 'x')})
             QVERIFY(!parseLocalCommand(frame).has_value());
     }
+    void gamingCommandSelectsOnlyTheGamingPage()
+    {
+        const auto command = parseLocalCommand(encodeLocalCommand({LocalAction::Gaming, {}}));
+        QVERIFY(command.has_value());
+        QCOMPARE(command->action, LocalAction::Gaming);
+        QVERIFY(!parseLocalCommand(R"({"action":"gaming","page":"arbitrary"})"));
+        const QString name = QStringLiteral("galleon-gaming-") + QUuid::createUuid().toString(QUuid::Id128);
+        LocalControl server; QVERIFY(server.listen(name));
+        const QSignalSpy requested(&server, &LocalControl::gamingRequested);
+        sendLocalCommand(name, {LocalAction::Gaming, {}}, &server);
+        QTRY_COMPARE(requested.size(), 1);
+    }
     void roundTripWallpaper()
     {
         const QString name = QString::fromUtf8("personal/caf\xc3\xa9.jpg");

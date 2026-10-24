@@ -28,7 +28,7 @@ public:
     [[nodiscard]] int port() const { return m_port; }
     Q_INVOKABLE bool configure(const QString &choice, int port, const QString &password = {}, bool replacePassword = false);
     Q_INVOKABLE void refresh();
-    void trigger(int index);
+    Q_INVOKABLE void trigger(int index);
     // Replaces OS discovery and key sending in tests; never sends a real shortcut.
     void setPlatformForTest(bool windows, bool gameBar, bool obs, std::function<bool(int)> sender);
 Q_SIGNALS:

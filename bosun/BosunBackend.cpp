@@ -4,6 +4,7 @@
 #include <InitialPages.h>
 
 #include "BosunBackend.h"
+#include <RecordingIcons.h>
 
 #include "CropMath.h"
 #include "PageName.h"
@@ -783,6 +784,12 @@ TileProvider::TileProvider(const BosunBackend *backend)
 QPixmap TileProvider::requestPixmap(const QString &id, QSize *size, const QSize &requestedSize)
 {
     Q_UNUSED(requestedSize)
+    if (id.startsWith(QStringLiteral("recording/"))) {
+        const QPixmap pixmap = QPixmap::fromImage(galleond::recordingIcon(id.mid(10), 128));
+        if (size) *size = pixmap.size();
+        return pixmap;
+    }
+    if (!m_backend) return {};
     // "<page>/<key>" and maybe "?r=3&theme=<page>": anything else gives a blank key.
     const QString path = id.section(QLatin1Char('?'), 0, 0);
     QString themePage;

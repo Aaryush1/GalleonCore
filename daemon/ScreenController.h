@@ -11,6 +11,7 @@
 #include "WallpaperCatalog.h"
 
 #include <QObject>
+#include <functional>
 #include <QString>
 #include <QTimer>
 #include <QUrl>
@@ -88,10 +89,13 @@ public:
     QObject *homeWidgets() { return &m_homeWidgets; }
     [[nodiscard]] QUrl widgetUrl() const { return QUrl::fromLocalFile(m_widgetFile); }
 
+    void setGamingHandler(std::function<bool()> handler) { m_showGaming = std::move(handler); }
+
     // Takes the last wallpaper chosen, if it is still in the catalog.
     void restore();
 
 public Q_SLOTS:
+    bool ShowGaming();
     // Shows this wallpaper (a catalog name such as "manga-classic/manga-classic-01.jpg").
     // False if the name is unknown or the frame could not be drawn.
     bool SetWallpaper(const QString &name);
@@ -107,6 +111,7 @@ Q_SIGNALS:
     void deckAvailableChanged();
 
 private:
+    std::function<bool()> m_showGaming;
     [[nodiscard]] QVariantMap themeProperties() const;
     void tick();
     bool draw();

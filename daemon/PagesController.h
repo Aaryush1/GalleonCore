@@ -49,6 +49,8 @@ public:
     PagesController(galleon::StreamDeck *deck, MediaController *media, TileRenderer tiles, QObject *parent = nullptr);
 
     void setRecordingController(RecordingController *recording);
+    bool showGaming();
+    void setGameActive(bool active);
 
     // Uses this configuration and goes back to its home page.
     void setConfig(const PagesConfig &config);
@@ -152,6 +154,10 @@ private:
 
     RecordingController *m_recording = nullptr;
     QString m_recordingPage;
+    bool m_gameActive = false;
+    void addGamingPage();
+    int m_beforeGameTheme = -1;
+    QStringList m_beforeGameStack;
     galleon::StreamDeck *m_deck;
     MediaController *m_media;
     TileRenderer m_tiles;

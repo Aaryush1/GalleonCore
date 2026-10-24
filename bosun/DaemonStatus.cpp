@@ -5,6 +5,9 @@
 
 #include <QCoreApplication>
 #include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 #include <QDBusConnectionInterface>
 #include <QFileInfo>
 #include <QProcess>
@@ -29,6 +32,20 @@ void DaemonStatus::look()
         return;
     m_running = running;
     Q_EMIT changed();
+}
+
+QString DaemonStatus::showGaming()
+{
+    if (!running()) return tr("Start the daemon to display Gaming on the pad");
+    const auto message = QDBusMessage::createMethodCall(QString::fromLatin1(BusName), QStringLiteral("/org/galleoncore/Deck"), QString::fromLatin1(BusName), QStringLiteral("ShowGaming"));
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message, 1500), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher] {
+        const QDBusPendingReply<bool> reply = *watcher;
+        if (reply.isError()) Q_EMIT commandError(tr("Cannot show Gaming: restart the updated daemon (%1)").arg(reply.error().message()));
+        else if (!reply.value()) Q_EMIT commandError(tr("Gaming could not be shown: check the pad connection"));
+        watcher->deleteLater();
+    });
+    return {};
 }
 
 QStringList DaemonStatus::userCommand(const QString &verb)

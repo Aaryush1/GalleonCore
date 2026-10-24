@@ -10,6 +10,7 @@ Flickable {
     contentWidth: width
     contentHeight: content.height
     clip: true
+    function shellQuote(value) { return "'" + value.split("'").join("'\\''") + "'" }
     function applyEdits() {
         // Keep pending text before backend notifications refresh the bound fields.
         const source = fpsSource.input.text, process = fpsProcess.input.text
@@ -137,6 +138,64 @@ Flickable {
             width: parent.width; wrapMode: Text.Wrap; color: "#aebac6"
             visible: !page.widgets.windowsCapture || page.advanced
             text: qsTr("MangoHud CSV on Linux, PresentMon --v1_metrics CSV on Windows. The source is shared with the home FPS widget. Local sensors optionally read LibreHardwareMonitor at 127.0.0.1:8085; missing measurements show a dash.")
+        }
+        Column {
+            visible: !page.widgets.windowsCapture
+            width: parent.width; spacing: 8
+            Text { text: qsTr("Linux · CSV MangoHud"); color: "white"; font.pixelSize: 18; font.bold: true }
+            Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: qsTr("Dossier utilisateur conseillé : ") + page.widgets.recommendedFpsFolder }
+            Pill {
+                text: qsTr("Préparer et sélectionner ce dossier")
+                onClicked: if (page.widgets.prepareFpsFolder()) {
+                    fpsSource.input.text = page.widgets.recommendedFpsFolder
+                    fpsProcess.input.text = ""
+                }
+            }
+            Pill {
+                objectName: "configureMangoHudButton"
+                text: qsTr("Créer / configurer MangoHud et le dossier CSV")
+                onClicked: if (page.widgets.configureMangoHud()) {
+                    fpsSource.input.text = page.widgets.recommendedFpsFolder
+                    fpsProcess.input.text = ""
+                    mangoHudResult.text = qsTr("MangoHud configuré et source FPS appliquée dans Galleon. Les autres réglages sont conservés ; une sauvegarde est créée si le fichier existant est modifié. Activez MangoHud dans le lanceur puis relancez le jeu. Les permissions Flatpak restent nécessaires.")
+                } else mangoHudResult.text = ""
+            }
+            Text { id: mangoHudResult; width: parent.width; wrapMode: Text.Wrap; color: "#80e5d1" }
+            Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: qsTr("Cliquez ensuite sur Appliquer. Dans Steam : Bibliothèque → clic droit sur le jeu → Propriétés → Général → Options de lancement. Collez la ligne suivante (Ctrl+C pour copier) :") }
+            TextEdit {
+                objectName: "steamFpsLaunchCommand"
+                width: parent.width; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
+                color: "#80e5d1"; font.pixelSize: 14
+                text: page.widgets.steamLaunchOptions
+            }
+            Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: qsTr("%command% appartient uniquement à Steam, jamais au terminal. Heroic : Paramètres du jeu → Avancé → Variables d’environnement ; Lutris : Configurer le jeu → Options système → Variables d’environnement. Activez MangoHud dans le lanceur. Si vous avez utilisé le bouton de configuration ci-dessus, aucune variable supplémentaire n’est nécessaire (sauf configuration existante qui remplace le fichier commun). Sinon ajoutez MANGOHUD_CONFIG avec cette valeur :") }
+            TextEdit {
+                width: parent.width; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
+                color: "#80e5d1"; font.pixelSize: 14
+                text: "autostart_log=1,log_interval=500,output_folder=" + page.widgets.recommendedFpsFolder
+            }
+            Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: qsTr("PlayOnLinux 4 : sélectionnez le raccourci du jeu → Configurer → Divers → Commande à exécuter avant de lancer le programme. Ajoutez ces deux lignes en conservant vos autres commandes :") }
+            TextEdit {
+                objectName: "polFpsLaunchCommand"
+                width: parent.width; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
+                color: "#80e5d1"; font.pixelSize: 14
+                text: "export " + page.widgets.steamLaunchOptions.replace(" mangohud %command%", "") + "\nexport BEFORE_WINE=\"mangohud${BEFORE_WINE:+ $BEFORE_WINE}\""
+            }
+            Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: qsTr("Bottles : bouteille du jeu → Préférences → Performances → Monitor Performance (MangoHud), ou Affichage selon la version. Activez la surveillance. Dans ~/.config/MangoHud/MangoHud.conf, ajoutez ces lignes sans effacer les autres réglages ; créez le dossier ~/.config/MangoHud si nécessaire :") }
+            TextEdit {
+                objectName: "bottlesFpsConfig"
+                width: parent.width; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
+                color: "#80e5d1"; font.pixelSize: 14
+                text: "autostart_log=1\nlog_interval=500\noutput_folder=" + page.widgets.recommendedFpsFolder
+            }
+            Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: qsTr("Bottles Flatpak : utilisez l’extension MangoHud adaptée à son runtime. Dans un terminal, autorisez le fichier de configuration et le dossier CSV avec cette commande, puis quittez et relancez Bottles :") }
+            TextEdit {
+                objectName: "bottlesFlatpakFpsCommand"
+                width: parent.width; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
+                color: "#80e5d1"; font.pixelSize: 14
+                text: "flatpak override --user --filesystem=\"$HOME/.config/MangoHud:ro\" --filesystem=" + page.shellQuote(page.widgets.recommendedFpsFolder) + " --env=MANGOHUD_CONFIGFILE=\"$HOME/.config/MangoHud/MangoHud.conf\" com.usebottles.bottles"
+            }
+            Text { width: parent.width; wrapMode: Text.Wrap; color: "#b8bec6"; text: qsTr("Bottles et POL : aucun %command% dans les paramètres ni dans les arguments du jeu. Gamescope demande une configuration MangoApp distincte.") }
         }
         Text { text: qsTr("Game artwork override (optional)"); color: "white"; font.pixelSize: 18; font.bold: true }
         Text {

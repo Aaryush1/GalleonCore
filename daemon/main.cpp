@@ -842,9 +842,21 @@ int main(int argc, char *argv[])
         galleond::connectGameToScreensaver(controller, *screensaver);
     }
 
+    const auto updateGamingPad = [&pages, &screensaver](bool active) {
+        if (active && screensaver) screensaver->notifyActivity();
+        if (pages) pages->setGameActive(active);
+    };
+    QObject::connect(&controller, &galleond::ScreenController::gameActiveChanged, &controller, updateGamingPad);
+    updateGamingPad(controller.gameActive());
+    controller.setGamingHandler([&pages, &screensaver] {
+        if (screensaver) screensaver->notifyActivity();
+        return pages && pages->showGaming();
+    });
+
     // org.galleoncore.Deck on the session bus (the name was claimed at the start):
     // SetWallpaper, ClearWallpaper, Wallpapers.
 #ifdef Q_OS_WIN
+    QObject::connect(&localControl, &galleond::LocalControl::gamingRequested, &controller, [&controller] { controller.ShowGaming(); });
     QObject::connect(&localControl, &galleond::LocalControl::wallpaperRequested,
                      &controller, &galleond::ScreenController::SetWallpaper);
     QObject::connect(&localControl, &galleond::LocalControl::stopRequested,

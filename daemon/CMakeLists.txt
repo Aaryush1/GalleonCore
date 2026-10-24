@@ -3,6 +3,7 @@
 
 # The daemon's logic, as a library so that the tests can use it.
 add_library(galleond_core STATIC
+    RecordingIcons.h RecordingIcons.cpp
     RecordingController.h RecordingController.cpp
     GameCapture.h GameCapture.cpp
     GameMode.h GameMode.cpp

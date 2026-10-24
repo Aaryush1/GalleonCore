@@ -8,10 +8,68 @@
 #include <QGuiApplication>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QDir>
+#include <QScopeGuard>
 using galleond::HomeWidgets;
 class TestHomeWidgets : public QObject {
     Q_OBJECT
 private Q_SLOTS:
+    void fpsFolderPreparationUsesUserDataAndKeepsDraftUntilApply() {
+        QTemporaryDir dir;
+#ifndef Q_OS_WIN
+        const auto oldData = qgetenv("XDG_DATA_HOME");
+        const auto restore = qScopeGuard([oldData] { if (oldData.isNull()) qunsetenv("XDG_DATA_HOME"); else qputenv("XDG_DATA_HOME",oldData); });
+        qputenv("XDG_DATA_HOME",dir.filePath("data").toUtf8());
+#endif
+        HomeWidgets editor(nullptr,dir.filePath("widgets.json"),true);
+        QVERIFY(editor.recommendedFpsFolder().endsWith("/galleoncore/fps"));
+        QVERIFY(editor.steamLaunchOptions().contains("mangohud %command%"));
+#ifndef Q_OS_WIN
+        QCOMPARE(editor.recommendedFpsFolder(),dir.filePath("data/galleoncore/fps"));
+        QVERIFY(editor.prepareFpsFolder());
+        QVERIFY(QDir(editor.recommendedFpsFolder()).exists());
+        QCOMPARE(editor.fpsConfig().value("source").toString(),editor.recommendedFpsFolder());
+        QVERIFY(editor.pending());
+        QVERIFY(!QFile::exists(dir.filePath("widgets.json")));
+        QVERIFY(editor.apply());
+#endif
+    }
+#ifndef Q_OS_WIN
+    void mangoHudConfigurationPreservesOptionsAndIsRepeatable() {
+        QTemporaryDir dir;
+        const auto config = qgetenv("XDG_CONFIG_HOME"), data = qgetenv("XDG_DATA_HOME");
+        const auto restore = qScopeGuard([config, data] {
+            if (config.isNull()) qunsetenv("XDG_CONFIG_HOME"); else qputenv("XDG_CONFIG_HOME", config);
+            if (data.isNull()) qunsetenv("XDG_DATA_HOME"); else qputenv("XDG_DATA_HOME", data);
+        });
+        qputenv("XDG_CONFIG_HOME", dir.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", dir.filePath("data").toUtf8());
+        HomeWidgets editor(nullptr, dir.filePath("widgets.json"), true);
+        QVERIFY(editor.configureMangoHud());
+        const auto path = dir.filePath("config/MangoHud/MangoHud.conf");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        const QByteArray original("# my options\nfps_limit=90\n  log_interval = 1000\noutput_folder=/tmp/old\n");
+        file.write(original); file.close();
+        QVERIFY(editor.configureMangoHud());
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const auto updated = file.readAll(); file.close();
+        QVERIFY(updated.contains("# my options\nfps_limit=90\n"));
+        QVERIFY(!updated.contains("1000"));
+        QCOMPARE(updated.count("log_interval="), 1);
+        QVERIFY(updated.contains(editor.recommendedFpsFolder().toUtf8()));
+        const auto backups = QDir(QFileInfo(path).absolutePath()).entryList({"*.galleon-backup-*"}, QDir::Files);
+        QCOMPARE(backups.size(), 1);
+        QFile backup(QFileInfo(path).absolutePath() + "/" + backups.first());
+        QVERIFY(backup.open(QIODevice::ReadOnly)); QCOMPARE(backup.readAll(), original);
+        QVERIFY(editor.configureMangoHud());
+        QVERIFY(file.open(QIODevice::ReadOnly)); QCOMPARE(file.readAll(), updated);
+        QCOMPARE(QDir(QFileInfo(path).absolutePath()).entryList({"*.galleon-backup-*"}, QDir::Files).size(), 1);
+        QVERIFY(!editor.pending());
+        HomeWidgets reader(nullptr, dir.filePath("widgets.json"));
+        QCOMPARE(reader.fpsConfig().value("source").toString(), editor.recommendedFpsFolder());
+    }
+#endif
     void defaultsAndCrossProcessReload() {
         QTemporaryDir dir;
         HomeWidgets writer(nullptr, dir.filePath("widgets.json"));

@@ -21,6 +21,9 @@
 
 namespace galleond {
 
+bool ScreenController::ShowGaming() { return m_showGaming && m_showGaming(); }
+
+
 namespace {
 
 constexpr int DeckCheckIntervalMs = 5000;

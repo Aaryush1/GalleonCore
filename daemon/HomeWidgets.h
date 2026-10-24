@@ -16,6 +16,8 @@ class HomeWidgets : public QObject {
     Q_PROPERTY(QVariantList layout READ layout NOTIFY changed)
     Q_PROPERTY(QVariantMap values READ values NOTIFY changed)
     Q_PROPERTY(QVariantMap location READ location NOTIFY changed)
+    Q_PROPERTY(QString recommendedFpsFolder READ recommendedFpsFolder CONSTANT)
+    Q_PROPERTY(QString steamLaunchOptions READ steamLaunchOptions CONSTANT)
     Q_PROPERTY(QVariantMap fpsConfig READ fpsConfig NOTIFY changed)
     Q_PROPERTY(QVariantMap gameState READ gameState NOTIFY changed)
     Q_PROPERTY(QVariantMap gameConfig READ gameConfig NOTIFY changed)
@@ -33,6 +35,10 @@ public:
         return result;
     }
     QVariantMap location() const { return m_location; }
+    [[nodiscard]] QString recommendedFpsFolder() const;
+    [[nodiscard]] QString steamLaunchOptions() const;
+    Q_INVOKABLE bool prepareFpsFolder();
+    Q_INVOKABLE bool configureMangoHud();
     QVariantMap fpsConfig() const { return m_fpsConfig; }
     QVariantMap gameState() const { return m_gameState; }
     QVariantMap gameConfig() const { return m_gameConfig; }

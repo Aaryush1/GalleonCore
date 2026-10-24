@@ -14,6 +14,7 @@
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QSaveFile>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QLocale>
 #include <cmath>
@@ -145,6 +146,62 @@ bool HomeWidgets::setWidgetTextSize(const QString &id, int pixels) {
         item["textSize"] = pixels; entry = item; return save();
     }
     return false;
+}
+QString HomeWidgets::recommendedFpsFolder() const {
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/galleoncore/fps");
+}
+QString HomeWidgets::steamLaunchOptions() const {
+    QString config = QStringLiteral("autostart_log=1,log_interval=500,output_folder=") + recommendedFpsFolder();
+    config.replace(QLatin1Char('\''), QStringLiteral("'\\''"));
+    return QStringLiteral("MANGOHUD_CONFIG='") + config + QStringLiteral("' mangohud %command%");
+}
+bool HomeWidgets::prepareFpsFolder() {
+    const QString folder = recommendedFpsFolder();
+    if (!QDir().mkpath(folder)) {
+        m_error = tr("Could not create the FPS log folder."); Q_EMIT changed(); return false;
+    }
+    return setFpsSource(folder, {});
+}
+bool HomeWidgets::configureMangoHud() {
+    const auto fail = [this](const QString &message) {
+        m_error = message; Q_EMIT changed(); return false;
+    };
+    const QString folder = recommendedFpsFolder();
+    const QString configDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/MangoHud");
+    const QString path = configDir + QStringLiteral("/MangoHud.conf");
+    if (!QDir().mkpath(folder) || !QDir().mkpath(configDir))
+        return fail(tr("Could not create the MangoHud configuration or FPS log folder."));
+    QByteArray original;
+    const bool exists = QFile::exists(path);
+    if (exists) {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) return fail(tr("Could not read the existing MangoHud configuration."));
+        original = file.readAll();
+        if (file.error() != QFileDevice::NoError) return fail(tr("Could not read the existing MangoHud configuration."));
+    }
+    // Keep unrelated options and comments, replacing only the three logging keys.
+    const QRegularExpression loggingKey(QStringLiteral("^\\s*(autostart_log|log_interval|output_folder)\\s*="));
+    QByteArray updated;
+    auto lines = original.split('\n');
+    if (original.endsWith('\n')) lines.removeLast();
+    for (const auto &line : lines) {
+        if (!loggingKey.match(QString::fromUtf8(line)).hasMatch()) {
+            updated += line;
+            updated += '\n';
+        }
+    }
+    if (original.isEmpty()) updated.clear();
+    updated += "autostart_log=1\nlog_interval=500\noutput_folder=" + folder.toUtf8() + "\n";
+    if (updated != original) {
+        if (exists) {
+            const QString backup = path + QStringLiteral(".galleon-backup-") + QUuid::createUuid().toString(QUuid::WithoutBraces);
+            if (!QFile::copy(path, backup)) return fail(tr("Could not back up the MangoHud configuration."));
+        }
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly) || file.write(updated) != updated.size() || !file.commit())
+            return fail(tr("Could not save the MangoHud configuration."));
+    }
+    return setFpsSource(folder, {}) && apply();
 }
 bool HomeWidgets::setFpsSource(const QString &source, const QString &process) {
     load();

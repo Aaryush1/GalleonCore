@@ -12,7 +12,7 @@
 
 namespace galleond {
 
-enum class LocalAction : unsigned char { Ping, Wallpaper, Stop };
+enum class LocalAction : unsigned char { Ping, Wallpaper, Stop, Gaming };
 struct LocalCommand
 {
     LocalAction action = LocalAction::Ping;
@@ -34,6 +34,7 @@ public:
 Q_SIGNALS:
     void wallpaperRequested(const QString &name);
     void stopRequested();
+    void gamingRequested();
 private:
     void acceptConnections();
     std::unique_ptr<QLockFile> m_lock;
