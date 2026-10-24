@@ -259,3 +259,5 @@ References: [NVML](https://docs.nvidia.com/deploy/nvml-api/),
 ### Windows capture button state
 
 The capture button follows both the running helper flag and the confirmed `capturing` state received from the daemon. A capturing snapshot still offers Stop when the optional process flag is missing or false. Starting capture displays a disabled progress label; the UI never assumes success from a click. Windows regression tests also verify the stop request for that snapshot. Hardware confirmation of the fix remains pending.
+
+When PresentMon is installed and waiting for a game, the button displays “Prêt — lancez un jeu” and is disabled because capture starts automatically. Start remains available for retries or resuming a stopped capture; Stop remains green during capture. The owner confirmed that the running capture already displayed Stop correctly; the reported confusion concerned the idle label.

@@ -72,11 +72,11 @@ private slots:
     void presentMonButtonReflectsCaptureAndRequestsRetryWithoutApplyingEdits() {
         QTemporaryDir dir;
         const auto config = dir.filePath("widgets.json");
-        const auto writeState = [&](bool running, bool installed = true) {
+        const auto writeState = [&](bool running, bool installed = true, const QString &state = {}) {
             QFile file(config + ".runtime.json");
             if (!file.open(QIODevice::WriteOnly)) return false;
             file.write(QJsonDocument(QJsonObject{{"at", QDateTime::currentMSecsSinceEpoch()},
-                {"capture", QJsonObject{{"installed", installed}, {"running", running}, {"canStart", !running}, {"state", running ? "capturing" : "error"}}}}).toJson());
+                {"capture", QJsonObject{{"installed", installed}, {"running", running}, {"canStart", !running}, {"state", state.isEmpty() ? (running ? QStringLiteral("capturing") : QStringLiteral("error")) : state}}}}).toJson());
             return true;
         };
         QVERIFY(writeState(true));
@@ -105,6 +105,9 @@ private slots:
         QVERIFY(stopRequest.open(QIODevice::ReadOnly));
         QCOMPARE(QJsonDocument::fromJson(stopRequest.readAll()).object().value("action").toString(), QStringLiteral("stop"));
         stopRequest.close();
+        QVERIFY(writeState(false, true, QStringLiteral("waiting")));
+        QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Prêt — lancez un jeu"), 4000);
+        QVERIFY(!button->property("enabledLook").toBool());
         QVERIFY(writeState(false));
         QTRY_COMPARE_WITH_TIMEOUT(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"), 4000);
         QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"));

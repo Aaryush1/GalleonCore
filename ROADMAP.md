@@ -4,6 +4,15 @@ Référence pour reprendre le développement à tout moment, y compris dans une 
 
 État au 21 octobre 2026 : socle Linux/Windows, Setup NSIS, pages initiales à 12 touches et aperçus Bosun fusionnés dans `main` jusqu'à la PR #35. La validation complète de l'arbre fusionné et les CI de `main` ont réussi. Le propriétaire a confirmé le fonctionnement du Setup après mise à jour du firmware Stream Deck depuis l'application officielle Elgato, puis désinstallation de cette application. Le tag [`v0.1.0`](https://github.com/Paullux/GalleonCore/tree/v0.1.0) pointe sur `8634920` et a déclenché la [CI de publication](https://github.com/Paullux/GalleonCore/actions/runs/39674680765) : consulter cette exécution et les dépôts pour leur état effectif. COPR a réussi après retrait d'un dépôt externe invalide. Les premières sources PPA ont compilé et passé CTest, mais Launchpad a refusé les binaires à cause de 46 fichiers datés de 1970 ; une révision Debian `-2` corrige les horodatages sans changer l'archive source publiée. Les essais prolongés et le démarrage à froid sous Windows restent à confirmer. La [PR #31](https://github.com/Paullux/GalleonCore/pull/31), ancien contournement HID expérimental non validé sur le matériel, est fermée sans fusion.
 
+### Candidat 0.2.0 — 24 octobre 2026
+
+Retour matériel Windows du propriétaire sur le setup 0.2.0 : mesure des FPS et mode Widgets fonctionnels. Anomalie ouverte : le bouton PresentMon reste sur « Démarrer la capture FPS » alors que les FPS sont affichés ; le message de statut n’a pas été relevé. La logique actuelle et son test natif couvrent déjà la transition `running=true` → « Arrêter » ; le défaut réel n’est donc pas encore reproduit ni corrigé. Ne pas confondre la capture fonctionnelle avec la validation de son bouton.
+
+Correctif du bouton Windows : instantané `c1e3a0b`, [CI Windows réussie](https://github.com/Paullux/GalleonCore/actions/runs/40084070829). Le bouton traite aussi l’état confirmé `capturing` lorsque `running` manque ou vaut faux ; même décision pour le libellé et la commande stop, étape de démarrage visible et désactivée. Tests ciblés Linux et 14 tests natifs Windows réussis, dont la régression sur le bouton et la demande stop. Setup, mise à niveau et conservation des données vérifiés automatiquement. Essai du propriétaire encore nécessaire pour confirmer la disparition du défaut réel, non reproduit avec ses données de statut. Les blocages globaux 0.2.0 ci-dessous restent ouverts.
+
+
+Le propriétaire confirme le mode Jeu CS2/Steam sous Linux après alignement du dossier CSV MangoHud. Le setup Windows candidat `22f1cd6` a passé la [CI Windows](https://github.com/Paullux/GalleonCore/actions/runs/40081354924), y compris déploiement, installation/mise à niveau/désinstallation avec applications ouvertes et conservation des données. Les nouveaux essais matériels Windows restent à effectuer. La [CI Linux](https://github.com/Paullux/GalleonCore/actions/runs/40081356379) passe sous GCC ; Clang + sanitizers échoue dans `test_gpusensors` sur le type de pointeur de fonction NVML et l’analyse statique comporte des diagnostics à corriger. **La 0.2.0 n’est pas validée pour publication. Aucun tag ni publication avant le retour des essais Windows et la résolution des contrôles bloquants.**
+
 ## 1. Implémenté et testé
 
 Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fonds personnels et du bouton « Parcourir » (PR #24).
@@ -12,6 +21,7 @@ Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fond
 
 | Fonction | Tests | Sur le module |
 |---|---|---|
+| **Gaming : logiciel d’enregistrement** (24 octobre) : préférence Automatique/Game Bar/OBS, défaut Windows Game Bar et Linux OBS, logiciels absents grisés ; onglet Gaming unique (réglages Mode Jeu et enregistrement), thème runtime Gaming du pad avec quatre actions adaptées et icônes intégrées, page de touches présente uniquement pendant le jeu et retirée à sa fermeture même après un changement de mode, aide CSV MangoHud dans le dossier utilisateur, commandes OBS WebSocket 5 authentifiées et états confirmés, Game Bar par raccourcis sans état supposé ; réglages locaux persistants | oui, ciblés Linux (`test_recording`, `test_pagescontroller`, `test_bosun`) et rendu QML ; exécution native Windows à faire | à confirmer avec OBS et Game Bar réels ; [configuration](docs/GAMING_RECORDING.md) |
 | Fond d'écran + heure/date (locale du système) sur l'écran 720×384, redessiné chaque minute | oui | oui |
 | Fond retenu (`galleond.conf`) et affiché dès le démarrage ; avertissement si le fond sauvegardé n'existe plus | oui | oui |
 | Images des 12 touches (JPEG 160×160), dessin partiel (seule la touche changée est renvoyée) | oui | oui |
@@ -227,3 +237,11 @@ panne initiale ; sa capture montre `3.06.005`. Comme les deux changements ont
 ensuite jugé le Setup satisfaisant et demandé le premier tag. Confirmer encore
 la stabilité après démarrage à froid et longue veille ; ne pas attribuer la
 résolution du défaut HID à un correctif logiciel non vérifié.
+
+### Clarification du bouton PresentMon (24 octobre)
+
+Le propriétaire confirme que le bouton devient vert « Arrêter » dès que le jeu est lancé : le défaut observé était le libellé au repos. Correction UI : état `waiting` installé → « Prêt — lancez un jeu » désactivé, démarrage automatique au lancement du jeu ; arrêt/reprise et erreurs conservent leurs actions. Tests QML et scénario natif Windows étendus ; validation native de ce dernier libellé à refaire dans le prochain setup.
+
+### Aide Linux Gaming organisée par lanceur (24 octobre)
+
+Aide de l’interface et guide Linux réorganisés : Commun → Steam → Heroic → Lutris → PlayOnLinux → Bottles. Une préparation commune unique configure les fichiers et applique le dossier FPS ; chaque lanceur dispose de son chemin de menus et de ses propres commandes éventuelles. Les alternatives Steam, les permissions Flatpak et les limites restent dans des sections avancées du guide. Le bouton de dossier seul, redondant avec la configuration commune, a été retiré de cette aide. Compilation, qmllint, test_bosun (rendu QML) et syntaxe des blocs shell du guide réussis. Capture de l’aide contrôlée visuellement.

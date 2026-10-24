@@ -144,7 +144,8 @@ private Q_SLOTS:
         QVERIFY2(page, qPrintable(component.errorString()));
         auto *button = page->findChild<QObject *>("startPresentMon");
         QVERIFY(button);
-        QCOMPARE(button->property("text").toString(), QStringLiteral("Démarrer la capture FPS"));
+        QCOMPARE(button->property("text").toString(), QStringLiteral("Prêt — lancez un jeu"));
+        QVERIFY(!button->property("enabledLook").toBool());
         widgets.insert("captureStatus", QVariantMap{{"installed", true}, {"state", "capturing"}, {"running", false}});
         QCOMPARE(button->property("text").toString(), QStringLiteral("Arrêter la capture FPS"));
         QVERIFY(button->property("selected").toBool());
@@ -971,6 +972,17 @@ private Q_SLOTS:
             QVERIFY(!other->isVisible());
             const auto output = qEnvironmentVariable(kind == "gaming" ? "GALLEON_GAMING_SCREENSHOT" : "GALLEON_WIDGETS_SCREENSHOT");
             if (!output.isEmpty()) QVERIFY(screenshot.save(output));
+            const auto helpOutput = qEnvironmentVariable("GALLEON_GAMING_HELP_SCREENSHOT");
+            if (kind == "gaming" && !helpOutput.isEmpty()) {
+                auto *help = window->findChild<QQuickItem *>("linuxLauncherHelp");
+                auto *contentItem = qvariant_cast<QQuickItem *>(widgets->property("contentItem"));
+                QVERIFY(help && contentItem);
+                widgets->setProperty("contentY", help->mapToItem(contentItem, QPointF()).y());
+                QTest::qWait(100);
+                QVERIFY(qobject_cast<QQuickWindow *>(window)->grabWindow().save(helpOutput));
+                widgets->setProperty("contentY", 0);
+            }
+
         }
         // A window that is not shown has no picture, but a shown one grabs: the pictures load.
         window->setProperty("currentTab", 0);
