@@ -73,7 +73,8 @@
 
   function setNumber(selector, value) {
     if (Number.isSafeInteger(value) && value >= 0) {
-      document.querySelector(selector).textContent = value.toLocaleString();
+      var element = document.querySelector(selector);
+      if (element) element.textContent = value.toLocaleString();
     }
   }
 
@@ -85,18 +86,14 @@
 
   function setDirect(assets, baseline, live) {
     var current = totals(assets);
-    var weekly = baseline ? sevenDayDeltas(assets, baseline) : null;
     DIRECT.forEach(function (name) {
       setNumber('[data-download-stat="' + name + '"]', current[name]);
-      if (weekly) setNumber('[data-download-week="' + name + '"]', weekly[name]);
+      if (published && published.by_channel) setNumber('[data-download-week="' + name + '"]', published.by_channel[name]);
     });
-    if (weekly && published && published.by_channel) {
-      var ppa = published.by_channel.ppa;
-      var copr = published.by_channel.copr;
-      if (Number.isSafeInteger(ppa) && Number.isSafeInteger(copr)) {
-        setNumber('[data-download-stat="total"]',
-          DIRECT.reduce(function (sum, name) { return sum + weekly[name]; }, ppa + copr));
-      }
+    if (published && published.daily) {
+      DIRECT.forEach(function (name) {
+        setNumber('[data-download-day="' + name + '"]', published.daily[name]);
+      });
     }
     document.getElementById("direct-count-source").textContent = live ? "GitHub API" : "Daily snapshot";
   }
@@ -104,14 +101,11 @@
   function setNote(stats, live) {
     var checked = stats.repository_checked_at || {};
     var dates = ["ppa", "copr"].map(function (name) {
-      var period = (stats.repository_period || {})[name];
-      if (period && period.from && period.to) return name.toUpperCase() + " " + period.from + "–" + period.to;
-      return name.toUpperCase() + " " + (checked[name] || "—");
+      var last = checked[name];
+      var stale = !last || last !== new Date().toISOString().slice(0, 10);
+      return name.toUpperCase() + " " + (last || "—") + (stale ? " (ancienne / stale)" : "");
     }).join("; ");
-    note.innerHTML = '<span lang="en">Direct totals: <span data-source></span> at page load (daily snapshot when optional content is refused). Seven-day changes need a previous snapshot. PPA/COPR are checked once per week; their latest measured periods: <span data-repo-dates></span>. The combined recent total is approximate because these periods can differ. AUR votes are not downloads; downloads include updates, not unique users.</span><span lang="fr">Totaux directs : <span data-source></span> à l’ouverture (relevé quotidien si le contenu facultatif est refusé). Les variations sur sept jours demandent un relevé antérieur. PPA/COPR sont vérifiés une fois par semaine ; dernières périodes mesurées : <span data-repo-dates></span>. Le total récent est approximatif car ces périodes peuvent différer. Les votes AUR ne sont pas des téléchargements ; les comptes incluent les mises à jour, pas des utilisateurs uniques.</span>';
-    if (!stats.since) {
-      note.insertAdjacentHTML("afterbegin", '<strong lang="en">First daily snapshot recorded. Recent counts will appear after the next daily snapshot. </strong><strong lang="fr">Premier relevé quotidien enregistré. Les mesures récentes apparaîtront après le prochain relevé quotidien. </strong>');
-    }
+    note.innerHTML = '<span lang="en">GitHub totals: <span data-source></span>. Daily collection at 03:23 UTC. 24h and 7d changes compare daily observations, not midnight boundaries; missing baselines remain unavailable. PPA: package downloads, including updates. COPR: cumulative RPM downloads. Last successful collection: <span data-repo-dates></span>. These are not unique installations or users. AUR measures votes.</span><span lang="fr">Totaux GitHub : <span data-source></span>. Collecte quotidienne à 03 h 23 UTC. Les variations 24h et 7j comparent les relevés quotidiens, pas les limites de minuit ; sans référence elles restent indisponibles. PPA : téléchargements de paquets, mises à jour comprises. COPR : téléchargements RPM cumulés. Dernière collecte réussie : <span data-repo-dates></span>. Ce ne sont pas des installations ou utilisateurs uniques. AUR mesure les votes.</span>';
     note.querySelectorAll("[data-source]").forEach(function (span) {
       span.textContent = live ? "GitHub API" : stats.generated_at || "Daily snapshot";
     });
@@ -125,11 +119,10 @@
     if (latest && latest.assets) setDirect(latest.assets, baselineAssets(stats), false);
     var repositoryWeekly = stats.repository_weekly || stats.by_channel || {};
     ["ppa", "copr"].forEach(function (name) {
-      setNumber('[data-download-stat="' + name + '"]', repositoryWeekly[name]);
+      setNumber('[data-download-stat="' + name + '"]', latest ? (latest.repositories || {})[name] : null);
+      setNumber('[data-download-week="' + name + '"]', repositoryWeekly[name]);
+      if (stats.daily) setNumber('[data-download-day="' + name + '"]', stats.daily[name]);
     });
-    if (stats.by_channel) {
-      setNumber('[data-download-stat="total"]', stats.total);
-    }
     setNumber('[data-download-stat="aur"]', stats.aur_votes);
     setNote(stats, false);
     refreshLive();
