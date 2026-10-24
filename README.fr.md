@@ -11,7 +11,7 @@
 [![Ubuntu PPA](https://img.shields.io/badge/Ubuntu-PPA-E95420?logo=ubuntu&logoColor=white)](https://launchpad.net/~paulwoisard/+archive/ubuntu/galleoncore)
 [![Fedora COPR](https://img.shields.io/badge/Fedora-COPR-51A2DA?logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/paullux/GalleonCore/)
 [![Arch AUR](https://img.shields.io/badge/Arch-AUR-1793D1?logo=archlinux&logoColor=white)](https://aur.archlinux.org/packages/galleoncore)
-[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.1.0/GalleonCore-0.1.0-x86_64.AppImage)
+[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-8E6BBF?logo=linux&logoColor=white)](https://github.com/Paullux/GalleonCore/releases/download/v0.2.0/GalleonCore-0.2.0-x86_64.AppImage)
 [![Licenses](https://img.shields.io/badge/license-GPL%20%2F%20LGPL%20%2F%20CC--BY--SA-blue)](LICENSE.md)
 [![Security policy](https://img.shields.io/badge/security-report%20privately-46505E)](SECURITY.md)
 
@@ -55,7 +55,7 @@ Un mode Jeu automatique affiche une image locale du jeu, les FPS et les tempéra
 
 ### Captures de Galleon Bosun
 
-Les cinq pages par défaut montrent les applications installées sur un poste Linux ; les applications et leurs icônes varient selon l’ordinateur. Les deux dernières captures montrent le choix des fonds d’écran et des vidéos de veille. [Voir la galerie sur le site](https://galleoncore.xyz/#previews).
+Les captures actualisées pour la 0.2.0 montrent les cinq pages de touches et les onglets Fonds d’écran, Widgets, Gaming et Écrans de veille. Les applications et leurs icônes varient selon l’ordinateur ; les mesures dépendent du poste de capture. [Voir la galerie sur le site](https://galleoncore.xyz/#previews).
 
 | Contrôle | Multimédia |
 |---|---|
@@ -64,8 +64,22 @@ Les cinq pages par défaut montrent les applications installées sur un poste Li
 | ![Page Jeu Vidéo de Bosun avec les jeux installés](site/screenshots/games.png) | ![Page Système de Bosun avec les outils utiles](site/screenshots/system.png) |
 | Pavé numérique | Choix du fond d’écran |
 | ![Pavé numérique dans Bosun](site/screenshots/numpad.png) | ![Catalogue de fonds d’écran dans Bosun](site/screenshots/wallpapers.png) |
+| Widgets : disposition et taille du texte | Gaming : jeu et enregistrement |
+| ![Onglet Widgets intégré dans Bosun](site/screenshots/widgets.png) | ![Onglet Gaming intégré dans Bosun](site/screenshots/gaming.png) |
 | Choix de la veille | |
 | ![Choix des deux vidéos de veille du dépôt dans Bosun](site/screenshots/screensavers.png) | |
+
+
+### Widgets et Gaming dans Bosun
+
+- **Widgets** : heure et date selon la locale, météo de la ville choisie, CPU/RAM, température CPU, fichiers en cours de téléchargement et FPS. Position, dimensions, taille du texte et visibilité se règlent dans l’aperçu, puis sont enregistrées avec **Appliquer**.
+- **Gaming** : image locale du jeu, FPS, jauges de charge CPU/GPU et températures disponibles. La veille du module est suspendue pendant la capture. Les commandes du pad apparaissent uniquement pendant le jeu et disparaissent à sa fermeture, même après un changement de page de touches.
+- **Enregistrement** : choix mémorisé entre Automatique, OBS et Game Bar. Automatique utilise OBS sous Linux et Game Bar sous Windows. OBS passe par WebSocket avec des états confirmés ; Game Bar utilise des raccourcis sans annoncer un état non confirmé. Voir le [guide d’enregistrement](docs/GAMING_RECORDING.md).
+- **FPS** : sous Windows, détection du service PresentMon installé et capture via son API, sans interface à ouvrir. Sous Linux, bouton de configuration MangoHud et instructions pour Steam, Heroic, Lutris, PlayOnLinux et Bottles ; une configuration initiale du lanceur reste nécessaire. Voir le [guide Linux](docs/MODE_JEU_LINUX.fr.md).
+
+Les capteurs dépendent du matériel et des pilotes : NVML pour NVIDIA, AMD-SMI/hwmon sous Linux ; ADLX n’est pas encore intégré sous Windows. Les téléchargements sont un compteur de fichiers partiels, pas un pourcentage du navigateur. Voir les [limites par plateforme](docs/HOME_WIDGETS.md).
+
+[Voir la démonstration vidéo de la 0.2.0 sur YouTube](https://youtu.be/eFwru_OMNNI).
 
 ### Windows : les touches du Stream Deck ne répondent pas
 
