@@ -186,27 +186,22 @@ ctest --test-dir build-asan
 
 ## How this project is made
 
-Most of the code is written with AI coding agents (Claude Code and Codex),
-working from the rules in [CLAUDE.md](CLAUDE.md) and under the maintainer's
-direction. The maintainer owns the keyboard, decides what to build, tests on the
-real hardware, and examines the proposed changes and approves their merge into
-the protected `main` branch.
+Most of the code is written with AI coding agents (Claude Code and Codex), under
+the maintainer's direction and following the instructions in
+[CLAUDE.md](CLAUDE.md). The maintainer owns the keyboard, defines the features,
+tests on the real hardware, examines the proposed changes and approves their
+merge.
 
-Generated code is not accepted without verification. What backs it is public and can be
-checked by anyone:
+Generated code is not accepted without verification. The project's rules require
+protocol facts to come from cited sources or real captures, device data to be
+validated before use, and behaviour changes to come with tests. The status tables
+in this README and in [ROADMAP.md](ROADMAP.md) distinguish "tested" (automatic
+tests) from "confirmed on the module" (human verification on the hardware).
 
-- protocol facts come only from cited sources or real captures, never invented;
-- all device input is validated before use, with fuzzing on the parser;
-- every behaviour change comes with a test, run under sanitizers in CI;
-- the status tables in this README and in [ROADMAP.md](ROADMAP.md) keep
-  "tested" (automatic tests) apart from "confirmed on the module" (a person
-  checked it on the hardware).
-
-Pull requests go through automated checks: compilation (GCC and Clang, warnings
-as errors), tests and static analysis (clang-tidy, qmllint, REUSE). These checks
-catch some errors and verify that the project's rules are followed. They do not
-guarantee the absence of bugs, but passing them is required before merging into
-`main`.
+Pull requests go through automated checks: compilation, tests and static
+analysis. These checks are public; they catch some errors and verify that the
+project's rules are followed. They do not guarantee the absence of bugs, but
+passing them is required before merging into the protected `main` branch.
 
 If something is wrong, open an issue; reports with a firmware version, a
 distribution and a log are the most useful.

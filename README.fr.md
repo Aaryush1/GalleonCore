@@ -192,29 +192,23 @@ ctest --test-dir build-asan
 ## Comment ce projet est fait
 
 L'essentiel du code est écrit avec des agents de programmation IA (Claude Code et
-Codex), à partir des règles de [CLAUDE.md](CLAUDE.md) et sous la direction du
-mainteneur. Le mainteneur possède le clavier, décide de ce qui est construit,
-teste sur le matériel réel, examine les changements proposés et valide leur
-fusion dans la branche protégée `main`.
+Codex), sous la direction du mainteneur et avec les consignes décrites dans
+[CLAUDE.md](CLAUDE.md). Le mainteneur possède le clavier, définit les
+fonctionnalités, teste sur le matériel réel, examine les changements proposés et
+valide leur intégration.
 
-Le code généré n'est pas accepté sans vérification. Ce qui le soutient est public et
-vérifiable par tous :
+Le code généré n'est pas accepté sans vérification. Les règles du projet
+demandent de documenter les faits de protocole à partir de sources citées ou de
+captures réelles, de valider les données du module avant leur utilisation et
+d'accompagner les changements de comportement de tests. Les tableaux d'état de ce
+README et de [ROADMAP.md](ROADMAP.md) distinguent « testé » (tests automatiques)
+de « confirmé sur le module » (vérification humaine sur le matériel).
 
-- les faits de protocole viennent uniquement de sources citées ou de captures
-  réelles, jamais inventés ;
-- toute donnée venant du module est validée avant usage, avec du fuzzing sur le
-  parseur ;
-- chaque changement de comportement s'accompagne d'un test, exécuté sous
-  sanitizers en CI ;
-- les tableaux d'état de ce README et de [ROADMAP.md](ROADMAP.md) distinguent
-  « testé » (tests automatiques) de « confirmé sur le module » (une personne l'a
-  vérifié sur le matériel).
-
-Les demandes de fusion sont soumises à des contrôles automatisés : compilation
-(GCC et Clang, avertissements traités en erreurs), tests et analyse statique
-(clang-tidy, qmllint, REUSE). Ces contrôles permettent de détecter certaines
-erreurs et de vérifier le respect des règles du projet. Ils ne garantissent pas
-l'absence de bugs, mais leur réussite est exigée avant la fusion dans `main`.
+Les demandes de fusion sont soumises à des contrôles automatisés : compilation,
+tests et analyse statique. Ces contrôles sont publics ; ils permettent de
+détecter certaines erreurs et de vérifier le respect des règles du projet. Ils ne
+garantissent pas l'absence de bugs, mais leur réussite est exigée avant la fusion
+dans la branche protégée `main`.
 
 En cas de problème, ouvre une issue ; les rapports avec la version du firmware,
 la distribution et un journal sont les plus utiles.
