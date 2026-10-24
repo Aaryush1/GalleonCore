@@ -252,6 +252,44 @@ class TestPagesController : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void gamingPadRoutesSupportedButtonsAndLeavesUserPagesIntact()
+    {
+        QTemporaryDir dir;
+        RecordingController recording(nullptr, dir.filePath("recording.ini"));
+        QList<int> commands;
+        recording.setPlatformForTest(true, true, false, [&commands](int index) { commands.append(index); return true; });
+        Fixture f;
+        f.controller->setRecordingController(&recording);
+        PagesConfig config;
+        config.home = QStringLiteral("home");
+        Page home;
+        KeyConfig themeKey; themeKey.key = 0; themeKey.action.type = ActionType::Theme;
+        home.keys[0] = themeKey;
+        config.pages.insert(config.home, home);
+        config.themes.push_back(Theme{QStringLiteral("Home"), config.home, 0xffffff, ThemeTrigger::None});
+        f.controller->setConfig(config);
+        QCOMPARE(f.controller->currentPage(), QString("home"));
+        f.pressKey(0, true); f.pressKey(0, false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        for (int i = 0; i < 5; ++i) { f.pressKey(i, true); f.pressKey(i, false); }
+        QCOMPARE(commands, (QList<int>{0,1,2,3}));
+        recording.setPlatformForTest(true, false, false, [&commands](int index) { commands.append(index); return true; });
+        f.pressKey(0, true); f.pressKey(0, false);
+        QCOMPARE(commands.size(), 4);
+        QCOMPARE(config.pages.size(), 1);
+        // The runtime theme must not make an unchanged source look different.
+        const auto json = QJsonDocument(QJsonObject{{"version",1},{"home","home"},
+            {"pages",QJsonObject{{"home",page({keyJson(0,"Theme",{{"type","theme"}})})}}},
+            {"themes",QJsonArray{QJsonObject{{"name","Home"},{"page","home"},{"color","#ffffff"}}}}}).toJson();
+        const QString file = dir.filePath("pages.json");
+        QVERIFY(writeFile(file, json));
+        f.controller->loadFile(file);
+        f.pressKey(0, true); f.pressKey(0, false);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+        f.controller->loadFile(file);
+        QCOMPARE(f.controller->currentTheme()->name, QString("Gaming"));
+    }
+
     void allTwelveKeysAreDrawnAtStart()
     {
         Fixture f;

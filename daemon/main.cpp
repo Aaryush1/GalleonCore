@@ -799,11 +799,13 @@ int main(int argc, char *argv[])
     // The button pages: keys and dials drive the platform media controller.
     // The virtual keypad for `key` actions: created only when a pages file uses one.
     auto keypad = galleond::createKeyInjector();
+    galleond::RecordingController recording;
     std::unique_ptr<galleond::PagesController> pages;
     if (usePages) {
         const QString pagesFile = defaultPagesFile(parser.value(pagesOption));
         pages = std::make_unique<galleond::PagesController>(&deck, media.get(),
                                                             galleond::TileRenderer(QFileInfo(pagesFile).absolutePath()));
+        pages->setRecordingController(&recording);
         pages->setKeyInjector(keypad.get());
         // The use of applications, for the pages that put the most used first.
         pages->setUsageFile(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)

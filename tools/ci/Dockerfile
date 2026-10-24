@@ -14,7 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -qq \
  && apt-get install -y -qq --no-install-recommends \
       ca-certificates cmake make g++ clang libclang-rt-18-dev clang-tidy pkg-config \
-      qt6-base-dev qt6-declarative-dev libhidapi-dev dbus \
+      qt6-base-dev qt6-declarative-dev qt6-websockets-dev libhidapi-dev dbus \
       qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtqml qml6-module-qtqml-workerscript \
       git file python3 pipx \
  && rm -rf /var/lib/apt/lists/* \

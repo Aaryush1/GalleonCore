@@ -9,6 +9,7 @@ URL:            https://github.com/Paullux/GalleonCore
 Source0:        %{url}/releases/download/v%{version}/galleoncore-%{version}.tar.gz
 BuildRequires:  gcc-c++ cmake make pkgconf-pkg-config
 BuildRequires:  qt6-qtbase-devel >= 6.4
+BuildRequires:  qt6-qtwebsockets-devel >= 6.4
 BuildRequires:  qt6-qtdeclarative-devel >= 6.4
 BuildRequires:  hidapi-devel dbus-daemon
 Requires:       qt6-qtdeclarative >= 6.4

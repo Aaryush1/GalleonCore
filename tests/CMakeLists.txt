@@ -112,6 +112,8 @@ galleond_add_test(test_homewidgets)
 galleond_add_test(test_fpsreader)
 galleond_add_test(test_gamemode)
 
+galleond_add_test(test_recording)
+
 if(WIN32)
     # Native desktop smoke rendering; Linux service/launcher tests stay on Linux.
     galleond_add_test(test_screenrenderer)
@@ -160,3 +162,4 @@ galleon_add_test(test_cropmath)
 target_link_libraries(test_cropmath PRIVATE bosun_core)
 galleon_add_test(test_videoconverter)
 target_link_libraries(test_videoconverter PRIVATE bosun_core)
+

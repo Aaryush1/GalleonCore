@@ -56,6 +56,7 @@ Window {
         {title: qsTr("Keyboard"), kind: "keyboard", page: "", color: lastTheme < backend.themes.length ? backend.themes[lastTheme].color : "#9aa0a6"},
         {title: qsTr("Wallpapers"), kind: "wallpapers", page: "", color: "#ff00ff"},
         {title: qsTr("Widgets"), kind: "widgets", page: "", color: "#4fc3f7"},
+        {title: qsTr("Gaming"), kind: "gaming", page: "", color: "#80e5d1"},
         {title: qsTr("Mode Jeu"), kind: "game", page: "", color: "#80e5d1"},
         {title: qsTr("Screensavers"), kind: "screensavers", page: "", color: "#b388ff"}
     ])
@@ -365,6 +366,14 @@ Window {
         width: win.width - 60
         height: win.height - 104 - statusBar.height
         widgets: win.backend.homeWidgets
+    }
+
+    GamingPage {
+        visible: win.tab.kind === "gaming"
+        x: 30; y: 84
+        width: win.width - 60
+        height: win.height - 104 - statusBar.height
+        recording: win.backend.recording
     }
 
     GameModePage {

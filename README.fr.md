@@ -123,7 +123,7 @@ Prérequis : CMake ≥ 3.21, un compilateur C++20 (GCC ≥ 11 ou Clang ≥ 14), 
 Sous Debian/Ubuntu :
 
 ```sh
-sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev libhidapi-dev pkg-config
+sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev qt6-websockets-dev libhidapi-dev pkg-config
 cmake -B build
 cmake --build build
 ctest --test-dir build

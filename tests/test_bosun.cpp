@@ -184,7 +184,7 @@ private Q_SLOTS:
         engine.load(QUrl(QStringLiteral("qrc:/bosun/qml/Bosun.qml")));
         QVERIFY(!engine.rootObjects().isEmpty());
         auto *root = engine.rootObjects().constFirst();
-        root->setProperty("currentTab", root->property("tabs").toList().size() - 4);
+        root->setProperty("currentTab", root->property("tabs").toList().size() - 5);
         auto *pictureButton = root->findChild<QQuickItem *>("browseWallpaper");
         auto *videoButton = root->findChild<QQuickItem *>("browseScreensaver");
         QVERIFY(pictureButton);
@@ -896,7 +896,7 @@ private Q_SLOTS:
         // The window must be able to call what it is given (the daemon's start, the backend's edits).
         QVERIFY(qvariant_cast<QObject *>(window->property("daemon")) != nullptr);
         QVERIFY(qvariant_cast<QObject *>(window->property("backend")) != nullptr);
-        QCOMPARE(window->property("tabs").toList().size(), 2 + 6); // themes, new tab, keyboard, wallpapers, widgets, game, screensavers
+        QCOMPARE(window->property("tabs").toList().size(), 2 + 7); // themes, new tab, keyboard, wallpapers, widgets, gaming, game, screensavers
         QCOMPARE(window->property("keys").toList().size(), 12);
         QVERIFY(window->property("selected").toMap().isEmpty()); // nothing chosen yet
         window->setProperty("selectedKey", 0);
@@ -910,9 +910,9 @@ private Q_SLOTS:
         const auto tabs = window->property("tabs").toList();
         for (int i = 0; i < tabs.size(); ++i) {
             const auto kind = tabs[i].toMap().value("kind").toString();
-            if (kind != "widgets" && kind != "game") continue;
+            if (kind != "widgets" && kind != "game" && kind != "gaming") continue;
             window->setProperty("currentTab", i);
-            auto *widgets = window->findChild<QQuickItem *>(kind == "game" ? "gameModePage" : "widgetsPage");
+            auto *widgets = window->findChild<QQuickItem *>(kind == "game" ? "gameModePage" : kind == "gaming" ? "gamingPage" : "widgetsPage");
             QVERIFY(widgets);
             QVERIFY(widgets->isVisible());
             QTest::qWait(100);
@@ -921,7 +921,7 @@ private Q_SLOTS:
             auto *other = window->findChild<QQuickItem *>(kind == "game" ? "widgetsPage" : "gameModePage");
             QVERIFY(other);
             QVERIFY(!other->isVisible());
-            const auto output = qEnvironmentVariable(kind == "game" ? "GALLEON_GAME_TAB_SCREENSHOT" : "GALLEON_WIDGETS_SCREENSHOT");
+            const auto output = qEnvironmentVariable(kind == "game" ? "GALLEON_GAME_TAB_SCREENSHOT" : kind == "gaming" ? "GALLEON_GAMING_SCREENSHOT" : "GALLEON_WIDGETS_SCREENSHOT");
             if (!output.isEmpty()) QVERIFY(screenshot.save(output));
         }
         // A window that is not shown has no picture, but a shown one grabs: the pictures load.

@@ -251,3 +251,91 @@ préfixe Wine ni l'exécutable du jeu.
 
 Références : [configuration officielle MangoHud](https://github.com/flightlessmango/MangoHud/blob/master/data/MangoHud.conf),
 [usage, configuration et limites](https://github.com/flightlessmango/MangoHud#normal-usage).
+
+## 10. Compatibilité Vulkan, DXVK et VKD3D-Proton
+
+La collecte Linux se fait sur les images présentées par MangoHud. Galleon lit son
+CSV : il n'injecte rien dans DirectX et ne demande pas PresentMon sous Linux.
+L'activation et la journalisation décrites plus haut restent nécessaires.
+
+| Jeu / API | Chemin graphique | Collecte attendue | Validation au 24 octobre 2026 |
+|---|---|---|---|
+| Jeu Linux Vulkan natif | Vulkan → pilote | Oui, couche Vulkan MangoHud | CS2 confirmé par l'utilisateur ; test local `vkcube` et lecture du CSV par Galleon réussis |
+| Jeu Windows DirectX 9 | D3D9 → DXVK → Vulkan | Oui, si DXVK et MangoHud sont actifs dans le processus du jeu | Compatibilité architecturale vérifiée ; essai dans un jeu D3D9 restant à faire |
+| Jeu Windows DirectX 10 | D3D10 → DXVK → Vulkan | Même méthode | Essai dans un jeu D3D10 restant à faire |
+| Jeu Windows DirectX 11 | D3D11 → DXVK → Vulkan | Même méthode | Essai dans un jeu D3D11 restant à faire |
+| Jeu Windows DirectX 12 | D3D12 → VKD3D-Proton → Vulkan | Même méthode | Essai dans un jeu D3D12 restant à faire |
+| WineD3D / OpenGL | D3D → WineD3D → OpenGL | Possible avec le wrapper OpenGL MangoHud | Hors validation actuelle ; `MANGOHUD=1` seul ne suffit pas |
+
+DXVK implémente Direct3D 9 à 11 sur Vulkan ; VKD3D-Proton implémente Direct3D 12
+sur Vulkan. La compatibilité attendue ci-dessus est une déduction de ces chemins
+et du support Vulkan de MangoHud, pas une certification de tous les jeux.
+Sources : [DXVK](https://github.com/doitsujin/dxvk),
+[VKD3D-Proton](https://github.com/HansKristian-Work/vkd3d-proton),
+[MangoHud](https://github.com/flightlessmango/MangoHud#normal-usage).
+
+### Test local reproductible du chemin Vulkan natif
+
+Le 24 octobre 2026, Ubuntu 26.04.1, RTX 5060 Ti : lancement de `vkcube` pendant
+12 secondes avec `autostart_log=1`, `log_interval=500` et un dossier temporaire.
+Le CSV contient des lignes `fps,frametime,...` ; le lecteur réel
+`galleond::readFpsLog` retourne le processus `vkcube` et **99,5765 FPS** sur la
+dernière ligne. La lecture après arrêt utilise l'heure de modification du fichier
+comme heure de référence ; elle vérifie le format et l'extraction. Elle ne remplace
+pas un essai de bout en bout sur le module. L'arrêt par `timeout` est volontaire.
+
+```sh
+mkdir -p /tmp/galleon-fps-vulkan-test
+timeout 12s env MANGOHUD_CONFIG=autostart_log=1,log_interval=500,output_folder=/tmp/galleon-fps-vulkan-test mangohud vkcube --width 320 --height 240
+```
+
+Cette commande s'exécute dans un terminal. Elle n'utilise pas `%command%`.
+Le test peut afficher une fenêtre. Un statut final 124 de `timeout` indique l'arrêt
+prévu au bout de 12 secondes, pas un crash du jeu.
+
+### Limites et incompatibilités à connaître
+
+- **WineD3D :** `PROTON_USE_WINED3D=1` remplace DXVK par une traduction OpenGL.
+  L'activation globale Vulkan seule ne couvre alors plus le jeu. Utiliser le
+  wrapper `mangohud` du lanceur ; vérifier effectivement la création du CSV.
+  Référence : [options Proton](https://github.com/ValveSoftware/Proton#runtime-config-options).
+- **32 bits :** un jeu D3D9/D3D10/D3D11 peut être 32 bits même sur Linux 64 bits.
+  Wine, le pilote Vulkan et MangoHud doivent proposer l'architecture nécessaire.
+  Le succès d'un jeu 64 bits ne valide donc pas un ancien jeu 32 bits. Les paquets
+  disponibles dépendent de la distribution et du runtime du lanceur.
+- **Pilotes et traduction :** DXVK et VKD3D-Proton ont leurs propres exigences
+  Vulkan, qui évoluent selon leur version. Une carte ou un pilote incompatible
+  peut empêcher le jeu de démarrer avant toute collecte. Ne pas remplacer les DLL
+  d'un jeu ou de Proton uniquement pour activer ce compteur.
+- **Flatpak et runtimes Steam :** le MangoHud installé sur l'hôte peut ne pas être
+  visible dans le conteneur. Utiliser l'extension adaptée et les permissions du
+  dossier CSV, comme indiqué en section 6.
+- **Gamescope :** MangoHud recommande MangoApp (`gamescope --mangoapp`) ; son
+  wrapper normal avec Gamescope n'est pas pris en charge. Ne pas considérer cet
+  affichage seul comme une validation du CSV attendu par Galleon : vérifier la
+  journalisation et la source avant de déclarer la collecte compatible.
+- **Anti-triche, protections, autres overlays :** la présence d'une couche
+  supplémentaire peut être refusée ou entrer en conflit selon le jeu. Aucun
+  contournement n'est prévu. Si le problème apparaît avec MangoHud, désactiver
+  uniquement cette couche et comparer ; conserver les protections du jeu.
+- **Lanceurs et processus :** une variable appliquée après le démarrage du
+  lanceur n'affecte pas ses processus existants. Quitter complètement le lanceur
+  puis le relancer. Vérifier que le CSV appartient au jeu, pas à son lanceur.
+- **Mesure :** FPS de présentation mesurés par la couche, pas fréquence de
+  l'écran, charge GPU ou garantie du nombre d'images réellement affichées après
+  composition/génération d'images. Plusieurs jeux ou swapchains demandent une
+  vérification du processus et du CSV sélectionné.
+- **Capteurs indépendants :** des FPS valides ne garantissent pas les températures
+  ou la charge GPU. Dans le test local, MangoHud n'accédait pas à NVML et écrivait
+  des valeurs GPU nulles ; cela n'empêchait pas les FPS. Galleon dispose d'un
+  fournisseur NVML séparé et conserve ses solutions de repli.
+
+### Validation à terminer dans les jeux Windows
+
+Pour chaque API D3D9, D3D10, D3D11 et D3D12 : choisir un jeu connu fonctionnel,
+noter son architecture et les versions du lanceur, de Proton/Wine, de DXVK ou de
+VKD3D-Proton. Comparer d'abord sans MangoHud, puis avec l'activation du lanceur
+et la journalisation. Vérifier un CSV frais qui évolue, un compteur cohérent avec
+l'overlay, le passage de Galleon en mode Jeu puis le retour à l'accueil après
+fermeture. Conserver le résultat par jeu ; un test de traduction ne valide pas
+les quatre API à lui seul.

@@ -51,6 +51,21 @@ class TestWindowsDesktop : public QObject
 {
     Q_OBJECT
 private slots:
+    void gamingControlsLoadWithPlatformDefaultAndTwelvePadPositions() {
+        QTemporaryDir dir;
+        galleond::RecordingController recording(nullptr, dir.filePath("recording.ini"));
+        recording.setPlatformForTest(true, true, false, [](int) { return true; });
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/bosun/qml/GamingPage.qml")));
+        QScopedPointer<QObject> page(component.createWithInitialProperties({{"recording", QVariant::fromValue(static_cast<QObject *>(&recording))}, {"width", 1100}, {"height", 650}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        QCOMPARE(recording.backend(), QStringLiteral("gamebar"));
+        QCOMPARE(recording.buttons().size(), 12);
+        QVERIFY(recording.buttons().first().toMap().value("enabled").toBool());
+        QVERIFY(!recording.options().at(2).toMap().value("available").toBool());
+        recording.trigger(0);
+        QVERIFY(!recording.buttons().first().toMap().value("active").toBool());
+    }
     void presentMonButtonReflectsCaptureAndRequestsRetryWithoutApplyingEdits() {
         QTemporaryDir dir;
         const auto config = dir.filePath("widgets.json");

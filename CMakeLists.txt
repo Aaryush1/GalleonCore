@@ -46,7 +46,7 @@ endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Network)
 if(GALLEON_BUILD_DESKTOP)
-    find_package(Qt6 6.4 REQUIRED COMPONENTS Qml Quick Widgets)
+    find_package(Qt6 6.4 REQUIRED COMPONENTS Qml Quick Widgets WebSockets)
     if(NOT WIN32)
         find_package(Qt6 6.4 REQUIRED COMPONENTS DBus)
     endif()
