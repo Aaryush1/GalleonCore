@@ -49,6 +49,8 @@ if command -v udevadm >/dev/null 2>&1; then udevadm control --reload-rules || :;
 
 %files
 %license LICENSES/*
+%license %{_datadir}/licenses/galleoncore/AMD-SMI-MIT.txt
+%license %{_datadir}/licenses/galleoncore/PresentMon-API-MIT.txt
 %{_bindir}/galleond
 %{_bindir}/galleon-bosun
 %{_bindir}/galleon-gpu-probe

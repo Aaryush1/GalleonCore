@@ -254,7 +254,7 @@ class TestPagesController : public QObject
 private Q_SLOTS:
     void gamingPadRoutesSupportedButtonsAndLeavesUserPagesIntact()
     {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         RecordingController recording(nullptr, dir.filePath("recording.ini"));
         QList<int> commands;
         recording.setPlatformForTest(true, true, false, [&commands](int index) { commands.append(index); return true; });
@@ -316,7 +316,7 @@ private Q_SLOTS:
 
     void gamingIsRemovedAfterExitEvenWhenAnotherKeyModeWasSelected()
     {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         RecordingController recording(nullptr, dir.filePath("recording.ini"));
         Fixture f;
         f.controller->setRecordingController(&recording);

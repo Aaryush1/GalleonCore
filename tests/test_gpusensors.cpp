@@ -9,7 +9,7 @@ class TestGpuSensors : public QObject {
 private Q_SLOTS:
     void cleanup() { qunsetenv("GALLEON_GPU_TEST_MODE"); }
     void unavailableLibrariesAreOptional() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         QVERIFY(readNvmlSensors({dir.filePath("absent-library")}).isEmpty());
         QVERIFY(readAmdSmiSensors({dir.filePath("absent-library")}).isEmpty());
     }

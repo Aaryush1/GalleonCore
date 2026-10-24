@@ -71,7 +71,7 @@ private Q_SLOTS:
     }
 #endif
     void defaultsAndCrossProcessReload() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         HomeWidgets writer(nullptr, dir.filePath("widgets.json"));
         HomeWidgets reader(nullptr, dir.filePath("widgets.json"));
         QCOMPARE(writer.layout().size(), 7);
@@ -81,11 +81,11 @@ private Q_SLOTS:
         QTRY_COMPARE_WITH_TIMEOUT(reader.layout()[2].toMap().value("x").toInt(), 400, 3500);
         QVERIFY(reader.layout()[2].toMap().value("enabled").toBool());
         QVERIFY(reader.reset());
-        HomeWidgets restored(nullptr, dir.filePath("widgets.json"));
+        const HomeWidgets restored(nullptr, dir.filePath("widgets.json"));
         QVERIFY(!restored.layout()[2].toMap().value("enabled").toBool());
     }
     void cityLabelPersistsAndSurvivesCoordinateChanges() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto file = dir.filePath("widgets.json");
         HomeWidgets widgets(nullptr, file);
         QVERIFY(widgets.setCity("  Saint-Étienne  "));
@@ -100,26 +100,26 @@ private Q_SLOTS:
         QVERIFY(!restored.values().contains("weatherCity"));
     }
     void draftChangesReachTheDaemonOnlyAfterApply() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto file = dir.filePath("widgets.json");
         HomeWidgets editor(nullptr, file, true);
         QVERIFY(editor.setWidget("cpu", true, 400, 20, 200, 60));
         QVERIFY(editor.setCity("Lyon"));
         QVERIFY(editor.pending());
         QVERIFY(!QFile::exists(file));
-        HomeWidgets before(nullptr, file);
+        const HomeWidgets before(nullptr, file);
         QVERIFY(!before.layout()[2].toMap().value("enabled").toBool());
         QVERIFY(editor.apply());
         QVERIFY(!editor.pending());
-        HomeWidgets after(nullptr, file);
+        const HomeWidgets after(nullptr, file);
         QVERIFY(after.layout()[2].toMap().value("enabled").toBool());
         QCOMPARE(after.values().value("weatherCity").toString(), QStringLiteral("Lyon"));
         QVERIFY(editor.setCity("Paris"));
-        HomeWidgets unchanged(nullptr, file);
+        const HomeWidgets unchanged(nullptr, file);
         QCOMPARE(unchanged.values().value("weatherCity").toString(), QStringLiteral("Lyon"));
     }
     void fpsAndFontSettingsUseTheApplyBoundary() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto file = dir.filePath("widgets.json");
         HomeWidgets editor(nullptr, file, true);
         QVERIFY(editor.setFpsSource(dir.path(), "Game.exe"));
@@ -157,19 +157,19 @@ private Q_SLOTS:
     }
 #endif
     void managedCaptureSettingsAreStagedAndValidated() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto file = dir.filePath("widgets.json");
         HomeWidgets editor(nullptr, file, true);
         QVERIFY(!editor.setCaptureOptions(true, "relative.exe"));
         QVERIFY(editor.setCaptureOptions(false, dir.filePath("console.exe")));
         QVERIFY(!QFile::exists(file));
         QVERIFY(editor.apply());
-        HomeWidgets reader(nullptr, file);
+        const HomeWidgets reader(nullptr, file);
         QVERIFY(!reader.gameConfig().value("managedCapture").toBool());
         QCOMPARE(reader.gameConfig().value("presentMon").toString(), dir.filePath("console.exe"));
     }
     void rejectsInvalidGeometryAndLocation() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         HomeWidgets widgets(nullptr, dir.filePath("widgets.json"));
         const auto before = widgets.layout();
         QVERIFY(!widgets.setWidget("cpu", true, -1, 0, 200, 60));
@@ -185,12 +185,12 @@ private Q_SLOTS:
         QVERIFY(widgets.error().isEmpty());
     }
     void clampsHandEditedFiles() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         QFile file(dir.filePath("widgets.json"));
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write(R"({"layout":[{"id":"cpu","enabled":true,"x":900,"y":-50,"width":9999,"height":2}]})");
         file.close();
-        HomeWidgets widgets(nullptr, file.fileName());
+        const HomeWidgets widgets(nullptr, file.fileName());
         const auto cpu = widgets.layout()[2].toMap();
         QCOMPARE(cpu.value("width").toInt(), 720);
         QCOMPARE(cpu.value("height").toInt(), 40);
@@ -198,8 +198,8 @@ private Q_SLOTS:
         QCOMPARE(cpu.value("y").toInt(), 0);
     }
     void disabledWidgetsDoNotPolluteTheDefaultScreen() {
-        QTemporaryDir dir;
-        HomeWidgets widgets(nullptr, dir.filePath("widgets.json"));
+        const QTemporaryDir dir;
+        const HomeWidgets widgets(nullptr, dir.filePath("widgets.json"));
         QVERIFY(widgets.values().isEmpty());
     }
     void rendersReadableSmallCards() {

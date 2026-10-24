@@ -51,11 +51,11 @@ locally in the settings file. Data attribution: [Open-Meteo](https://open-meteo.
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 API: [current temperature and weather codes](https://open-meteo.com/en/docs).
 
-Still to implement: a Windows hardware-sensor provider, GPU/other sensor cards,
-network/disk activity and per-core graphs, and browser integration for exact
-progress. Windows code and QML are shared/native as described above, but this
-iteration has only been compiled and run on Linux; native Windows and physical
-keyboard validation remain required.
+Still to implement: additional sensor cards, network/disk activity and per-core
+graphs, and browser integration for exact download progress. The owner confirmed
+home widgets and game FPS on the Windows 0.2.0 candidate. Available hardware
+sensors and limitations are detailed below; this is not validation of every GPU
+or sensor provider.
 
 Validation: `test_homewidgets` covers geometry validation, atomic persistence,
 reload between instances, reset, malformed geometry, invalid locations, default
@@ -140,7 +140,7 @@ override**, then Apply; title and image are optional. Desktop/browser processes
 are excluded. Protected processes may remain inaccessible. Advanced manual CSV
 mode remains available as a compatibility option; Linux MangoHud is unchanged.
 
-The service-backed FPS path still needs physical Windows game validation. Native
+The owner confirmed service-backed FPS capture on the Windows PC. Native
 CI covers the adapter using a fake API DLL, file checks, error handling, UI states,
 and installed program lifecycle. Shared regression tests run on Linux as well.
 
@@ -198,9 +198,9 @@ administrator/elevated daemon is not required by Galleon itself. Sensor access
 permissions depend on the provider. Authentication-enabled local servers are
 not supported yet. Native Windows CI covers compilation, process detection with a fixture in a
 Steam library, capture lifecycle, runtime-state freshness and installed app
-launching. Real-game FPS capture, UAC authorization and physical keyboard
-validation still need testing on the owner’s Windows PC. Shared regression tests
-also run on Linux.
+launching. Real-game FPS capture and widgets were confirmed by the owner; UAC
+scenarios, every sensor provider and recording integration are not all validated
+on hardware. Shared regression tests also run on Linux.
 
 Provider reference: [LibreHardwareMonitor HTTP server](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LibreHardwareMonitor.Windows.Forms/Utilities/HttpServer.cs).
 
@@ -258,6 +258,6 @@ References: [NVML](https://docs.nvidia.com/deploy/nvml-api/),
 
 ### Windows capture button state
 
-The capture button follows both the running helper flag and the confirmed `capturing` state received from the daemon. A capturing snapshot still offers Stop when the optional process flag is missing or false. Starting capture displays a disabled progress label; the UI never assumes success from a click. Windows regression tests also verify the stop request for that snapshot. Hardware confirmation of the fix remains pending.
+The capture button follows both the running helper flag and the confirmed `capturing` state received from the daemon. A capturing snapshot still offers Stop when the optional process flag is missing or false. Starting capture displays a disabled progress label; the UI never assumes success from a click. Windows regression tests also verify the stop request for that snapshot. The owner later confirmed that Stop already appeared correctly while a game was running; the confusing idle label now reads “Prêt — lancez un jeu”.
 
 When PresentMon is installed and waiting for a game, the button displays “Prêt — lancez un jeu” and is disabled because capture starts automatically. Start remains available for retries or resuming a stopped capture; Stop remains green during capture. The owner confirmed that the running capture already displayed Stop correctly; the reported confusion concerned the idle label.

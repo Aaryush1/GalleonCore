@@ -27,7 +27,7 @@ private Q_SLOTS:
         QVERIFY(!mode.update({}, {}).value("active").toBool());
     }
     void localArtworkAndSettingsAreAppliedAtomically() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto image = dir.filePath("art.png");
         QImage art(720, 384, QImage::Format_RGB32); art.fill(QColor("#204080")); QVERIFY(art.save(image));
         HomeWidgets editor(nullptr, dir.filePath("widgets.json"), true);
@@ -35,7 +35,7 @@ private Q_SLOTS:
         QVERIFY(editor.setGameProfile("Galleon-Fixture.exe", "Test Game", image));
         QVERIFY(!QFile::exists(dir.filePath("widgets.json")));
         QVERIFY(editor.apply());
-        HomeWidgets stored(nullptr, dir.filePath("widgets.json"));
+        const HomeWidgets stored(nullptr, dir.filePath("widgets.json"));
         QVERIFY(stored.gameConfig().value("localSensors").toBool());
         GameMode mode;
         FpsSample sample{144.0, {}}; sample.process = "galleon-fixture.exe"; sample.token = "1";
@@ -47,7 +47,8 @@ private Q_SLOTS:
         ScreenRenderer renderer(QStringLiteral(GALLEON_SOURCE_WIDGETS "/WallpaperClock.qml"));
         const auto frame = renderer.render({{"gameState", state}, {"live", false}}, QSize(720, 384));
         QVERIFY(!frame.isNull());
-        int cpuArc = 0, gpuArc = 0;
+        int cpuArc = 0;
+        int gpuArc = 0;
         for (int y = 134; y < 361; ++y) {
             for (int x = 252; x < 461; ++x) {
                 const auto color = frame.pixelColor(x, y);
@@ -102,7 +103,7 @@ private Q_SLOTS:
         QVERIFY(GameMode::parseSensors(QByteArray(1024 * 1024 + 1, ' ')).isEmpty());
     }
     void missingMangoHudGpuTelemetryUsesNativeLoad() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto path = dir.filePath("cs2.csv");
         const auto write = [&](const QByteArray &row) {
             QFile file(path);
@@ -119,7 +120,7 @@ private Q_SLOTS:
         QVERIFY(write("127,22,0,40,210,1,1500\n"));
         sample = readFpsLog(path);
         QVERIFY(sample.gpuLoad); // a real idle GPU remains a valid 0%, not missing
-        QCOMPARE(*sample.gpuLoad, 0.0);
+        QCOMPARE(sample.gpuLoad.value_or(-1.0), 0.0);
         state = mode.update(sample, {}, {{"gpuLoad", 66.0}});
         QCOMPARE(state.value("gpuLoad").toDouble(), 0.0);
     }
@@ -140,7 +141,7 @@ private Q_SLOTS:
         QVERIFY(!GameMode::readAmdGpuSensors(dir.path()).contains("gpuLoad"));
     }
     void csvCarriesGameAndTemperatures() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         QFile f(dir.filePath("fixture_2026-10-23_12-00-00.csv"));
         QVERIFY(f.open(QIODevice::WriteOnly));
         f.write("fps,cpu_temp,gpu_temp,cpu_load,gpu_load,elapsed\n144,54,62,37,91,1000\n"); f.close();

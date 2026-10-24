@@ -22,7 +22,7 @@ private slots:
     {
         const auto command = parseLocalCommand(encodeLocalCommand({LocalAction::Gaming, {}}));
         QVERIFY(command.has_value());
-        QCOMPARE(command->action, LocalAction::Gaming);
+        QCOMPARE(command.value_or(LocalCommand{}).action, LocalAction::Gaming);
         QVERIFY(!parseLocalCommand(R"({"action":"gaming","page":"arbitrary"})"));
         const QString name = QStringLiteral("galleon-gaming-") + QUuid::createUuid().toString(QUuid::Id128);
         LocalControl server; QVERIFY(server.listen(name));

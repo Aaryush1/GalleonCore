@@ -14,7 +14,7 @@ class RecordingTest : public QObject {
     Q_OBJECT
 private Q_SLOTS:
     void automaticUsesPlatformAndPersistsWithoutFallback() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto file = dir.filePath("recording.ini");
         RecordingController control(nullptr, file);
         control.setPlatformForTest(false, false, true, {});
@@ -24,7 +24,7 @@ private Q_SLOTS:
         control.setPlatformForTest(true, true, true, [](int) { return true; });
         QCOMPARE(control.backend(), QString("gamebar"));
         QVERIFY(control.configure("obs", 4545, "password", true));
-        RecordingController other(nullptr, file);
+        const RecordingController other(nullptr, file);
         QCOMPARE(other.choice(), QString("obs"));
         QCOMPARE(other.port(), 4545);
         QVERIFY(!control.configure("unknown", 4455));
@@ -35,7 +35,7 @@ private Q_SLOTS:
         QVERIFY(!control.buttons().first().toMap().value("enabled").toBool());
     }
     void gameBarSendsOnlySupportedShortcutsAndNeverClaimsAnActiveState() {
-        QTemporaryDir dir; RecordingController control(nullptr, dir.filePath("recording.ini"));
+        const QTemporaryDir dir; RecordingController control(nullptr, dir.filePath("recording.ini"));
         QList<int> sent;
         control.setPlatformForTest(true, true, false, [&sent](int index) { sent.append(index); return true; });
         for (int i=0; i<12; ++i) control.trigger(i);
@@ -49,7 +49,7 @@ private Q_SLOTS:
     {
         QWebSocketServer server("portable", QWebSocketServer::NonSecureMode);
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         RecordingController control(nullptr, dir.filePath("recording.ini"));
         control.setPlatformForTest(true, true, false, [](int) { return true; });
         QVERIFY(control.configure("auto", server.serverPort()));
@@ -76,7 +76,7 @@ private Q_SLOTS:
     {
         QWebSocketServer server("silent", QWebSocketServer::NonSecureMode);
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         RecordingController control(nullptr, dir.filePath("recording.ini"));
         control.setPlatformForTest(false, false, true, {});
         QVERIFY(control.configure("obs", server.serverPort()));
@@ -91,13 +91,16 @@ private Q_SLOTS:
     void obsAuthenticatesDiscoversCapabilitiesAndWaitsForConfirmedState() {
         QWebSocketServer server("test", QWebSocketServer::NonSecureMode);
         QVERIFY(server.listen(QHostAddress::LocalHost, 0));
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         RecordingController control(nullptr, dir.filePath("recording.ini"));
         control.setPlatformForTest(false, false, true, {});
         QVERIFY(control.configure("obs", server.serverPort(), "secret", true));
         QTRY_VERIFY(server.hasPendingConnections());
         std::unique_ptr<QWebSocket> peer(server.nextPendingConnection());
-        bool authenticated = false, recording = false, allowStatus = true, rejectFirst = true;
+        bool authenticated = false;
+        bool recording = false;
+        bool allowStatus = true;
+        bool rejectFirst = true;
         QStringList commands;
         QString pendingStatus;
         const auto send = [&peer](int op, const QJsonObject &data) { peer->sendTextMessage(QString::fromUtf8(QJsonDocument(QJsonObject{{"op",op},{"d",data}}).toJson(QJsonDocument::Compact))); };

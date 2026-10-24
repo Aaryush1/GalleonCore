@@ -23,7 +23,7 @@
 
 Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique est remplacé par un module Elgato Stream Deck : 12 touches LCD, un écran et deux molettes. Corsair et Elgato ne supportent la partie Stream Deck que sous Windows et macOS. GalleonCore vise à rendre chaque partie du clavier utilisable sous Linux, et à l'intégrer au bureau.
 
-> **En développement actif.** Les touches, l’écran et les molettes du Stream Deck fonctionnent sous Linux. Galleon Bosun permet de configurer le module. Les widgets Plasma restent prévus. Une préversion Windows avec Setup NSIS aux couleurs de Bosun et archive ZIP se prépare pour les essais interactifs ([détails](docs/WINDOWS.md)) ; consulte la [feuille de route](ROADMAP.md) pour les validations détaillées.
+> **En développement actif.** Les touches, l’écran et les molettes du Stream Deck fonctionnent sous Linux. Galleon Bosun permet de configurer le module. Les widgets Plasma restent prévus. Une version Windows avec Setup NSIS aux couleurs de Bosun et archive ZIP est disponible pour les essais interactifs ([détails](docs/WINDOWS.md)) ; consulte la [feuille de route](ROADMAP.md) pour les validations détaillées.
 
 > GalleonCore n'est affilié ni à Corsair ni à Elgato.
 
@@ -37,7 +37,7 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 - **Plugin OpenRGB** : configurer le deck depuis OpenRGB et synchroniser ses thèmes avec l'éclairage.
 - **Préversion Windows**, avec le même cœur et des backends natifs pour les médias, le son et le clavier ; validation matérielle encore attendue.
 
-Les widgets de l’accueil se règlent dans l’onglet **Widgets** de Bosun (position, taille et visibilité), puis sont enregistrés avec **Appliquer**. Cette première version comprend météo, CPU/RAM, température CPU Linux, détection des téléchargements partiels et FPS du jeu via CSV MangoHud/PresentMon, avec taille de police réglable ; voir [les plateformes prises en charge et les limites actuelles](docs/HOME_WIDGETS.md).
+Les widgets de l’accueil se règlent dans l’onglet **Widgets** de Bosun (position, taille et visibilité), puis sont enregistrés avec **Appliquer**. Cette première version comprend météo, CPU/RAM, température CPU Linux, détection des téléchargements partiels et FPS du jeu via CSV MangoHud sous Linux et service/API PresentMon sous Windows, avec taille de police réglable ; voir [les plateformes prises en charge et les limites actuelles](docs/HOME_WIDGETS.md).
 Un mode Jeu automatique affiche une image locale du jeu, les FPS et les températures CPU/GPU pendant une capture active ; il empêche la veille du clavier jusqu’à la fin de cette capture.
 
 ## État

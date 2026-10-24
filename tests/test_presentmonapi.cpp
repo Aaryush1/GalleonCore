@@ -15,7 +15,7 @@ class TestPresentMonApi : public QObject {
 private Q_SLOTS:
     void cleanup() { qunsetenv("GALLEON_PM_TEST_MODE"); }
     void servicePathsAreParsedAndBothFilesAreRequired() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto exe = dir.filePath("PresentMonService.exe");
         QFile service(exe); QVERIFY(service.open(QIODevice::WriteOnly)); service.close();
         auto data = presentMonInstallationFromImagePath('"' + exe + "\" --service");

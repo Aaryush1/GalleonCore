@@ -13,26 +13,26 @@ class TestFpsReader : public QObject {
     }
 private Q_SLOTS:
     void mangoHudLiveLogSkipsPartialRecordAndSummary() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         QVERIFY(write(dir.filePath("game.csv"), "os,cpu\nLinux,CPU\nfps,frametime,elapsed\n60,16.7,100\n144,6.94,200\n999,"));
         QVERIFY(write(dir.filePath("game_summary.csv"), "Average FPS\n999\n"));
         const auto sample = readFpsLog(dir.path());
         QVERIFY(sample.fps);
-        QCOMPARE(*sample.fps, 144.0);
+        QCOMPARE(sample.fps.value_or(-1.0), 144.0);
         QVERIFY(!readFpsLog(dir.path(), {}, QDateTime::currentDateTime().addSecs(11)).fps);
     }
     void presentMonFiltersProcessAndSwapchain() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto path = dir.filePath("game.csv");
         QVERIFY(write(path, "Application,SwapChainAddress,MsBetweenPresents\n\"my,game.exe\",0x1,10\nother.exe,0x2,5\n\"my,game.exe\",0x9,100\n\"my,game.exe\",0x1,10\n"));
         QVERIFY(!readFpsLog(path).fps);
         const auto sample = readFpsLog(path, "MY,GAME.EXE");
         QVERIFY(sample.fps);
-        QCOMPARE(*sample.fps, 100.0);
+        QCOMPARE(sample.fps.value_or(-1.0), 100.0);
         QVERIFY(!readFpsLog(path, "not-running.exe").fps);
     }
     void rejectsInvalidAndUnsupportedData() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto path = dir.filePath("game.csv");
         for (const auto &value : {QByteArray("nan"), QByteArray("inf"), QByteArray("-1"), QByteArray("10001")}) {
             QVERIFY(write(path, "fps,frametime\n" + value + ",10\n"));
@@ -46,7 +46,7 @@ private Q_SLOTS:
         QVERIFY(!readFpsLog(dir.filePath("absent.csv")).fps);
     }
     void handlesGrowingLogsWithoutReadingWholeFile() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto path = dir.filePath("game.csv");
         QByteArray data("fps,frametime,elapsed\n");
         for (int i = 0; i < 12000; ++i) data += "60,16.7," + QByteArray::number(i) + "\n";

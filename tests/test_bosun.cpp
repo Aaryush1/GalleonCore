@@ -110,7 +110,7 @@ class TestBosun : public QObject
 
 private Q_SLOTS:
     void widgetApplyButtonPublishesTheDraft() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto file = dir.filePath("widgets.json");
         galleond::HomeWidgets widgets(nullptr, file, true);
         QVERIFY(widgets.setCity("Lyon"));
@@ -124,7 +124,7 @@ private Q_SLOTS:
         QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
         QVERIFY(QFile::exists(file));
         QVERIFY(!widgets.pending());
-        galleond::HomeWidgets saved(nullptr, file);
+        const galleond::HomeWidgets saved(nullptr, file);
         QCOMPARE(saved.values().value("weatherCity").toString(), QStringLiteral("Lyon"));
     }
     void captureButtonTracksConfirmedStateWithoutProcessFlag() {
@@ -160,7 +160,7 @@ private Q_SLOTS:
         QVERIFY(!button->property("enabledLook").toBool());
     }
     void gameTabAppliesItsOwnFields() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto file = dir.filePath("widgets.json");
         galleond::HomeWidgets widgets(nullptr, file, true);
         QVERIFY(widgets.setGameOptions(false, false));
@@ -181,7 +181,7 @@ private Q_SLOTS:
         QVERIFY(apply);
         QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
         QVERIFY(!widgets.pending());
-        galleond::HomeWidgets saved(nullptr, file);
+        const galleond::HomeWidgets saved(nullptr, file);
         QCOMPARE(saved.fpsConfig().value("source").toString(), dir.path());
         QVERIFY(!saved.gameConfig().value("automatic").toBool());
         QCOMPARE(saved.gameConfig().value("profiles").toMap().value("cs2").toMap().value("title").toString(), QStringLiteral("Counter-Strike 2"));

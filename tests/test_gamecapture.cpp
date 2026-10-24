@@ -13,7 +13,7 @@ class TestGameCapture : public QObject {
     Q_OBJECT
 private Q_SLOTS:
     void msiConsoleDiscoveryNeverPicksTheGui() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         for (const auto &name : {"PresentMon.exe", "PresentMon-2.6.0-x64.exe"}) {
             QFile file(dir.filePath(name)); QVERIFY(file.open(QIODevice::WriteOnly));
         }
@@ -23,7 +23,7 @@ private Q_SLOTS:
         QVERIFY(GameCapture::findPresentMon(dir.filePath("missing.exe")).isEmpty());
     }
     void invalidPathsFallThroughAndInstallationRootsAreChecked() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         QVERIFY(QDir(dir.path()).mkpath("custom install/PresentMonConsoleApplication"));
         const auto path = dir.filePath("custom install/PresentMonConsoleApplication/PresentMon-2.6.0-x64.exe");
         QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); file.close();
@@ -40,7 +40,7 @@ private Q_SLOTS:
         QVERIFY(!GameCapture::isGamePath("D:/Epic/MyGame/game.exe"));
     }
     void captureLifecycleAndBoundedLiveCsv() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto path = dir.filePath("capture.csv");
         GameCapture capture(path);
         const auto program = QStringLiteral(GALLEON_TEST_CAPTURE);
@@ -64,7 +64,7 @@ private Q_SLOTS:
         QCOMPARE(capture.status().value("state").toString(), QStringLiteral("disabled"));
     }
     void highFrameRateCaptureRetainsBoundedCache() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto path = dir.filePath("capture.csv");
         GameCapture capture(path);
         capture.tick(true, {13, "fixture.exe"}, QStringLiteral(GALLEON_TEST_CAPTURE));
@@ -122,14 +122,14 @@ private Q_SLOTS:
     }
 #endif
     void unusedObserverDoesNotDeleteTheDaemonsCapture() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto path = dir.filePath("capture.csv");
         QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("owned by daemon"); file.close();
-        { GameCapture observer(path); }
+        { const GameCapture observer(path); }
         QVERIFY(QFile::exists(path));
     }
     void errorsAreVisibleAndDoNotRestartInALoop() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         GameCapture capture(dir.filePath("capture.csv"));
         const auto program = QStringLiteral(GALLEON_TEST_CAPTURE);
         capture.tick(true, {99, "fixture.exe"}, program);

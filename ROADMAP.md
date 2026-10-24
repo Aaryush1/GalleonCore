@@ -13,6 +13,12 @@ Correctif du bouton Windows : instantané `c1e3a0b`, [CI Windows réussie](https
 
 Le propriétaire confirme le mode Jeu CS2/Steam sous Linux après alignement du dossier CSV MangoHud. Le setup Windows candidat `22f1cd6` a passé la [CI Windows](https://github.com/Paullux/GalleonCore/actions/runs/40081354924), y compris déploiement, installation/mise à niveau/désinstallation avec applications ouvertes et conservation des données. Les nouveaux essais matériels Windows restent à effectuer. La [CI Linux](https://github.com/Paullux/GalleonCore/actions/runs/40081356379) passe sous GCC ; Clang + sanitizers échoue dans `test_gpusensors` sur le type de pointeur de fonction NVML et l’analyse statique comporte des diagnostics à corriger. **La 0.2.0 n’est pas validée pour publication. Aucun tag ni publication avant le retour des essais Windows et la résolution des contrôles bloquants.**
 
+### Préparation de v0.2.0
+
+Périmètre : widgets d’accueil, mode Jeu automatique, capteurs GPU, contrôle Game Bar/OBS et aide Linux par lanceur. Le propriétaire a confirmé les widgets et les FPS sous Windows ainsi que CS2/Steam sous Linux, et a autorisé la publication après réussite des tests. Le libellé Windows au repos indique désormais « Prêt — lancez un jeu ».
+
+Les contrôles de sortie obligatoires couvrent GCC, Clang + ASan/UBSan, fuzzing, clang-tidy, QML, tests des outils, REUSE, Windows natif et cycle du Setup, puis les paquets Linux. Le type NVML est partagé entre le collecteur et sa bibliothèque de test ; les notices AMD/Intel sont conservées et le texte MIT canonique est fourni. Les résultats des anciens candidats ci-dessus et ci-dessous sont historiques et ne constituent pas le bilan du contenu final de v0.2.0. Les notes de version sont dans [docs/RELEASE_0.2.0.md](docs/RELEASE_0.2.0.md). Le site sera repris séparément après publication.
+
 ## 1. Implémenté et testé
 
 Le 20 octobre, le propriétaire confirme le fonctionnement du correctif des fonds personnels et du bouton « Parcourir » (PR #24).
