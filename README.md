@@ -184,6 +184,28 @@ ctest --test-dir build-asan
 ./build-asan/fuzz/fuzz_input_report -max_total_time=60
 ```
 
+## How this project is made
+
+Most of the code is written with AI coding agents (Claude Code and Codex), under
+the maintainer's direction and following the instructions in
+[CLAUDE.md](CLAUDE.md). The maintainer owns the keyboard, defines the features,
+tests on the real hardware, examines the proposed changes and approves their
+merge.
+
+Generated code is not accepted without verification. The project's rules require
+protocol facts to come from cited sources or real captures, device data to be
+validated before use, and behaviour changes to come with tests. The status tables
+in this README and in [ROADMAP.md](ROADMAP.md) distinguish "tested" (automatic
+tests) from "confirmed on the module" (human verification on the hardware).
+
+Pull requests go through automated checks: compilation, tests and static
+analysis. These checks are public; they catch some errors and verify that the
+project's rules are followed. They do not guarantee the absence of bugs, but
+passing them is required before merging into the protected `main` branch.
+
+If something is wrong, open an issue; reports with a firmware version, a
+distribution and a log are the most useful.
+
 ## Wallpaper and clock on the screen
 
 `galleond` draws one of the images of [`public/wallpaper/`](public/wallpaper/) on the Galleon's screen (720 × 384) with the time over it, and redraws every minute.

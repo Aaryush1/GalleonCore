@@ -189,6 +189,30 @@ ctest --test-dir build-asan
 ./build-asan/fuzz/fuzz_input_report -max_total_time=60
 ```
 
+## Comment ce projet est fait
+
+L'essentiel du code est écrit avec des agents de programmation IA (Claude Code et
+Codex), sous la direction du mainteneur et avec les consignes décrites dans
+[CLAUDE.md](CLAUDE.md). Le mainteneur possède le clavier, définit les
+fonctionnalités, teste sur le matériel réel, examine les changements proposés et
+valide leur intégration.
+
+Le code généré n'est pas accepté sans vérification. Les règles du projet
+demandent de documenter les faits de protocole à partir de sources citées ou de
+captures réelles, de valider les données du module avant leur utilisation et
+d'accompagner les changements de comportement de tests. Les tableaux d'état de ce
+README et de [ROADMAP.md](ROADMAP.md) distinguent « testé » (tests automatiques)
+de « confirmé sur le module » (vérification humaine sur le matériel).
+
+Les demandes de fusion sont soumises à des contrôles automatisés : compilation,
+tests et analyse statique. Ces contrôles sont publics ; ils permettent de
+détecter certaines erreurs et de vérifier le respect des règles du projet. Ils ne
+garantissent pas l'absence de bugs, mais leur réussite est exigée avant la fusion
+dans la branche protégée `main`.
+
+En cas de problème, ouvre une issue ; les rapports avec la version du firmware,
+la distribution et un journal sont les plus utiles.
+
 ## Fond d'écran et heure sur l'écran
 
 `galleond` dessine une des images de [`public/wallpaper/`](public/wallpaper/) sur l'écran du Galleon (720 × 384), avec l'heure par-dessus, et la redessine chaque minute.
