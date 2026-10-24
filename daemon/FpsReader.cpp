@@ -9,6 +9,7 @@
 #include <QRegularExpression>
 #include <QStringList>
 #include <cmath>
+#include <ranges>
 namespace galleond {
 namespace {
 QStringList csv(const QByteArray &line) {
@@ -48,7 +49,10 @@ FpsSample readFpsLog(const QString &source, const QString &process, const QDateT
     if (!file.open(QIODevice::ReadOnly)) return {{}, message("FPS log unreadable")};
     const auto head = file.read(16384);
     QStringList header;
-    int fpsIndex = -1, intervalIndex = -1, appIndex = -1, swapIndex = -1;
+    int fpsIndex = -1;
+    int intervalIndex = -1;
+    int appIndex = -1;
+    int swapIndex = -1;
     for (const auto &line : head.split('\n')) {
         auto columns = csv(line);
         for (auto &column : columns) { column.remove(QChar(0xfeff)); column = column.toLower(); }
@@ -116,8 +120,8 @@ FpsSample readFpsLog(const QString &source, const QString &process, const QDateT
     QByteArray lastRow;
     double intervals = 0;
     int count = 0;
-    for (auto i = lines.crbegin(); i != lines.crend(); ++i) {
-        const auto fields = csv(*i);
+    for (const auto &row : lines | std::views::reverse) {
+        const auto fields = csv(row);
         if (fields.size() != header.size()) continue;
         if (!process.isEmpty() && appIndex >= 0 && fields.value(appIndex).compare(process, Qt::CaseInsensitive) != 0) continue;
         if (swapIndex >= 0) {
@@ -129,8 +133,8 @@ FpsSample readFpsLog(const QString &source, const QString &process, const QDateT
         const double value = fields.value(fpsIndex >= 0 ? fpsIndex : intervalIndex).toDouble(&ok);
         if (!ok || !std::isfinite(value) || value < 0 || (fpsIndex >= 0 && value > 10000))
             return {{}, message("Waiting for valid FPS")};
-        if (lastFields.isEmpty()) { lastFields = fields; lastRow = *i; }
-        if (fpsIndex >= 0) return makeSample(value, fields, *i);
+        if (lastFields.isEmpty()) { lastFields = fields; lastRow = row; }
+        if (fpsIndex >= 0) return makeSample(value, fields, row);
         if (value <= 0) continue;
         intervals += value; ++count;
         if (count >= 120 || intervals >= 1000) break;

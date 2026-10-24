@@ -21,7 +21,7 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
-static void initHomeWidgets() { Q_INIT_RESOURCE(home_widgets); }
+static void initHomeWidgets() { Q_INIT_RESOURCE(home_widgets); } // NOLINT(misc-use-anonymous-namespace) -- Qt resource symbol is global.
 namespace galleond {
 namespace {
 QByteArray read(const QString &path) { QFile f(path); return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray(); }
@@ -55,7 +55,8 @@ HomeWidgets::HomeWidgets(QObject *parent, QString file, bool draftMode) : QObjec
         }
         if (m_gpuUsesProbe) {
             const auto data = QJsonDocument::fromJson(m_gpuProcess.readAllStandardOutput()).object();
-            const auto temperature = data.value("gpu"), load = data.value("gpuLoad");
+            const auto temperature = data.value("gpu");
+            const auto load = data.value("gpuLoad");
             if (temperature.isDouble() && temperature.toDouble() > 0 && temperature.toDouble() < 150) m_gpuTemperature = temperature.toDouble();
             if (load.isDouble() && load.toDouble() >= 0 && load.toDouble() <= 100) m_gpuLoad = load.toDouble();
             m_gpuProvider = data.value("provider").toString().left(32);
@@ -147,7 +148,7 @@ bool HomeWidgets::setWidgetTextSize(const QString &id, int pixels) {
     }
     return false;
 }
-QString HomeWidgets::recommendedFpsFolder() const {
+QString HomeWidgets::recommendedFpsFolder() const { // NOLINT(readability-convert-member-functions-to-static) -- QObject property accessor.
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/galleoncore/fps");
 }
 QString HomeWidgets::steamLaunchOptions() const {
@@ -220,7 +221,7 @@ bool HomeWidgets::setGameOptions(bool automatic, bool localSensors) {
     load(); m_gameConfig["automatic"] = automatic; m_gameConfig["localSensors"] = localSensors;
     return save();
 }
-bool HomeWidgets::requestGameCapture(bool start) {
+bool HomeWidgets::requestGameCapture(bool start) { // NOLINT(readability-convert-member-functions-to-static) -- Windows uses instance state.
 #ifndef Q_OS_WIN
     Q_UNUSED(start)
 #endif
@@ -287,7 +288,7 @@ void HomeWidgets::pollGameSensors() {
     request.setTransferTimeout(2000);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
     auto *reply = m_network.get(request);
-    connect(reply, &QNetworkReply::readyRead, this, [reply] { if (reply->bytesAvailable() > 1024 * 1024) reply->abort(); });
+    connect(reply, &QNetworkReply::readyRead, this, [reply] { if (reply->bytesAvailable() > qint64(1024) * 1024) reply->abort(); });
     connect(reply, &QNetworkReply::finished, this, [this, reply] {
         m_sensorPending = false; m_gameSensors.clear();
         if (reply->error() == QNetworkReply::NoError && m_gameConfig.value("localSensors").toBool())
@@ -307,8 +308,10 @@ bool HomeWidgets::setCity(const QString &city) {
 }
 bool HomeWidgets::reset() { m_layout = defaults(); return save(); }
 bool HomeWidgets::setLocation(const QString &latitude, const QString &longitude) {
-    bool a = false, b = false;
-    const double lat = QLocale::c().toDouble(latitude, &a), lon = QLocale::c().toDouble(longitude, &b);
+    bool a = false;
+    bool b = false;
+    const double lat = QLocale::c().toDouble(latitude, &a);
+    const double lon = QLocale::c().toDouble(longitude, &b);
     if (!a || !b || !std::isfinite(lat) || !std::isfinite(lon) || std::abs(lat) > 90 || std::abs(lon) > 180) {
         m_error = tr("Enter latitude (-90…90) and longitude (-180…180), using a decimal point."); Q_EMIT changed(); return false;
     }
@@ -322,8 +325,10 @@ void HomeWidgets::weather() {
     bool enabled = false;
     for (const auto &entry : m_layout) { const auto item = entry.toMap(); if (item["id"] == "weather" && item["enabled"].toBool()) enabled = true; }
     if (!enabled || m_weatherPending || m_location.isEmpty() || QDateTime::currentSecsSinceEpoch() - m_weatherAt < 900) return;
-    bool a = false, b = false;
-    const double lat = m_location.value("latitude").toDouble(&a), lon = m_location.value("longitude").toDouble(&b);
+    bool a = false;
+    bool b = false;
+    const double lat = m_location.value("latitude").toDouble(&a);
+    const double lon = m_location.value("longitude").toDouble(&b);
     if (!a || !b || !std::isfinite(lat) || !std::isfinite(lon) || std::abs(lat) > 90 || std::abs(lon) > 180) return;
     const auto location = m_location;
     QNetworkRequest request(QUrl(QStringLiteral("https://api.open-meteo.com/v1/forecast?latitude=%1&longitude=%2&current=temperature_2m,weather_code").arg(lat, 0, 'f', 5).arg(lon, 0, 'f', 5)));
@@ -336,7 +341,10 @@ void HomeWidgets::weather() {
             const auto current = QJsonDocument::fromJson(reply->readAll()).object().value(QStringLiteral("current")).toObject();
             if (reply->error() == QNetworkReply::NoError && current.value(QStringLiteral("temperature_2m")).isDouble()) {
                 const int code = current.value(QStringLiteral("weather_code")).toInt();
-                const QString icon = code == 0 ? QStringLiteral("☀") : code < 50 ? QStringLiteral("☁") : code >= 71 && code <= 77 ? QStringLiteral("❄") : QStringLiteral("☂");
+                QString icon = QStringLiteral("☂");
+                if (code == 0) icon = QStringLiteral("☀");
+                else if (code < 50) icon = QStringLiteral("☁");
+                else if (code >= 71 && code <= 77) icon = QStringLiteral("❄");
                 m_values["weather"] = icon + QStringLiteral("  ") + QLocale().toString(current.value(QStringLiteral("temperature_2m")).toDouble(), 'f', 1) + QStringLiteral(" °C");
             } else {
                 m_values["weather"] = tr("Weather unavailable");
@@ -373,7 +381,8 @@ void HomeWidgets::refresh() {
     const quint64 idle = fields.value(4).toULongLong() + fields.value(5).toULongLong();
     if (m_cpuTotal && total > m_cpuTotal) m_values["cpu"] = percent(100.0 * (1.0 - double(idle - m_cpuIdle) / double(total - m_cpuTotal)));
     m_cpuTotal = total; m_cpuIdle = idle;
-    quint64 memoryTotal = 0, available = 0;
+    quint64 memoryTotal = 0;
+    quint64 available = 0;
     for (const auto &line : read(QStringLiteral("/proc/meminfo")).split('\n')) {
         const auto parts = line.simplified().split(' ');
         if (parts.value(0) == "MemTotal:") memoryTotal = parts.value(1).toULongLong();
@@ -460,8 +469,8 @@ void HomeWidgets::refresh() {
 #endif
     if (sample.fps) {
         pollGpu();
-        if (m_gpuLoad && QDateTime::currentSecsSinceEpoch() - m_gpuAt < 10) { sensors["gpuLoad"] = *m_gpuLoad; sample.gpuLoad = *m_gpuLoad; }
-        if (m_gpuTemperature && QDateTime::currentSecsSinceEpoch() - m_gpuAt < 10) { sensors["gpu"] = *m_gpuTemperature; sample.gpuTemperature = *m_gpuTemperature; }
+        if (m_gpuLoad && QDateTime::currentSecsSinceEpoch() - m_gpuAt < 10) { sensors["gpuLoad"] = *m_gpuLoad; sample.gpuLoad = m_gpuLoad; }
+        if (m_gpuTemperature && QDateTime::currentSecsSinceEpoch() - m_gpuAt < 10) { sensors["gpu"] = *m_gpuTemperature; sample.gpuTemperature = m_gpuTemperature; }
 #ifndef Q_OS_WIN
         if (!sensors.contains("gpu") || !sensors.contains("gpuLoad")) {
             const auto amd = GameMode::readAmdGpuSensors();

@@ -1,3 +1,9 @@
+galleoncore (0.2.0-1) unstable; urgency=medium
+
+  * Add home widgets, automatic Gaming mode and recording controls.
+
+ -- Paul Woisard <paulwoisard@gmail.com>  Sat, 24 Oct 2026 12:30:00 +0200
+
 galleoncore (0.1.0-1) unstable; urgency=medium
 
   * Initial Linux distribution packaging.

@@ -5,6 +5,8 @@
 #include <QLibrary>
 #include <QScopeGuard>
 #include <array>
+#include <bit>
+#include <span>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -33,13 +35,12 @@ QVariantMap readNvmlSensors(const QStringList &libraries) {
     if (!load(library, libraries.isEmpty() ? nvmlLibraries() : libraries)) return {};
     using Device = void *;
     // Stable NVML C ABI: nvmlUtilization_t has two unsigned integer fields.
-    struct Utilization { unsigned int gpu, memory; };
     static_assert(sizeof(unsigned int) == 4);
-    const auto init = reinterpret_cast<int (*)()>(library.resolve("nvmlInit_v2"));
-    const auto shutdown = reinterpret_cast<int (*)()>(library.resolve("nvmlShutdown"));
-    const auto device = reinterpret_cast<int (*)(unsigned int, Device *)>(library.resolve("nvmlDeviceGetHandleByIndex_v2"));
-    const auto temperature = reinterpret_cast<int (*)(Device, unsigned int, unsigned int *)>(library.resolve("nvmlDeviceGetTemperature"));
-    const auto utilization = reinterpret_cast<int (*)(Device, Utilization *)>(library.resolve("nvmlDeviceGetUtilizationRates"));
+    const auto init = std::bit_cast<int (*)()>(library.resolve("nvmlInit_v2"));
+    const auto shutdown = std::bit_cast<int (*)()>(library.resolve("nvmlShutdown"));
+    const auto device = std::bit_cast<int (*)(unsigned int, Device *)>(library.resolve("nvmlDeviceGetHandleByIndex_v2"));
+    const auto temperature = std::bit_cast<int (*)(Device, unsigned int, unsigned int *)>(library.resolve("nvmlDeviceGetTemperature"));
+    const auto utilization = std::bit_cast<int (*)(Device, NvmlUtilization *)>(library.resolve("nvmlDeviceGetUtilizationRates"));
     if (!init || !shutdown || !device || (!temperature && !utilization) || init() != 0) return {};
     const auto cleanup = qScopeGuard([&] { shutdown(); });
     Device gpu = nullptr;
@@ -47,7 +48,7 @@ QVariantMap readNvmlSensors(const QStringList &libraries) {
     QVariantMap result;
     unsigned int degrees = 0;
     if (temperature && temperature(gpu, 0, &degrees) == 0 && degrees > 0 && degrees < 150) result["gpu"] = double(degrees);
-    Utilization usage{};
+    NvmlUtilization usage{};
     if (utilization && utilization(gpu, &usage) == 0 && usage.gpu <= 100) result["gpuLoad"] = double(usage.gpu);
     if (!result.isEmpty()) result["provider"] = QStringLiteral("NVML");
     return result;
@@ -58,27 +59,27 @@ QVariantMap readAmdSmiSensors(const QStringList &libraries) {
         QStringLiteral("/opt/rocm/lib/libamd_smi.so"), QStringLiteral("/opt/rocm/lib64/libamd_smi.so")};
     if (!load(library, libraries.isEmpty() ? defaults : libraries)) return {};
     using namespace amd_smi_abi;
-    const auto init = reinterpret_cast<int (*)(uint64_t)>(library.resolve("amdsmi_init"));
-    const auto shutdown = reinterpret_cast<int (*)()>(library.resolve("amdsmi_shut_down"));
-    const auto sockets = reinterpret_cast<int (*)(uint32_t *, Handle *)>(library.resolve("amdsmi_get_socket_handles"));
-    const auto processors = reinterpret_cast<int (*)(Handle, uint32_t *, Handle *)>(library.resolve("amdsmi_get_processor_handles"));
-    const auto temperature = reinterpret_cast<int (*)(Handle, int, int, int64_t *)>(library.resolve("amdsmi_get_temp_metric"));
-    const auto utilization = reinterpret_cast<int (*)(Handle, EngineUsage *)>(library.resolve("amdsmi_get_gpu_activity"));
+    const auto init = std::bit_cast<int (*)(uint64_t)>(library.resolve("amdsmi_init"));
+    const auto shutdown = std::bit_cast<int (*)()>(library.resolve("amdsmi_shut_down"));
+    const auto sockets = std::bit_cast<int (*)(uint32_t *, Handle *)>(library.resolve("amdsmi_get_socket_handles"));
+    const auto processors = std::bit_cast<int (*)(Handle, uint32_t *, Handle *)>(library.resolve("amdsmi_get_processor_handles"));
+    const auto temperature = std::bit_cast<int (*)(Handle, int, int, int64_t *)>(library.resolve("amdsmi_get_temp_metric"));
+    const auto utilization = std::bit_cast<int (*)(Handle, EngineUsage *)>(library.resolve("amdsmi_get_gpu_activity"));
     if (!init || !shutdown || !sockets || !processors || (!temperature && !utilization) || init(InitGpus) != 0) return {};
     const auto cleanup = qScopeGuard([&] { shutdown(); });
     std::array<Handle, 32> socketHandles{};
-    uint32_t count = uint32_t(socketHandles.size());
+    auto count = uint32_t(socketHandles.size());
     if (sockets(&count, socketHandles.data()) != 0 || count > socketHandles.size()) return {};
-    for (uint32_t i = 0; i < count; ++i) {
+    for (auto *const socket : std::span(socketHandles).first(count)) {
         std::array<Handle, 32> devices{};
-        uint32_t deviceCount = uint32_t(devices.size());
-        if (processors(socketHandles[i], &deviceCount, devices.data()) != 0 || deviceCount > devices.size()) continue;
-        for (uint32_t j = 0; j < deviceCount; ++j) {
+        auto deviceCount = uint32_t(devices.size());
+        if (processors(socket, &deviceCount, devices.data()) != 0 || deviceCount > devices.size()) continue;
+        for (auto *const device : std::span(devices).first(deviceCount)) {
             QVariantMap result;
             int64_t degrees = 0;
-            if (temperature && temperature(devices[j], TemperatureEdge, TemperatureCurrent, &degrees) == 0 && degrees > 0 && degrees < 150) result["gpu"] = double(degrees);
+            if (temperature && temperature(device, TemperatureEdge, TemperatureCurrent, &degrees) == 0 && degrees > 0 && degrees < 150) result["gpu"] = double(degrees);
             EngineUsage usage{};
-            if (utilization && utilization(devices[j], &usage) == 0 && usage.gfx_activity <= 100) result["gpuLoad"] = double(usage.gfx_activity);
+            if (utilization && utilization(device, &usage) == 0 && usage.gfx_activity <= 100) result["gpuLoad"] = double(usage.gfx_activity);
             if (!result.isEmpty()) { result["provider"] = QStringLiteral("AMD-SMI"); return result; }
         }
     }

@@ -6,7 +6,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 int main(int argc, char **argv) {
-    QCoreApplication app(argc, argv);
+    const QCoreApplication app(argc, argv);
     auto sensors = galleond::readNvmlSensors();
 #ifndef Q_OS_WIN
     if (sensors.isEmpty()) sensors = galleond::readAmdSmiSensors();

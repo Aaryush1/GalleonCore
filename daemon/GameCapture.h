@@ -21,7 +21,7 @@ public:
     FpsSample sample();
     void retry() { m_retryAt = 0; }
     static QStringList registeredPresentMonFolders();
-    QVariantMap status() const;
+    [[nodiscard]] QVariantMap status() const;
     static QString findPresentMon(const QString &overridePath = {}, const QStringList &roots = {});
     static bool isGamePath(QString path, const QStringList &profiles = {});
     static CaptureTarget detectGame(const QStringList &profiles, quint32 currentPid = 0);

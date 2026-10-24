@@ -5,7 +5,7 @@
 #include <QTimer>
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
-    const auto args = app.arguments();
+    const auto args = QCoreApplication::arguments();
     if (args.contains(QStringLiteral("--terminate_existing_session"))) return 0;
     const auto pid = args.value(args.indexOf(QStringLiteral("--process_id")) + 1);
     QFile output;
@@ -24,5 +24,5 @@ int main(int argc, char **argv) {
         output.flush();
     });
     timer.start(5);
-    return app.exec();
+    return QCoreApplication::exec();
 }

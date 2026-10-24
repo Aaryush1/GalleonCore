@@ -27,31 +27,31 @@ class HomeWidgets : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
     explicit HomeWidgets(QObject *parent = nullptr, QString file = {}, bool draftMode = false);
-    QVariantList layout() const { return m_layout; }
-    QVariantMap values() const {
+    [[nodiscard]] QVariantList layout() const { return m_layout; }
+    [[nodiscard]] QVariantMap values() const {
         auto result = m_values;
         const auto city = m_location.value(QStringLiteral("city")).toString().trimmed().left(80);
         if (!city.isEmpty()) result.insert(QStringLiteral("weatherCity"), city);
         return result;
     }
-    QVariantMap location() const { return m_location; }
+    [[nodiscard]] QVariantMap location() const { return m_location; }
     [[nodiscard]] QString recommendedFpsFolder() const;
     [[nodiscard]] QString steamLaunchOptions() const;
     Q_INVOKABLE bool prepareFpsFolder();
     Q_INVOKABLE bool configureMangoHud();
-    QVariantMap fpsConfig() const { return m_fpsConfig; }
-    QVariantMap gameState() const { return m_gameState; }
-    QVariantMap gameConfig() const { return m_gameConfig; }
-    QVariantMap captureStatus() const { return m_captureStatus; }
-    bool windowsCapture() const {
+    [[nodiscard]] QVariantMap fpsConfig() const { return m_fpsConfig; }
+    [[nodiscard]] QVariantMap gameState() const { return m_gameState; }
+    [[nodiscard]] QVariantMap gameConfig() const { return m_gameConfig; }
+    [[nodiscard]] QVariantMap captureStatus() const { return m_captureStatus; }
+    [[nodiscard]] static bool windowsCapture() {
 #ifdef Q_OS_WIN
         return true;
 #else
         return false;
 #endif
     }
-    bool pending() const { return m_pending; }
-    QString error() const { return m_error; }
+    [[nodiscard]] bool pending() const { return m_pending; }
+    [[nodiscard]] QString error() const { return m_error; }
     Q_INVOKABLE bool setWidget(const QString &id, bool enabled, int x, int y, int width, int height);
     Q_INVOKABLE bool setLocation(const QString &latitude, const QString &longitude);
     Q_INVOKABLE bool setWidgetTextSize(const QString &id, int pixels);

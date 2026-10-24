@@ -75,7 +75,8 @@ void GameCapture::stop() {
 void GameCapture::consume() {
     // Consume all pipe data, retaining only complete CSV rows in a bounded ring.
     m_partial += m_process.readAllStandardOutput();
-    qsizetype at = 0, next = 0;
+    qsizetype at = 0;
+    qsizetype next = 0;
     while ((next = m_partial.indexOf('\n', at)) >= 0) {
         const auto row = m_partial.mid(at, next - at + 1);
         if (row.startsWith("Application,") && (row.toLower().contains("msbetweenpresents") || row.toLower().contains(",fps,"))) m_header = row;
@@ -90,10 +91,13 @@ void GameCapture::tick(bool enabled, const CaptureTarget &target, const QString 
     if (!enabled || !target.pid || program.isEmpty()) {
         stop(); m_target = {}; m_retryAt = 0;
         m_program = program;
-        m_state = !enabled ? QStringLiteral("disabled") : program.isEmpty() ? QStringLiteral("missing") : QStringLiteral("waiting");
-        m_message = !enabled ? tr("Automatic capture disabled") : program.isEmpty()
-            ? tr("Install the official PresentMon MSI with its console component, then restart the daemon.")
-            : tr("Ready. Start a Steam game; capture starts automatically.");
+        if (!enabled) {
+            m_state = QStringLiteral("disabled"); m_message = tr("Automatic capture disabled");
+        } else if (program.isEmpty()) {
+            m_state = QStringLiteral("missing"); m_message = tr("Install the official PresentMon MSI with its console component, then restart the daemon.");
+        } else {
+            m_state = QStringLiteral("waiting"); m_message = tr("Ready. Start a Steam game; capture starts automatically.");
+        }
         return;
     }
     if (target != m_target || program != m_program || apiPath != m_apiPath) {

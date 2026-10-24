@@ -27,6 +27,8 @@ Le Galleon 100 SD est un clavier mécanique full-size dont le pavé numérique e
 
 > GalleonCore n'est affilié ni à Corsair ni à Elgato.
 
+> **0.2.0 :** widgets d’accueil configurables, mode Jeu automatique et commandes Game Bar/OBS. Voir les [notes de version](docs/RELEASE_0.2.0.md) et la [configuration des lanceurs Linux](docs/MODE_JEU_LINUX.fr.md).
+
 ## Objectifs
 
 - **Module Stream Deck** : afficher sur les 12 touches et l'écran, lire les touches et les molettes.

@@ -5,6 +5,8 @@
 #include <QString>
 #include <optional>
 namespace galleond {
+// GCC requires defaults for partial aggregate initialization under -Wmissing-field-initializers.
+// NOLINTBEGIN(readability-redundant-member-init)
 struct FpsSample {
     std::optional<double> fps;
     QString status;
@@ -15,6 +17,7 @@ struct FpsSample {
     std::optional<double> cpuLoad{};
     std::optional<double> gpuLoad{};
 };
+// NOLINTEND(readability-redundant-member-init)
 // Reads bounded head/tail windows of an actively written CSV, never a game process.
 [[nodiscard]] FpsSample readFpsLog(const QString &source, const QString &process = {},
                                  const QDateTime &now = QDateTime::currentDateTime());

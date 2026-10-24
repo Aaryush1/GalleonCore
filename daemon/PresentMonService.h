@@ -15,7 +15,7 @@ public:
     ~PresentMonSession();
     bool start(const QString &apiPath, quint32 pid);
     std::optional<double> poll();
-    QString error() const;
+    [[nodiscard]] QString error() const;
 private:
     struct Impl;
     std::unique_ptr<Impl> m;

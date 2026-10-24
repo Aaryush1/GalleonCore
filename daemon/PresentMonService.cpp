@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Paul Woisard
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "PresentMonService.h"
+#include <bit>
+#include <span>
 #include "../third_party/PresentMonAPI.h"
 #include <QDir>
 #include <QFileInfo>
@@ -106,14 +108,12 @@ bool PresentMonSession::start(const QString &apiPath, quint32 pid) {
     if (!QFileInfo(apiPath).isAbsolute() || !QFileInfo(apiPath).isFile() || !pid) { m->problem = "PresentMonAPI2.dll or game PID invalid"; return false; }
     m->library.setFileName(apiPath);
     if (!m->library.load()) { m->problem = QStringLiteral("PresentMonAPI2.dll inaccessible: %1").arg(m->library.errorString()); return false; }
-#define PM_RESOLVE(name) reinterpret_cast<decltype(&name)>(m->library.resolve(#name))
-    const auto version = PM_RESOLVE(pmGetApiVersion);
-    const auto open = PM_RESOLVE(pmOpenSession);
-    const auto track = PM_RESOLVE(pmStartTrackingProcess);
-    const auto registerQuery = PM_RESOLVE(pmRegisterDynamicQuery);
-    m->close = PM_RESOLVE(pmCloseSession); m->stop = PM_RESOLVE(pmStopTrackingProcess);
-    m->freeQuery = PM_RESOLVE(pmFreeDynamicQuery); m->pollQuery = PM_RESOLVE(pmPollDynamicQuery);
-#undef PM_RESOLVE
+    const auto version = std::bit_cast<decltype(&pmGetApiVersion)>(m->library.resolve("pmGetApiVersion"));
+    const auto open = std::bit_cast<decltype(&pmOpenSession)>(m->library.resolve("pmOpenSession"));
+    const auto track = std::bit_cast<decltype(&pmStartTrackingProcess)>(m->library.resolve("pmStartTrackingProcess"));
+    const auto registerQuery = std::bit_cast<decltype(&pmRegisterDynamicQuery)>(m->library.resolve("pmRegisterDynamicQuery"));
+    m->close = std::bit_cast<decltype(&pmCloseSession)>(m->library.resolve("pmCloseSession")); m->stop = std::bit_cast<decltype(&pmStopTrackingProcess)>(m->library.resolve("pmStopTrackingProcess"));
+    m->freeQuery = std::bit_cast<decltype(&pmFreeDynamicQuery)>(m->library.resolve("pmFreeDynamicQuery")); m->pollQuery = std::bit_cast<decltype(&pmPollDynamicQuery)>(m->library.resolve("pmPollDynamicQuery"));
     if (!version || !open || !track || !registerQuery || !m->close || !m->stop || !m->freeQuery || !m->pollQuery) { m->problem = "PresentMon API: required entry point missing"; return false; }
     PM_VERSION api{};
     if (version(&api) != PM_STATUS_SUCCESS || api.major != PM_API_VERSION_MAJOR) { m->problem = "PresentMon API version incompatible. Update the MSI."; return false; }
@@ -139,7 +139,7 @@ std::optional<double> PresentMonSession::poll() {
     double highest = 0;
     for (uint32_t i = 0; i < swaps; ++i) {
         double fps = 0;
-        std::memcpy(&fps, buffer.data() + i * stride + m->element.dataOffset, sizeof(fps));
+        std::memcpy(&fps, std::span(buffer).subspan(i * stride + m->element.dataOffset, sizeof(fps)).data(), sizeof(fps));
         if (std::isfinite(fps) && fps > highest && fps <= 10000) highest = fps;
     }
     return highest > 0 ? std::optional<double>(highest) : std::nullopt;

@@ -27,6 +27,8 @@ The Galleon 100 SD is a full-size mechanical keyboard whose numpad is replaced b
 
 > GalleonCore is not affiliated with Corsair or Elgato.
 
+> **0.2.0:** configurable home widgets, automatic Gaming mode and Game Bar/OBS controls. See the [release notes](docs/RELEASE_0.2.0.md) and [Linux launcher setup](docs/MODE_JEU_LINUX.fr.md).
+
 ## Goals
 
 - **Stream Deck module**: draw on the 12 keys and the screen, read keys and dials.

@@ -23,9 +23,9 @@ QByteArray smallFile(const QString &path, qint64 limit = 65536) {
     return f.open(QIODevice::ReadOnly) ? f.read(limit) : QByteArray();
 }
 QString validImage(const QString &path) {
-    QFileInfo info(path);
-    if (!info.isFile() || info.size() > 32 * 1024 * 1024) return {};
-    QImageReader reader(path);
+    const QFileInfo info(path);
+    if (!info.isFile() || info.size() > qint64(32) * 1024 * 1024) return {};
+    const QImageReader reader(path);
     const auto size = reader.size();
     if (size.width() <= 0 || size.height() <= 0 || qint64(size.width()) * size.height() > 32000000) return {};
     return QUrl::fromLocalFile(info.absoluteFilePath()).toString();
@@ -74,7 +74,7 @@ QVariantMap identity(const QString &process) {
     path.replace('\\', '/');
     // Windows uses the running executable's Steam library; also a Linux fallback.
     const auto marker = path.indexOf(QStringLiteral("/steamapps/common/"), 0, Qt::CaseInsensitive);
-    QString root = SteamLibrary::defaultRoot();
+    const QString root = SteamLibrary::defaultRoot();
     if (!appid && marker >= 0) {
         const auto steamapps = path.left(marker) + QStringLiteral("/steamapps");
         const auto folder = path.mid(marker + 18).section('/', 0, 0);
@@ -116,8 +116,9 @@ void sensorNodes(const QJsonObject &node, QVariantMap &result, int depth, int &c
         const auto text = node.value(QStringLiteral("Value")).toString().section(' ', 0, 0).replace(',', '.');
         bool ok = false; double value = text.toDouble(&ok);
         if (isTemperature && node.value(QStringLiteral("Value")).toString().contains(QStringLiteral("°F"))) value = (value - 32) * 5 / 9;
-        auto key = id.startsWith("/intelcpu/") || id.startsWith("/amdcpu/") ? QStringLiteral("cpu")
-            : id.startsWith("/gpu-") ? QStringLiteral("gpu") : QString();
+        QString key;
+        if (id.startsWith("/intelcpu/") || id.startsWith("/amdcpu/")) key = QStringLiteral("cpu");
+        else if (id.startsWith("/gpu-")) key = QStringLiteral("gpu");
         if (isLoad && !key.isEmpty()) key += QStringLiteral("Load");
         const bool valid = isTemperature ? value > 0 && value < 150 : value >= 0 && value <= 100;
         if (ok && std::isfinite(value) && valid && !key.isEmpty()) {
@@ -144,7 +145,7 @@ QVariantMap GameMode::readAmdGpuSensors(const QString &root) {
     return {};
 }
 QVariantMap GameMode::parseSensors(const QByteArray &json) {
-    if (json.size() > 1024 * 1024) return {};
+    if (json.size() > qsizetype(1024) * 1024) return {};
     QVariantMap result; int count = 0;
     sensorNodes(QJsonDocument::fromJson(json).object(), result, 0, count);
     return result;
