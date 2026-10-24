@@ -338,7 +338,9 @@ void HomeWidgets::weather() {
                 const int code = current.value(QStringLiteral("weather_code")).toInt();
                 const QString icon = code == 0 ? QStringLiteral("☀") : code < 50 ? QStringLiteral("☁") : code >= 71 && code <= 77 ? QStringLiteral("❄") : QStringLiteral("☂");
                 m_values["weather"] = icon + QStringLiteral("  ") + QLocale().toString(current.value(QStringLiteral("temperature_2m")).toDouble(), 'f', 1) + QStringLiteral(" °C");
-            } else m_values["weather"] = tr("Weather unavailable");
+            } else {
+                m_values["weather"] = tr("Weather unavailable");
+            }
             Q_EMIT changed();
         }
         reply->deleteLater();
