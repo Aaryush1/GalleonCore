@@ -15,7 +15,7 @@ class TestHomeWidgets : public QObject {
     Q_OBJECT
 private Q_SLOTS:
     void fpsFolderPreparationUsesUserDataAndKeepsDraftUntilApply() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
 #ifndef Q_OS_WIN
         const auto oldData = qgetenv("XDG_DATA_HOME");
         const auto restore = qScopeGuard([oldData] { if (oldData.isNull()) qunsetenv("XDG_DATA_HOME"); else qputenv("XDG_DATA_HOME",oldData); });
@@ -36,8 +36,9 @@ private Q_SLOTS:
     }
 #ifndef Q_OS_WIN
     void mangoHudConfigurationPreservesOptionsAndIsRepeatable() {
-        QTemporaryDir dir;
-        const auto config = qgetenv("XDG_CONFIG_HOME"), data = qgetenv("XDG_DATA_HOME");
+        const QTemporaryDir dir;
+        const auto config = qgetenv("XDG_CONFIG_HOME");
+        const auto data = qgetenv("XDG_DATA_HOME");
         const auto restore = qScopeGuard([config, data] {
             if (config.isNull()) qunsetenv("XDG_CONFIG_HOME"); else qputenv("XDG_CONFIG_HOME", config);
             if (data.isNull()) qunsetenv("XDG_DATA_HOME"); else qputenv("XDG_DATA_HOME", data);
@@ -66,14 +67,14 @@ private Q_SLOTS:
         QVERIFY(file.open(QIODevice::ReadOnly)); QCOMPARE(file.readAll(), updated);
         QCOMPARE(QDir(QFileInfo(path).absolutePath()).entryList({"*.galleon-backup-*"}, QDir::Files).size(), 1);
         QVERIFY(!editor.pending());
-        HomeWidgets reader(nullptr, dir.filePath("widgets.json"));
+        const HomeWidgets reader(nullptr, dir.filePath("widgets.json"));
         QCOMPARE(reader.fpsConfig().value("source").toString(), editor.recommendedFpsFolder());
     }
 #endif
     void defaultsAndCrossProcessReload() {
         const QTemporaryDir dir;
         HomeWidgets writer(nullptr, dir.filePath("widgets.json"));
-        HomeWidgets reader(nullptr, dir.filePath("widgets.json"));
+        const HomeWidgets reader(nullptr, dir.filePath("widgets.json"));
         QCOMPARE(writer.layout().size(), 7);
         QVERIFY(writer.layout()[0].toMap().value("enabled").toBool());
         for (int i = 1; i < writer.layout().size(); ++i) QVERIFY(!writer.layout()[i].toMap().value("enabled").toBool());
@@ -137,7 +138,7 @@ private Q_SLOTS:
     }
 #ifdef Q_OS_WIN
     void bosunObservesFreshDaemonStateAndRejectsStaleState() {
-        QTemporaryDir dir;
+        const QTemporaryDir dir;
         const auto config = dir.filePath("widgets.json");
         const auto write = [&](qint64 at) {
             QFile file(config + ".runtime.json");
