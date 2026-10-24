@@ -189,10 +189,10 @@ ctest --test-dir build-asan
 Most of the code is written with AI coding agents (Claude Code and Codex),
 working from the rules in [CLAUDE.md](CLAUDE.md) and under the maintainer's
 direction. The maintainer owns the keyboard, decides what to build, tests on the
-real hardware, and reviews every change before it is merged into the protected
-`main` branch.
+real hardware, and examines the proposed changes and approves their merge into
+the protected `main` branch.
 
-Generated code is not trusted on its own. What backs it is public and can be
+Generated code is not accepted without verification. What backs it is public and can be
 checked by anyone:
 
 - protocol facts come only from cited sources or real captures, never invented;
@@ -202,11 +202,11 @@ checked by anyone:
   "tested" (automatic tests) apart from "confirmed on the module" (a person
   checked it on the hardware).
 
-Every push runs compilation tests (GCC and Clang, warnings as errors), the unit
-tests and the lint (clang-tidy, qmllint, REUSE). They do not catch every
-mistake, and passing them does not mean the code is bug-free; they guarantee a
-minimum level of quality against established standards, and nothing is merged
-without them.
+Pull requests go through automated checks: compilation (GCC and Clang, warnings
+as errors), tests and static analysis (clang-tidy, qmllint, REUSE). These checks
+catch some errors and verify that the project's rules are followed. They do not
+guarantee the absence of bugs, but passing them is required before merging into
+`main`.
 
 If something is wrong, open an issue; reports with a firmware version, a
 distribution and a log are the most useful.

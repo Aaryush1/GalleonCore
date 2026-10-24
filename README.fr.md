@@ -194,10 +194,10 @@ ctest --test-dir build-asan
 L'essentiel du code est écrit avec des agents de programmation IA (Claude Code et
 Codex), à partir des règles de [CLAUDE.md](CLAUDE.md) et sous la direction du
 mainteneur. Le mainteneur possède le clavier, décide de ce qui est construit,
-teste sur le matériel réel et relit chaque changement avant sa fusion dans la
-branche protégée `main`.
+teste sur le matériel réel, examine les changements proposés et valide leur
+fusion dans la branche protégée `main`.
 
-Le code généré n'est pas cru sur parole. Ce qui le soutient est public et
+Le code généré n'est pas accepté sans vérification. Ce qui le soutient est public et
 vérifiable par tous :
 
 - les faits de protocole viennent uniquement de sources citées ou de captures
@@ -210,11 +210,11 @@ vérifiable par tous :
   « testé » (tests automatiques) de « confirmé sur le module » (une personne l'a
   vérifié sur le matériel).
 
-À chaque push, les tests de compilation (GCC et Clang, avertissements traités
-en erreurs), les tests unitaires et le lint (clang-tidy, qmllint, REUSE) sont
-exécutés. Ils n'évitent pas toutes les erreurs, et les réussir ne veut pas dire
-que le code est sans bug ; ils garantissent un niveau de qualité minimal selon
-les standards établis, et rien n'est fusionné sans eux.
+Les demandes de fusion sont soumises à des contrôles automatisés : compilation
+(GCC et Clang, avertissements traités en erreurs), tests et analyse statique
+(clang-tidy, qmllint, REUSE). Ces contrôles permettent de détecter certaines
+erreurs et de vérifier le respect des règles du projet. Ils ne garantissent pas
+l'absence de bugs, mais leur réussite est exigée avant la fusion dans `main`.
 
 En cas de problème, ouvre une issue ; les rapports avec la version du firmware,
 la distribution et un journal sont les plus utiles.
