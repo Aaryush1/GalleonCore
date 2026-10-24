@@ -29,14 +29,19 @@ UpdateChecker::UpdateChecker(Options options, QObject *parent, QNetworkAccessMan
     : QObject(parent), m_options(std::move(options)), m_settings(settingsPath(m_options.settingsFile), QSettings::IniFormat),
       m_manager(manager ? manager : &m_network)
 {
-    m_automatic = !packageManaged() && m_settings.value(QStringLiteral("automatic"), true).toBool();
-    const auto now = QDateTime::currentSecsSinceEpoch();
-    m_lastAttempt = std::clamp(m_settings.value(QStringLiteral("lastAttempt"), 0).toLongLong(), qint64(0), now);
-    m_retryAfter = boundedFuture(m_settings.value(QStringLiteral("retryAfter"), 0).toLongLong(), now);
-    m_lastChecked = std::clamp(m_settings.value(QStringLiteral("lastChecked"), 0).toLongLong(), qint64(0), now);
-    m_release = parseUpdateRelease(m_settings.value(QStringLiteral("release")).toByteArray(), m_options.platform);
-    m_status = available() ? tr("A newer version is available (saved result).") : tr("Updates have not been checked in this session.");
-    if (packageManaged()) m_status = tr("A configured repository supplies GalleonCore updates. Use your system package manager.");
+    if (simulation()) {
+        m_automatic = false;
+        m_status = tr("Simulation: check the latest real release as if version 0.0.0 were installed.");
+    } else {
+        m_automatic = !packageManaged() && m_settings.value(QStringLiteral("automatic"), true).toBool();
+        const auto now = QDateTime::currentSecsSinceEpoch();
+        m_lastAttempt = std::clamp(m_settings.value(QStringLiteral("lastAttempt"), 0).toLongLong(), qint64(0), now);
+        m_retryAfter = boundedFuture(m_settings.value(QStringLiteral("retryAfter"), 0).toLongLong(), now);
+        m_lastChecked = std::clamp(m_settings.value(QStringLiteral("lastChecked"), 0).toLongLong(), qint64(0), now);
+        m_release = parseUpdateRelease(m_settings.value(QStringLiteral("release")).toByteArray(), m_options.platform);
+        m_status = available() ? tr("A newer version is available (saved result).") : tr("Updates have not been checked in this session.");
+        if (packageManaged()) m_status = tr("A configured repository supplies GalleonCore updates. Use your system package manager.");
+    }
     m_timeout.setSingleShot(true);
     connect(&m_timeout, &QTimer::timeout, this, [this] { fail(tr("The update check timed out. Try again later.")); });
     m_periodic.setInterval(60 * 60 * 1000);
@@ -50,7 +55,7 @@ QString UpdateChecker::lastChecked() const
 }
 bool UpdateChecker::available() const
 {
-    return !packageManaged() && m_release && newerStableVersion(m_options.installedVersion, m_release->tag).value_or(false);
+    return !packageManaged() && m_release && newerStableVersion(simulation() ? QStringLiteral("0.0.0") : m_options.installedVersion, m_release->tag).value_or(false);
 }
 QString UpdateChecker::downloadLabel() const
 {
@@ -58,10 +63,11 @@ QString UpdateChecker::downloadLabel() const
 }
 bool UpdateChecker::packageManaged() const
 {
-    return m_options.packageManaged;
+    return !simulation() && m_options.packageManaged;
 }
 void UpdateChecker::setRepositoryManaged(bool managed, bool known)
 {
+    if (simulation()) return;
     m_options.packageManaged = managed;
     m_automatic = !managed && m_settings.value(QStringLiteral("automatic"), true).toBool();
     if (managed) m_status = tr("A configured repository supplies GalleonCore updates. Use your system package manager.");
@@ -71,7 +77,7 @@ void UpdateChecker::setRepositoryManaged(bool managed, bool known)
 }
 void UpdateChecker::startAutomaticChecks()
 {
-    if (packageManaged()) return;
+    if (simulation() || packageManaged()) return;
     m_periodic.start();
     checkAutomatically();
 }
@@ -85,7 +91,7 @@ void UpdateChecker::checkAutomatically()
 }
 void UpdateChecker::setAutomatic(bool enabled)
 {
-    if (packageManaged() || enabled == m_automatic) return;
+    if (simulation() || packageManaged() || enabled == m_automatic) return;
     m_settings.setValue(QStringLiteral("automatic"), enabled);
     m_settings.sync();
     if (m_settings.status() != QSettings::NoError) {
@@ -120,9 +126,11 @@ void UpdateChecker::check(bool automaticRequest)
     }
     m_lastAttempt = now;
     m_retryAfter = now + ManualDelaySeconds;
-    m_settings.setValue(QStringLiteral("lastAttempt"), now);
-    m_settings.setValue(QStringLiteral("retryAfter"), m_retryAfter);
-    m_settings.sync();
+    if (!simulation()) {
+        m_settings.setValue(QStringLiteral("lastAttempt"), now);
+        m_settings.setValue(QStringLiteral("retryAfter"), m_retryAfter);
+        m_settings.sync();
+    }
     m_automaticRequest = automaticRequest;
     m_body.clear();
     QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/Paullux/GalleonCore/releases/latest")));
@@ -178,8 +186,10 @@ void UpdateChecker::finish()
         delay = std::clamp(delay, ManualDelaySeconds, DaySeconds);
         const auto reset = m_reply->rawHeader("X-RateLimit-Reset").toLongLong();
         m_retryAfter = std::max(now + delay, boundedFuture(reset, now));
-        m_settings.setValue(QStringLiteral("retryAfter"), m_retryAfter);
-        m_settings.sync();
+        if (!simulation()) {
+            m_settings.setValue(QStringLiteral("retryAfter"), m_retryAfter);
+            m_settings.sync();
+        }
         fail(tr("GitHub's request limit was reached. Please try again later."));
         return;
     }
@@ -192,11 +202,14 @@ void UpdateChecker::finish()
     if (!release) { fail(tr("GitHub returned invalid release information.")); return; }
     m_release = release;
     m_lastChecked = QDateTime::currentSecsSinceEpoch();
-    m_settings.setValue(QStringLiteral("lastChecked"), m_lastChecked);
-    m_settings.setValue(QStringLiteral("release"), updateReleaseCache(*release));
-    m_settings.sync();
+    if (!simulation()) {
+        m_settings.setValue(QStringLiteral("lastChecked"), m_lastChecked);
+        m_settings.setValue(QStringLiteral("release"), updateReleaseCache(*release));
+        m_settings.sync();
+    }
     cancel();
-    m_status = available() ? tr("GalleonCore %1 is available.").arg(m_release->version) : tr("You are using the latest version or a newer build.");
+    if (simulation()) m_status = tr("Simulation: real release %1 compared with a fictitious installed version 0.0.0.").arg(m_release->version);
+    else m_status = available() ? tr("GalleonCore %1 is available.").arg(m_release->version) : tr("You are using the latest version or a newer build.");
     Q_EMIT changed();
 }
 void UpdateChecker::openDownload()

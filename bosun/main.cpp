@@ -61,6 +61,9 @@ int main(int argc, char *argv[])
     const QCommandLineOption pictureOption(QStringLiteral("inspect-picture"),
                                            QStringLiteral("Open the Wallpapers tab with this picture file chosen (to be added)."), QStringLiteral("file"));
     const QCommandLineOption minimizedOption(QStringLiteral("minimized"), QStringLiteral("Start in the notification area when available."));
+    const QCommandLineOption simulateUpdateOption(QStringLiteral("simulate-update"),
+        QStringLiteral("Test update notification against version 0.0.0 using the real latest release, without saving update preferences."));
+    parser.addOption(simulateUpdateOption);
     parser.addOption(minimizedOption);
     parser.addOption(pagesOption);
     parser.addOption(pictureOption);
@@ -93,7 +96,7 @@ int main(int argc, char *argv[])
     bosun::BosunBackend backend(pagesFile);
     bosun::DaemonStatus daemon;
 #ifdef Q_OS_WIN
-    if (!parser.isSet(shotOption) && !parser.isSet(pagesOption)) {
+    if (!parser.isSet(shotOption) && !parser.isSet(pagesOption) && !parser.isSet(simulateUpdateOption)) {
         // Let the asynchronous IPC probe finish before starting a missing daemon.
         QTimer::singleShot(1000, &daemon, [&daemon] {
             if (const QString error = daemon.start(); !error.isEmpty())
@@ -109,7 +112,7 @@ int main(int argc, char *argv[])
 
     const auto filePicker = std::make_unique<bosun::FilePicker>();
     bosun::UpdateChecker updates({QCoreApplication::applicationVersion(), {}, bosun::currentUpdatePlatform(), 15000,
-                                  !QStringLiteral(GALLEON_PACKAGE_FORMAT).isEmpty()});
+                                  !QStringLiteral(GALLEON_PACKAGE_FORMAT).isEmpty(), parser.isSet(simulateUpdateOption)});
     QObject::connect(&updates, &bosun::UpdateChecker::openUrlRequested, &app, [](const QUrl &url) {
         if (!QDesktopServices::openUrl(url)) qWarning() << "Could not open update link in the browser";
     });
@@ -118,19 +121,22 @@ int main(int argc, char *argv[])
         updates.setRepositoryManaged(managed, known);
         if (known) updates.startAutomaticChecks();
     });
-    if (!parser.isSet(shotOption) && !parser.isSet(pagesOption)) {
+    if (!parser.isSet(shotOption) && !parser.isSet(pagesOption) && !parser.isSet(simulateUpdateOption)) {
         QTimer::singleShot(5000, &updates, [&updates, &packageUpdates] {
             if (QStringLiteral(GALLEON_PACKAGE_FORMAT).isEmpty()) updates.startAutomaticChecks();
             else packageUpdates.start(QStringLiteral(GALLEON_PACKAGE_FORMAT));
         });
     }
+    if (parser.isSet(simulateUpdateOption))
+        QTimer::singleShot(0, &updates, &bosun::UpdateChecker::checkNow);
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("tiles"), new bosun::TileProvider(&backend));
     engine.addImageProvider(QStringLiteral("themeicon"), new galleond::ThemeIconProvider);
     engine.addImageProvider(QStringLiteral("wallpapers"), new bosun::WallpaperThumbnails(&library));
     engine.addImageProvider(QStringLiteral("wallpaperpreview"), new bosun::WallpaperPreview(&library));
-    engine.setInitialProperties({{QStringLiteral("startMinimized"), parser.isSet(minimizedOption) && !parser.isSet(shotOption) && bosun::Tray::isAvailable()},
+    engine.setInitialProperties({{QStringLiteral("startMinimized"), parser.isSet(minimizedOption) && !parser.isSet(simulateUpdateOption) && !parser.isSet(shotOption) && bosun::Tray::isAvailable()},
                                  {QStringLiteral("updates"), QVariant::fromValue(&updates)},
+                                 {QStringLiteral("updatesOpen"), parser.isSet(simulateUpdateOption)},
                                  {QStringLiteral("filePicker"), QVariant::fromValue(filePicker.get())},
                                  {QStringLiteral("backend"), QVariant::fromValue(&backend)},
                                  {QStringLiteral("daemon"), QVariant::fromValue(&daemon)},

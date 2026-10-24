@@ -61,3 +61,22 @@ reported in the panel. They never block the UI or discard a previously validated
 update. Requests have a 15-second deadline and a 1 MiB response limit. Manual
 checks have a minimum 60-second interval; GitHub rate limits can extend it.
 Only HTTPS links to assets of the official GalleonCore release are accepted.
+
+## Test without publishing a release
+
+Quit Bosun (including its tray icon on Windows), then run:
+
+```sh
+galleon-bosun --simulate-update
+```
+
+On Windows, run `galleon-bosun.exe --simulate-update` from the installed program
+folder. The update panel opens automatically with a permanent **SIMULATION**
+notice. It fetches the real latest GitHub release and compares it with a fictitious
+installed version `0.0.0`, while still displaying your actual installed version.
+No release or tag is created. The Download button opens the **existing published
+asset**, so it may download the version you already have; do not install it just
+to test the notification. Network failures still exercise the real error display.
+The simulation ignores saved cooldowns and repository suppression, disables
+background checks, and never saves update preferences, timestamps or release
+cache. Restart Bosun normally to leave test mode.

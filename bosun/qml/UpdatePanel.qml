@@ -26,6 +26,11 @@ Rectangle {
             spacing: 18
             Text { text: qsTr("GalleonCore updates"); color: "white"; font.pixelSize: 24; font.bold: true }
             Text {
+                visible: panel.updates !== null && panel.updates.simulation
+                width: parent.width; wrapMode: Text.WordWrap; color: "#ffcc80"; font.pixelSize: 15
+                text: qsTr("SIMULATION — Your actual version is unchanged. The comparison uses 0.0.0. Download opens the real published release, not a new upgrade. Update preferences are not saved.")
+            }
+            Text {
                 width: parent.width; wrapMode: Text.WordWrap; textFormat: Text.PlainText
                 color: "#c9ced6"; font.pixelSize: 15
                 text: panel.updates ? qsTr("Installed: %1 · Latest stable release: %2").arg(panel.updates.installedVersion).arg(panel.updates.latestVersion || qsTr("Unknown")) : ""
@@ -40,7 +45,7 @@ Rectangle {
                 text: panel.updates ? qsTr("Last successful check: %1").arg(panel.updates.lastChecked) : ""
             }
             Pill {
-                visible: panel.updates !== null && !panel.updates.packageManaged
+                visible: panel.updates !== null && !panel.updates.packageManaged && !panel.updates.simulation
                 text: panel.updates && panel.updates.automatic ? qsTr("Automatic checks: on") : qsTr("Automatic checks: off")
                 selected: panel.updates !== null && panel.updates.automatic
                 onClicked: panel.updates.setAutomatic(!panel.updates.automatic)
@@ -48,7 +53,7 @@ Rectangle {
             Text {
                 width: parent.width; wrapMode: Text.WordWrap; color: "#c9ced6"; font.pixelSize: 14
                 text: qsTr("Automatic checks contact GitHub at most once a day while Bosun is running. Downloads open in your browser; installation remains your choice.")
-                visible: panel.updates !== null && !panel.updates.packageManaged
+                visible: panel.updates !== null && !panel.updates.packageManaged && !panel.updates.simulation
             }
             Pill {
                 objectName: "downloadUpdateButton"

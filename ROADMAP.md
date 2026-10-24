@@ -30,6 +30,7 @@ pour les installations indépendantes. Détection indéterminée : vérification
 manuelle disponible, automatique suspendue pour la session. Les 47 suites Qt passent sous GCC et Clang avec ASan/UBSan ; le nouveau
 contrôleur est testé hors réseau avec les cas de téléchargement et d’erreur.
 Essais interactifs Windows/PPA/COPR encore à confirmer.
+Le mode `--simulate-update` teste la vraie release avec une version de comparaison fictive `0.0.0`, sans modifier les préférences ni publier de release ; panneau identifié comme simulation, lien de téléchargement réel. Tests ciblés GCC/Clang avec sanitizers.
 Voir [le fonctionnement et les limites](docs/UPDATES.md).
 
 ## 1. Implémenté et testé

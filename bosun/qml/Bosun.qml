@@ -44,7 +44,7 @@ Window {
         }
     }
 
-    title: qsTr("Galleon Bosun")
+    title: updates !== null && updates.simulation ? qsTr("Galleon Bosun — Update simulation") : qsTr("Galleon Bosun")
     width: 1240
     height: 740
     minimumWidth: 1000

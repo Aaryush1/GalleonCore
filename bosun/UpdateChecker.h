@@ -11,6 +11,7 @@
 namespace bosun {
 class UpdateChecker : public QObject {
     Q_OBJECT
+    Q_PROPERTY(bool simulation READ simulation CONSTANT)
     Q_PROPERTY(QString installedVersion READ installedVersion CONSTANT)
     Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY changed)
     Q_PROPERTY(QString status READ status NOTIFY changed)
@@ -27,11 +28,13 @@ public:
         UpdatePlatform platform;
         int timeoutMs = 15000;
         bool packageManaged = false;
+        bool simulation = false;
     };
     // An injected manager is borrowed, must outlive this object, and is only
     // used by tests. Construction itself never performs a network request.
     explicit UpdateChecker(Options options, QObject *parent = nullptr, QNetworkAccessManager *manager = nullptr);
     ~UpdateChecker() override;
+    [[nodiscard]] bool simulation() const { return m_options.simulation; }
     [[nodiscard]] QString installedVersion() const { return m_options.installedVersion; }
     [[nodiscard]] QString latestVersion() const { return m_release ? m_release->version : QString(); }
     [[nodiscard]] QString status() const { return m_status; }

@@ -137,6 +137,39 @@ private Q_SLOTS:
         checker.checkAutomatically();
         QTRY_VERIFY(checker.available());
     }
+    void simulationOffersRealCurrentReleaseWithoutPersisting()
+    {
+        const QTemporaryDir dir;
+        const auto path = dir.filePath(QStringLiteral("updates.ini"));
+        QSettings settings(path, QSettings::IniFormat);
+        settings.setValue(QStringLiteral("automatic"), true);
+        settings.setValue(QStringLiteral("retryAfter"), QDateTime::currentSecsSinceEpoch() + 3600);
+        settings.sync();
+        const auto savedKeys = settings.allKeys();
+        const auto savedRetry = settings.value(QStringLiteral("retryAfter"));
+        Manager manager;
+        bosun::UpdateChecker checker({QStringLiteral("0.3.0"), path, windowsPlatform(), 100, true, true}, nullptr, &manager);
+        QVERIFY(checker.simulation());
+        QCOMPARE(checker.installedVersion(), QStringLiteral("0.3.0"));
+        QVERIFY(!checker.packageManaged());
+        checker.startAutomaticChecks();
+        checker.setAutomatic(true);
+        QCOMPARE(manager.requests, 0);
+        checker.checkNow();
+        QTRY_VERIFY(!checker.busy());
+        QVERIFY(checker.available());
+        QCOMPARE(checker.latestVersion(), QStringLiteral("0.3.0"));
+        const QSignalSpy urls(&checker, &bosun::UpdateChecker::openUrlRequested);
+        checker.openDownload();
+        QCOMPARE(urls.size(), 1);
+        QCOMPARE(urls.first().first().toUrl(), required(bosun::parseUpdateRelease(manager.body, windowsPlatform())).download);
+        settings.sync();
+        QCOMPARE(settings.allKeys(), savedKeys);
+        QCOMPARE(settings.value(QStringLiteral("retryAfter")), savedRetry);
+        QVERIFY(settings.value(QStringLiteral("automatic")).toBool());
+        const bosun::UpdateChecker normal({QStringLiteral("0.3.0"), path, windowsPlatform()}, nullptr, &manager);
+        QVERIFY(!normal.available());
+    }
     void numericVersions()
     {
         QCOMPARE(bosun::newerStableVersion(QStringLiteral("0.9.0"), QStringLiteral("v0.10.0")), std::optional<bool>(true));
