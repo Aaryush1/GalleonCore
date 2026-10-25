@@ -2,15 +2,20 @@
 // Usage: Probe a          list HID collections (no commands sent)
 //        Probe b          session, read properties, ping
 //        Probe c          b, then a read-only backup of the onboard profiles
+//        Probe d          describe resources 0x22 / 0x01 (no read, no write)
+//        Probe selftest   offline checks of the allowlist and frame chunking (no device)
+//        Probe 2.1 .. 2.6 [variant]   G2 live-write steps (lab/G2-PLAN.md); needs Aaryush at the desk
 using System.Text.Json;
 using Probe;
 
 const ushort Vid = 0x1B1C, Pid = 0x2B0C;
 var stage = args.Length > 0 ? args[0] : "a";
+if (stage == "selftest") return SelfTest.Run();
+var live = stage.StartsWith("2.") && stage != "2.0";
 var lab = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
 Directory.CreateDirectory(Path.Combine(lab, "logs"));
-using var log = new Log(Path.Combine(lab, "logs", $"g1-{stage}-{stamp}.log"));
+using var log = new Log(Path.Combine(lab, "logs", $"{(stage.StartsWith('2') ? "g2" : "g1")}-{stage}-{stamp}.log"));
 
 var cols = Hid.Enumerate(Vid, Pid);
 log.Note($"{cols.Count} HID collections for {Vid:x4}:{Pid:x4}");
@@ -22,12 +27,20 @@ var cmd = cols.Where(c => c.UsagePage == 0xFF42 && c.OutputLen > 0).OrderBy(c =>
 if (cmd is null) { log.Note("No 0xFF42 collection with an output report: stopping."); return 3; }
 log.Note($"Command collection: {cmd.Interface} usage 0x{cmd.Usage:X2}, report length {cmd.OutputLen}");
 
-using var bragi = new Bragi(cmd, log);
+using var bragi = new Bragi(cmd, log, live);
 await bragi.StartSession();
 
 var (st, mode) = await bragi.Get(3);
 log.Note($"operating mode (prop 3): status {st}, value {mode}");
 if (st != 0 || mode != 1) { log.Note("Keyboard is not in self-operated mode (1): stopping without touching anything else."); return 4; }
+
+if (live)
+{
+    using var stop = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.Cancel(); };   // release still runs
+    return await G2.Run(stage, args.Length > 1 ? args[1] : null, bragi, log, stop.Token);
+}
+if (stage == "2.0") stage = "b";
 
 var props = new (ushort id, string name)[]
 {
