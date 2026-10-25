@@ -68,6 +68,8 @@ Cosmetic: during reconnect the state reads "live" ~3 s before the session starts
 
 ## Still open
 
-- Exact top-strip segments for 0x84–0x91 (slower pass, or read Web Hub's strip zone definitions offline).
+- Exact top-strip segments for 0x84–0x91. **Web Hub source checked offline (2026-10-25):**
+  - It defines **no strip zones**. For the Galleon (`kb2B0C`) it knows `ledCount: 146` and the Copilot key at **index 129 (0x81)**, which confirms the desk finding. Its default profile lights the strip with the same per-index layer format as the keys.
+  - So the sectioning seen at the desk happens in the firmware, and the map has to come from a slower desk pass: one index alone, about 5 s each, for 0x84–0x91.
 - Web Hub left open and idle (see limitations).
 - D7 72 h soak: with the desk-lights helper, now that yield and reconnect are in.
