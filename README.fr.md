@@ -400,9 +400,8 @@ Le [site](https://galleoncore.xyz/#downloads) affiche les téléchargements
 directs cumulés par système. Si le contenu externe facultatif est autorisé, il lit
 les chiffres actuels sur GitHub à l’ouverture de la page ; sinon il utilise le
 dernier relevé quotidien. Ces relevés donnent aussi des variations approximatives
-sur sept jours. Les téléchargements PPA et COPR sont vérifiés une fois par semaine
-et affichés pour leur dernière période mesurée ; le total récent est approximatif
-car les périodes peuvent différer. L’AUR publie des votes et une popularité, pas
+sur sept jours. Les téléchargements PPA et COPR sont relevés quotidiennement à 03 h 23 UTC ;
+le total récent est approximatif et nécessite des références complètes sur sept jours. L’AUR publie des votes et une popularité, pas
 le nombre de téléchargements. Ces chiffres comptent des transferts (mises à jour
 comprises), pas des utilisateurs uniques.
 
