@@ -59,6 +59,16 @@ static class G3
             {
                 byte from = rest.Length > 0 ? Convert.ToByte(rest[0], 16) : (byte)0x81, to = rest.Length > 1 ? Convert.ToByte(rest[1], 16) : (byte)0x91;
                 var range = Enumerable.Range(from, to - from + 1).Select(i => (byte)i).ToList();
+                if (rest.Length > 2 && rest[2] == "one")   // one LED at a time, dark gap between: easiest to follow by eye
+                {
+                    for (int k = 0; k < range.Count; k++)
+                    {
+                        log.Note($"    step {k + 1}/{range.Count}: 0x{range[k]:X2} alone");
+                        await Stream(kb, _ => Frames.FromKeys(Off, new Dictionary<byte, Rgb> { [range[k]] = Blue }), TimeSpan.FromSeconds(2.5), stop);
+                        await Stream(kb, _ => Frames.FromKeys(Off, new Dictionary<byte, Rgb>()), TimeSpan.FromSeconds(1), stop);
+                    }
+                    return 0;
+                }
                 log.Note($">>> ALL of 0x{from:X2}..0x{to:X2} magenta, everything else off, 8 s: what lights?");
                 await Stream(kb, _ => Frames.FromKeys(Off, range.ToDictionary(i => i, _ => Magenta)), TimeSpan.FromSeconds(8), stop);
                 log.Note(">>> dark 3 s, then filling one index every 2 s (newest blue): where does each new light appear?");
@@ -98,7 +108,7 @@ static class G3
     static async Task<(int shown, TimeSpan live)> Watched(Keyboard kb, Func<int, byte[]> frame, TimeSpan length, Log log, CancellationToken stop)
     {
         var sw = Stopwatch.StartNew(); int shown = 0, n = 0;
-        var next = TimeSpan.Zero; var live = TimeSpan.Zero; var last = sw.Elapsed;
+        var next = TimeSpan.Zero; var live = TimeSpan.Zero;
         string State() => kb.Frozen ? "frozen" : !kb.Connected ? "unplugged" : kb.Yielded ? "yielded" : "live";
         var state = State();
         log.Note($"state: {state}");
@@ -106,11 +116,12 @@ static class G3
         {
             stop.ThrowIfCancellationRequested();
             if (State() is var s && s != state) { log.Note($"state: {state} -> {s} at {DateTime.Now:HH:mm:ss.fff}"); state = s; }
-            if (state == "live") { live += sw.Elapsed - last; if (await kb.Show(frame(n++))) shown++; }
-            last = sw.Elapsed;
+            var began = sw.Elapsed;   // live time counts the whole iteration, write included (the first version left writes out and reported 32.8 fps)
+            if (state == "live" && await kb.Show(frame(n++))) shown++;
             next += TimeSpan.FromMilliseconds(50);
             var wait = next - sw.Elapsed;
             if (wait > TimeSpan.Zero) await Task.Delay(wait, stop); else next = sw.Elapsed;
+            if (state == "live") live += sw.Elapsed - began;
         }
         return (shown, live);
     }

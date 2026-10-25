@@ -46,7 +46,21 @@ Aaryush at the desk, no camera. Tools: `Probe g3-*` through `GalleonLink.Keyboar
 | Web Hub yield | `Probe g3-band 5`, open Web Hub mid-run, close it ~1 min later | watch | band stops within ~3 s, keys show his profile with **no flicker**, Web Hub works; band returns ~60 s after closing Web Hub |
 | Replug reconnect | same run: unplug, wait 5 s, replug | watch | band comes back within ~5 s of replug, no restart of the tool |
 
+## Follow-up desk results (2026-10-25, 17:58–18:11 CDT)
+
+| Check | Result | Evidence |
+|---|---|---|
+| **Top-row map** | ⚠ **Partly mapped.** **0x81 = Copilot key.** 0x82 = **left end** of the strip, and the next one or two indices step right one LED at a time. From about 0x84/0x85 on, a single index lights a **section** (middle → right end), and those sections shrink as the index rises. So the strip isn't one LED per index past the first few. Likely the firmware groups the strip into zones. 0x8F–0x91 are at the right end. | `g3-toprow` (all + cumulative fill), `g3-toprow 8F 91`, `g3-toprow 82 91 one` (one at a time, his narration). Exact per-index segments not pinned down by eye. |
+| **D2 rate** | ✅ **Pass.** While live: **232 full seconds at exactly 20 frames/s, 23 at 19**, 0 failed writes, 0 timeouts, 0 freeze trips. | Frame-begin (op 6) count per second from the log (5 124 frames). The tool's own summary line said 32.8 fps because it left write time out of "live" time; fixed. |
+| **Web Hub yield** | ✅ **Pass.** He opened Web Hub ~1 min in. **Yielded at 18:06:31** on Web Hub's first reply. His report: keys **green, no flicker, Web Hub worked normally.** Nothing sent for 89 s. **Resumed 18:08:00**, exactly 60 s after Web Hub's last traffic: released (mode 1 confirmed), then re-took host mode. He'd closed the tab soon after opening; the band came back "pretty soon after". | log `g3-g3-band-20261025-180530.log`: 111 foreign replies, all inside the yielded window. |
+| **Replug reconnect** | ✅ **Pass.** Unplug seen 18:08:34.558 as "unplugged" (not a freeze). Keyboard back in enumeration 18:08:44; after the 3 s listen, session + band back **18:08:47**, with no restart. He saw the band return. | same log |
+| Band order | ℹ Not a bug. The band walks LED indices in USB key-code order (A, B, C…, then 1–0), so letters jump around the board while the number row runs left to right. Physical order is the desk-lights keymap's job. | his report |
+
+Cosmetic: during reconnect the state reads "live" ~3 s before the session starts (the 3 s listen). No frames go out in that time, because the supervisor holds the I/O lock.
+
 ## Known limitations of the follow-up
+
+- **Web Hub left open but idle:** Web Hub stops polling when idle. After 60 s of that, the link resumes **while Web Hub is still open**. It yields again at Web Hub's next command, but Web Hub's preview may show our frame until the link releases after the next 60 s of quiet. Not tested at the desk. Options for the helper: a longer quiet period, or not resuming while a Web Hub tab exists (it can't see tabs directly).
 
 - If Web Hub connects while we're idle and *not* holding the keys, our next frame takes host mode and can override what Web Hub set. We yield at Web Hub's next poll (≈ 2.5 s), but its preview may show our last frame until it's been closed for 60 s. Fixing that would mean sending a command while Web Hub is active, which rule 2 forbids.
 - Another host that sits in mode 2 for 60 s with no traffic at all would be overridden. That doesn't happen on this machine (Web Hub polls every ~2.5 s), but it's untested against iCUE.
@@ -54,5 +68,6 @@ Aaryush at the desk, no camera. Tools: `Probe g3-*` through `GalleonLink.Keyboar
 
 ## Still open
 
-- The four follow-up desk checks above.
+- Exact top-strip segments for 0x84–0x91 (slower pass, or read Web Hub's strip zone definitions offline).
+- Web Hub left open and idle (see limitations).
 - D7 72 h soak: with the desk-lights helper, now that yield and reconnect are in.
