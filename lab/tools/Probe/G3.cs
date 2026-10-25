@@ -64,7 +64,7 @@ static class G3
                     for (int k = 0; k < range.Count; k++)
                     {
                         log.Note($"    step {k + 1}/{range.Count}: 0x{range[k]:X2} alone");
-                        await Stream(kb, _ => Frames.FromKeys(Off, new Dictionary<byte, Rgb> { [range[k]] = Blue }), TimeSpan.FromSeconds(2.5), stop);
+                        await Stream(kb, _ => Frames.FromKeys(Off, new Dictionary<byte, Rgb> { [range[k]] = Blue }), TimeSpan.FromSeconds(rest.Length > 3 ? double.Parse(rest[3]) : 2.5), stop);
                         await Stream(kb, _ => Frames.FromKeys(Off, new Dictionary<byte, Rgb>()), TimeSpan.FromSeconds(1), stop);
                     }
                     return 0;
