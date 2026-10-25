@@ -28,4 +28,11 @@ assert.deepEqual(stats.sevenDayDeltas(assets, {
   "2": { count: 9, platform: "ubuntu" }
 }), { windows: 2, ubuntu: 0, fedora: 5, arch: 3, appimage: 2 });
 assert.equal(stats.platformFor("galleoncore-debuginfo-0.1.0-1.fc44.x86_64.rpm"), null);
-console.log("Live download classification and deltas passed");
+assert.equal(stats.approximateRecent(
+  { windows: 2, ubuntu: 0, fedora: 5, arch: 3, appimage: 2 },
+  { ppa: 7, copr: 8 }), 27);
+assert.equal(stats.approximateRecent(
+  { windows: 2, ubuntu: 0, fedora: 5, arch: 3, appimage: 2 },
+  { ppa: 7, copr: null }), null);
+assert.equal(stats.approximateRecent(null, { ppa: 7, copr: 8 }), null);
+console.log("Live download classification, deltas, and approximate totals passed");
