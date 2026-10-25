@@ -69,7 +69,8 @@ Cosmetic: during reconnect the state reads "live" ~3 s before the session starts
 ## Still open
 
 - Exact top-strip segments for 0x84–0x91 (needed for day progress, #22; he says when, #24): `Probe g3-toprow 82 91 one 5`. **Web Hub source checked offline (2026-10-25):**
-  - It defines **no strip zones**. For the Galleon (`kb2B0C`) it knows `ledCount: 146` and the Copilot key at **index 129 (0x81)**, which confirms the desk finding. Its default profile lights the strip with the same per-index layer format as the keys.
-  - So the sectioning seen at the desk happens in the firmware, and the map has to come from a slower desk pass: one index alone, about 5 s each, for 0x84–0x91.
+  - For the Galleon (`kb2B0C`) it knows `ledCount: 146` and the Copilot key at **index 129 (0x81)**, which confirms the desk finding.
+  - **Correction (second grep):** its key table names **seven "Edge" LEDs: Edge1–Edge7 = codes 139–145 (0x8B–0x91)**. So Web Hub treats the end of the strip as 7 edge zones, probably 2 physical LEDs each. 130–138 are named GameMode, Digit0–5, Copilot and StreamDeck in a shared table, which may belong to another model. That still doesn't explain the sections seen at 0x84–0x8A.
+  - The desk pass settles it: one index alone, 5 s each.
 - ~~Web Hub left open and idle~~: accepted as is (#19).
 - D7 72 h soak: with the desk-lights helper, now that yield and reconnect are in.

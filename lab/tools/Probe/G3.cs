@@ -46,6 +46,9 @@ static class G3
                 return kb.Frozen ? 20 : 0;
             }
 
+            case "g3-typing":   // #21 demo: helper-drawn typing glow, with press-to-light latency
+                return await Typing.Run(kb, rest.Length > 0 ? double.Parse(rest[0]) : 2, log, stop);
+
             case "g3-band":   // follow-up: the moving band for N minutes, logging yield / unplug / resume; reports fps while live
             {
                 var minutes = rest.Length > 0 ? double.Parse(rest[0]) : 3;

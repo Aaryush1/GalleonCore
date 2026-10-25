@@ -119,6 +119,17 @@ static class SelfTest
             Expect($"yield: never resumes into mode {odd}", !y.TryResume(t0.AddSeconds(61), 0, odd));
         }
 
+        // #21 typing demo: Windows virtual keys -> LED index.
+        Expect("keymap: A -> 0x04", KeyMap.Usage(0x41, 0x1E, false) == 0x04);
+        Expect("keymap: Z -> 0x1D", KeyMap.Usage(0x5A, 0x2C, false) == 0x1D);
+        Expect("keymap: 1 -> 0x1E, 0 -> 0x27", KeyMap.Usage(0x31, 2, false) == 0x1E && KeyMap.Usage(0x30, 0x0B, false) == 0x27);
+        Expect("keymap: F1 -> 0x3A (desk-confirmed), F12 -> 0x45", KeyMap.Usage(0x70, 0x3B, false) == 0x3A && KeyMap.Usage(0x7B, 0x58, false) == 0x45);
+        Expect("keymap: space, Enter, numpad Enter", KeyMap.Usage(0x20, 0x39, false) == 0x2C && KeyMap.Usage(0x0D, 0x1C, false) == 0x28 && KeyMap.Usage(0x0D, 0x1C, true) == 0x58);
+        Expect("keymap: left/right Shift by scan code", KeyMap.Usage(0x10, 0x2A, false) == 106 && KeyMap.Usage(0x10, 0x36, false) == 110);
+        Expect("keymap: left/right Ctrl and Alt by E0", KeyMap.Usage(0x11, 0x1D, false) == 105 && KeyMap.Usage(0x11, 0x1D, true) == 109 && KeyMap.Usage(0x12, 0x38, true) == 111);
+        Expect("keymap: every mapped index is a valid LED", Enumerable.Range(0, 256).SelectMany(v => new[] { KeyMap.Usage((ushort)v, 0, false), KeyMap.Usage((ushort)v, 0x36, true) }).All(u => u is null or < Frames.Leds));
+        Expect("keymap: unknown keys (media, VK 0xAD) -> no LED", KeyMap.Usage(0xAD, 0, true) is null);
+
         Console.WriteLine(fail == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED: {fail}");
         return fail == 0 ? 0 : 1;
     }
