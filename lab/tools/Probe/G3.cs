@@ -8,7 +8,7 @@ static class G3
 {
     static readonly Rgb Base = Rgb.Hex("#0f766e"), Blue = Rgb.Hex("#2563eb"), Magenta = Rgb.Hex("#ff00ff"), Off = Rgb.Black;
 
-    public static async Task<int> Run(string step, string lab, Log log, CancellationToken stop)
+    public static async Task<int> Run(string step, string[] rest, string lab, Log log, CancellationToken stop)
     {
         using var kb = await Keyboard.Connect(log);
         switch (step)
@@ -46,6 +46,32 @@ static class G3
                 return kb.Frozen ? 20 : 0;
             }
 
+            case "g3-band":   // follow-up: the moving band for N minutes, logging yield / unplug / resume; reports fps while live
+            {
+                var minutes = rest.Length > 0 ? double.Parse(rest[0]) : 3;
+                log.Note($">>> band for {minutes} min. Open Web Hub, unplug/replug, sleep: the log says what the link did.");
+                var (shown, live) = await Watched(kb, n => Wave(n), TimeSpan.FromMinutes(minutes), log, stop);
+                log.Note($"band: {shown} frames in {live.TotalSeconds:F0} s live = {shown / Math.Max(1, live.TotalSeconds):F1} fps, frozen={kb.Frozen}");
+                return kb.Frozen ? 20 : 0;
+            }
+
+            case "g3-toprow":   // which LED indices drive the keyless strip above the F-row: all at once, then filling one by one
+            {
+                byte from = rest.Length > 0 ? Convert.ToByte(rest[0], 16) : (byte)0x81, to = rest.Length > 1 ? Convert.ToByte(rest[1], 16) : (byte)0x91;
+                var range = Enumerable.Range(from, to - from + 1).Select(i => (byte)i).ToList();
+                log.Note($">>> ALL of 0x{from:X2}..0x{to:X2} magenta, everything else off, 8 s: what lights?");
+                await Stream(kb, _ => Frames.FromKeys(Off, range.ToDictionary(i => i, _ => Magenta)), TimeSpan.FromSeconds(8), stop);
+                log.Note(">>> dark 3 s, then filling one index every 2 s (newest blue): where does each new light appear?");
+                await Stream(kb, _ => Frames.FromKeys(Off, new Dictionary<byte, Rgb>()), TimeSpan.FromSeconds(3), stop);
+                for (int k = 1; k <= range.Count; k++)
+                {
+                    log.Note($"    +0x{range[k - 1]:X2} ({k}/{range.Count})");
+                    var lit = range.Take(k).ToDictionary(i => i, i => i == range[k - 1] ? Blue : Magenta);
+                    await Stream(kb, _ => Frames.FromKeys(Off, lit), TimeSpan.FromSeconds(2), stop);
+                }
+                return 0;
+            }
+
             default: log.Note($"unknown step {step}"); return 2;
         }
     }
@@ -66,6 +92,27 @@ static class G3
             if (wait > TimeSpan.Zero) await Task.Delay(wait, stop); else next = sw.Elapsed;   // running late: don't try to catch up
         }
         return shown;
+    }
+
+    // Stream that keeps going through yields and unplugs, logging each change of state; returns frames shown and time spent live.
+    static async Task<(int shown, TimeSpan live)> Watched(Keyboard kb, Func<int, byte[]> frame, TimeSpan length, Log log, CancellationToken stop)
+    {
+        var sw = Stopwatch.StartNew(); int shown = 0, n = 0;
+        var next = TimeSpan.Zero; var live = TimeSpan.Zero; var last = sw.Elapsed;
+        string State() => kb.Frozen ? "frozen" : !kb.Connected ? "unplugged" : kb.Yielded ? "yielded" : "live";
+        var state = State();
+        log.Note($"state: {state}");
+        while (sw.Elapsed < length && !kb.Frozen)
+        {
+            stop.ThrowIfCancellationRequested();
+            if (State() is var s && s != state) { log.Note($"state: {state} -> {s} at {DateTime.Now:HH:mm:ss.fff}"); state = s; }
+            if (state == "live") { live += sw.Elapsed - last; if (await kb.Show(frame(n++))) shown++; }
+            last = sw.Elapsed;
+            next += TimeSpan.FromMilliseconds(50);
+            var wait = next - sw.Elapsed;
+            if (wait > TimeSpan.Zero) await Task.Delay(wait, stop); else next = sw.Elapsed;
+        }
+        return (shown, live);
     }
 
     // A slow blue band moving across the HID usage range over the base color.

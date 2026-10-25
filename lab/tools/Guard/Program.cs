@@ -30,7 +30,7 @@ for (int attempt = 1; attempt <= 3; attempt++)
     try
     {
         // Connect() releases by itself when it finds the keyboard in host mode.
-        using var kb = await Keyboard.Connect(log);
+        using var kb = await Keyboard.Connect(log, listenFirst: TimeSpan.Zero);
         log.Note($"guard done in {started.ElapsedMilliseconds} ms (attempt {attempt})");
         return 0;
     }

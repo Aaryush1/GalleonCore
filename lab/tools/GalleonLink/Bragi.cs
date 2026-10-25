@@ -5,6 +5,7 @@
 namespace GalleonLink;
 
 public sealed class RefusedException(string why) : Exception($"REFUSED by allowlist: {why}");
+public sealed class SessionExpiredException(byte op) : IOException($"session expired (reply to op 0x{op:X2})");
 
 public record Reply(byte[] Raw)
 {
@@ -98,17 +99,50 @@ public sealed class Bragi : IDisposable
         {
             int n;
             try { n = await _dev.ReadAsync(buf, cts.Token); }
-            catch (OperationCanceledException) { throw new TimeoutException($"no reply to op 0x{op:X2} in {timeoutMs} ms"); }
+            catch (OperationCanceledException) { _staleOp = op; throw new TimeoutException($"no reply to op 0x{op:X2} in {timeoutMs} ms"); }
             var raw = buf.AsSpan(1, n - 1).ToArray();  // drop report ID
             _log.Rx(raw);
-            if (raw.Length > 5 && raw[3] == op && raw[0] == 0)
-            {
-                if (op == OpOpen) _bound22 = raw[4] == 0 && payload[0] == 0 && (payload[1] | payload[2] << 8) == LiveResource;
-                if (op == OpUnbind && payload[1] == 0) _bound22 = false;
-                return new Reply(raw);
-            }
-            _log.Note("  (not our reply, skipped)");
+            if (!Note(raw, op)) continue;
+            if (raw[1] == 15 && op != OpSession) throw new SessionExpiredException(op);
+            if (op == OpOpen) _bound22 = raw[4] == 0 && payload[0] == 0 && (payload[1] | payload[2] << 8) == LiveResource;
+            if (op == OpUnbind && payload[1] == 0) _bound22 = false;
+            return new Reply(raw);
         }
+    }
+
+    // Replies we didn't ask for: another host (Web Hub, iCUE) is using the keyboard. Keyboard yields on any increase.
+    public int ForeignReplies { get; private set; }
+    byte _staleOp;
+
+    // True if the report is the reply to `op`; otherwise records it as stale or foreign.
+    bool Note(byte[] raw, byte op)
+    {
+        switch (Replies.Classify(raw, op, _staleOp))
+        {
+            case ReplyKind.Ours: return true;
+            case ReplyKind.Stale: _staleOp = 0; _log.Note("  (late reply to our timed-out command, skipped)"); return false;
+            default: ForeignReplies++; _log.Note("  (not our reply: another host?)"); return false;
+        }
+    }
+
+    // Read whatever arrives for `window` without sending anything; returns how many foreign reports came in.
+    public async Task<int> Listen(TimeSpan window)
+    {
+        var before = ForeignReplies;
+        using var cts = new CancellationTokenSource(window);
+        var buf = new byte[_inLen];
+        try
+        {
+            while (true)
+            {
+                var n = await _dev.ReadAsync(buf, cts.Token);
+                var raw = buf.AsSpan(1, n - 1).ToArray();
+                _log.Rx(raw);
+                Note(raw, 0);
+            }
+        }
+        catch (OperationCanceledException) { }
+        return ForeignReplies - before;
     }
 
     public async Task<byte> StartSession()

@@ -66,8 +66,15 @@ static class SelfTest
         var rate = RateLimiter.Cap20Fps(); var t0 = new DateTime(2026, 10, 25, 12, 0, 0, DateTimeKind.Utc);
         Expect("rate: first frame goes at once", rate.WaitBefore(t0) == TimeSpan.Zero);
         rate.Sent(t0);
-        Expect("rate: a frame 10 ms later must wait 40 ms", rate.WaitBefore(t0.AddMilliseconds(10)) == TimeSpan.FromMilliseconds(40));
-        Expect("rate: a frame 50 ms later goes", rate.WaitBefore(t0.AddMilliseconds(50)) == TimeSpan.Zero);
+        Expect("rate: a second frame right after goes (burst of 2)", rate.WaitBefore(t0) == TimeSpan.Zero);
+        rate.Sent(t0);
+        Expect("rate: a third frame right after waits 50 ms", rate.WaitBefore(t0) == TimeSpan.FromMilliseconds(50));
+        Expect("rate: 10 ms later it waits 40 ms", rate.WaitBefore(t0.AddMilliseconds(10)) == TimeSpan.FromMilliseconds(40));
+        Expect("rate: 50 ms later it goes", rate.WaitBefore(t0.AddMilliseconds(50)) == TimeSpan.Zero);
+        int Greedy(int ms) { var r = RateLimiter.Cap20Fps(); int k = 0; for (int t = 0; t <= ms; t++) if (r.WaitBefore(t0.AddMilliseconds(t)) == TimeSpan.Zero) { r.Sent(t0.AddMilliseconds(t)); k++; } return k; }
+        Expect("rate: a greedy caller gets at most 20 fps + burst over 10 s", Greedy(10_000) <= 202);
+        int Jittery() { var r = RateLimiter.Cap20Fps(); int k = 0; for (int i = 1; i <= 200; i++) { var t = t0.AddMilliseconds(50 * i + (i % 2 == 0 ? 15 : 0)); if (r.WaitBefore(t) == TimeSpan.Zero) { r.Sent(t); k++; } } return k; }
+        Expect("rate: a caller pacing at 50 ms with 15 ms jitter loses no frames", Jittery() == 200);
 
         // G3: freeze policy trips on 2 consecutive failures, a success resets.
         var fp = new FreezePolicy();
@@ -80,6 +87,37 @@ static class SelfTest
         Expect("recovery: mode 1 status 0 needs no release", !Recovery.NeedsReleaseOnStart(0, 1));
         Expect("recovery: mode 2 left over needs release", Recovery.NeedsReleaseOnStart(0, 2));
         Expect("recovery: unreadable mode needs release", Recovery.NeedsReleaseOnStart(5, 0));
+
+        // G3 follow-up: telling our replies from another host's.
+        byte[] R(byte sub, byte op) => [sub, 0, 0, op, 0, 0, 0, 0];
+        Expect("replies: echo of the op we wait for is ours", Replies.Classify(R(0, 0x07), 0x07, 0) == ReplyKind.Ours);
+        Expect("replies: a different op is foreign", Replies.Classify(R(0, 0x02), 0x07, 0) == ReplyKind.Foreign);
+        Expect("replies: anything while only listening is foreign", Replies.Classify(R(0, 0x02), 0, 0) == ReplyKind.Foreign);
+        Expect("replies: late echo of our timed-out op is stale", Replies.Classify(R(0, 0x06), 0x02, 0x06) == ReplyKind.Stale);
+        Expect("replies: non-zero sub byte is foreign", Replies.Classify(R(1, 0x07), 0x07, 0) == ReplyKind.Foreign);
+        Expect("replies: a short report is foreign", Replies.Classify([0, 0, 0, 7], 0x07, 0) == ReplyKind.Foreign);
+
+        // G3 follow-up: yield, never fight; resume only after 60 s of quiet.
+        var y = YieldPolicy.Default();
+        y.ModeSeen(t0, 0, 2); Expect("yield: mode still 2 keeps going", !y.Yielded);
+        y.ModeSeen(t0, 5, 0); Expect("yield: an unreadable mode is not a yield (freeze policy's job)", !y.Yielded);
+        y.ModeSeen(t0, 0, 1); Expect("yield: mode changed to 1 behind our back yields", y.Yielded);
+        Expect("yield: no resume before 60 s", !y.TryResume(t0.AddSeconds(59), 0, 1) && y.Yielded);
+        Expect("yield: resume after 60 s quiet with mode 1", y.TryResume(t0.AddSeconds(60), 0, 1) && !y.Yielded);
+        y = YieldPolicy.Default();
+        y.Foreign(t0); Expect("yield: a foreign reply yields", y.Yielded);
+        y.Foreign(t0.AddSeconds(50)); Expect("yield: more foreign traffic restarts the quiet clock", !y.TryResume(t0.AddSeconds(100), 0, 1));
+        Expect("yield: 60 s after the last foreign reply resumes", y.TryResume(t0.AddSeconds(110), 0, 1));
+        y = YieldPolicy.Default(); y.Foreign(t0);
+        Expect("yield: mode 2 after the quiet period resumes (our leftover frame, caller releases)", y.TryResume(t0.AddSeconds(60), 0, 2));
+        y = YieldPolicy.Default(); y.Foreign(t0);
+        Expect("yield: unreadable mode after quiet waits", !y.TryResume(t0.AddSeconds(60), 5, 0) && y.Yielded);
+        Expect("yield: ...and waits a whole new quiet period", !y.TryResume(t0.AddSeconds(100), 0, 1) && y.TryResume(t0.AddSeconds(120), 0, 1));
+        foreach (var odd in new uint[] { 0, 3, 4, 7 })
+        {
+            y = YieldPolicy.Default(); y.Foreign(t0);
+            Expect($"yield: never resumes into mode {odd}", !y.TryResume(t0.AddSeconds(61), 0, odd));
+        }
 
         Console.WriteLine(fail == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED: {fail}");
         return fail == 0 ? 0 : 1;

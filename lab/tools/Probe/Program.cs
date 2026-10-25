@@ -22,7 +22,7 @@ if (stage.StartsWith("g3-"))
 {
     using var g3stop = new CancellationTokenSource();
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; g3stop.Cancel(); };   // Keyboard.Dispose releases
-    try { return await G3.Run(stage, lab, log, g3stop.Token); }
+    try { return await G3.Run(stage, args[1..], lab, log, g3stop.Token); }
     catch (OperationCanceledException) { log.Note("stopped (Ctrl-C); released on exit"); return 130; }
 }
 

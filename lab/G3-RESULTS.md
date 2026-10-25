@@ -22,8 +22,37 @@ Aaryush at the desk, no camera. Tools: `Probe g3-*` through `GalleonLink.Keyboar
 3. **Reconnect after replug:** re-enumerate on device arrival. Release-on-connect (already in `Keyboard.Connect`) handles any leftover state.
 4. **Keep the 20 fps cap**, paced by deadline. Rerun D2 to confirm the rate.
 
+## Follow-up built (offline, 2026-10-25; self-test 84/84, no device writes)
+
+- **Yield, never fight** (`YieldPolicy`, `Replies.Classify`):
+  - While holding the keys, `Keyboard` re-reads the mode about once a second, both in `Show` and from a background supervisor when idle.
+  - Any reply nobody asked for counts as another host. A late reply to our own timed-out command is "stale", not foreign.
+  - Either sign means yield: no frames and no commands at all, so Web Hub's replies can't be confused. Sleep, sign-out and Dispose skip the release while yielded, because an unbind could break the other host's file transfer.
+  - While yielded, the supervisor only *listens*, in 2 s windows.
+  - After 60 s with no foreign traffic, it reads the mode. If it's 1 or 2 (2 = our own leftover frame), it releases and allows frames again. If it can't read the mode, it waits another 60 s.
+- **Listen before touching:** `Connect` listens 3 s first. If another host is talking, it starts yielded and sends nothing. `Guard` passes zero, so it stays fast.
+- **Reconnect after replug:** an I/O failure where the keyboard is no longer enumerated now means "unplugged", not a freeze.
+  - The supervisor re-enumerates every second. On return it runs the same connect path (listen, session, release-if-needed) and resets the freeze policy.
+  - A freeze trip is still final until a replug.
+- **Session expiry** (reply byte1 == 15) now raises `SessionExpiredException`. `Keyboard` starts a new session and re-takes host mode; it counts toward the freeze policy.
+- **Rate fix:** the limiter stamped each frame when its write *finished*, so a caller pacing at exactly 50 ms lost every other frame (part of the 12.8 fps). It's now a token bucket: 20/s on average with a burst of 2. A greedy caller is still held to ≤ 202 frames in 10 s, and 50 ms pacing with 15 ms jitter loses nothing.
+
+## Follow-up desk checks (≈ 15 min, he watches)
+
+| Check | Command | He does | Pass |
+|---|---|---|---|
+| Top-row map | `Probe g3-toprow` (default 0x81..0x91) | 8 s all magenta: what lights? Then one index added every 2 s, newest blue: where does each new light appear? | a usage → strip-position map (or "not this range": rerun with another range) |
+| D2 rate | `Probe g3-band 2` | glance | log: **≥ 19.5 fps** while live, 0 freeze trips |
+| Web Hub yield | `Probe g3-band 5`, open Web Hub mid-run, close it ~1 min later | watch | band stops within ~3 s, keys show his profile with **no flicker**, Web Hub works; band returns ~60 s after closing Web Hub |
+| Replug reconnect | same run: unplug, wait 5 s, replug | watch | band comes back within ~5 s of replug, no restart of the tool |
+
+## Known limitations of the follow-up
+
+- If Web Hub connects while we're idle and *not* holding the keys, our next frame takes host mode and can override what Web Hub set. We yield at Web Hub's next poll (≈ 2.5 s), but its preview may show our last frame until it's been closed for 60 s. Fixing that would mean sending a command while Web Hub is active, which rule 2 forbids.
+- Another host that sits in mode 2 for 60 s with no traffic at all would be overridden. That doesn't happen on this machine (Web Hub polls every ~2.5 s), but it's untested against iCUE.
+- If Guard fires while Web Hub is open, it sends one session start and one mode read.
+
 ## Still open
 
-- Top-row index map (follow-up sweep of 0x81–0x91).
-- D2 rate rerun at 20 fps.
-- D7 72 h soak: after the yield + reconnect rules are in, with the desk-lights helper.
+- The four follow-up desk checks above.
+- D7 72 h soak: with the desk-lights helper, now that yield and reconnect are in.
