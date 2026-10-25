@@ -63,7 +63,7 @@
 
   if (typeof module !== "undefined") {
     module.exports = { platformFor: platformFor, assetsFromReleases: assetsFromReleases,
-      totals: totals, sevenDayDeltas: sevenDayDeltas };
+      totals: totals, sevenDayDeltas: sevenDayDeltas, approximateRecent: approximateRecent };
   }
   if (typeof document === "undefined") return;
 
@@ -84,17 +84,36 @@
     return entry && entry.assets && typeof entry.assets === "object" ? entry.assets : null;
   }
 
-  function setDirect(assets, baseline, live) {
+  function approximateRecent(direct, repositories) {
+    if (!direct || !repositories) return null;
+    var values = DIRECT.map(function (name) { return direct[name]; })
+      .concat(["ppa", "copr"].map(function (name) { return repositories[name]; }));
+    if (!values.every(function (value) { return Number.isSafeInteger(value) && value >= 0; })) return null;
+    return values.reduce(function (sum, value) { return sum + value; }, 0);
+  }
+
+  function previousDayAssets(stats) {
+    var history = stats && Array.isArray(stats.history) ? stats.history : [];
+    if (history.length < 2) return null;
+    var current = history[history.length - 1], previous = history[history.length - 2];
+    if (!current || !previous || !current.date || !previous.date) return null;
+    if (Date.parse(current.date + "T00:00:00Z") - Date.parse(previous.date + "T00:00:00Z") !== 86400000) return null;
+    return previous.assets && typeof previous.assets === "object" ? previous.assets : null;
+  }
+
+  function setDirect(assets, live) {
     var current = totals(assets);
+    var baseline = published ? baselineAssets(published) : null;
+    var weekly = baseline ? sevenDayDeltas(assets, baseline) : (published && published.by_channel);
+    var yesterday = published ? previousDayAssets(published) : null;
+    var daily = yesterday ? sevenDayDeltas(assets, yesterday) : (published && published.daily);
     DIRECT.forEach(function (name) {
       setNumber('[data-download-stat="' + name + '"]', current[name]);
-      if (published && published.by_channel) setNumber('[data-download-week="' + name + '"]', published.by_channel[name]);
+      if (weekly) setNumber('[data-download-week="' + name + '"]', weekly[name]);
+      if (daily) setNumber('[data-download-day="' + name + '"]', daily[name]);
     });
-    if (published && published.daily) {
-      DIRECT.forEach(function (name) {
-        setNumber('[data-download-day="' + name + '"]', published.daily[name]);
-      });
-    }
+    var repositories = published && (published.repository_weekly || published.by_channel);
+    setNumber('[data-download-stat="total"]', approximateRecent(weekly, repositories));
     document.getElementById("direct-count-source").textContent = live ? "GitHub API" : "Daily snapshot";
   }
 
@@ -105,7 +124,7 @@
       var stale = !last || last !== new Date().toISOString().slice(0, 10);
       return name.toUpperCase() + " " + (last || "—") + (stale ? " (ancienne / stale)" : "");
     }).join("; ");
-    note.innerHTML = '<span lang="en">GitHub totals: <span data-source></span>. Daily collection at 03:23 UTC. 24h and 7d changes compare daily observations, not midnight boundaries; missing baselines remain unavailable. PPA: package downloads, including updates. COPR: cumulative RPM downloads. Last successful collection: <span data-repo-dates></span>. These are not unique installations or users. AUR measures votes.</span><span lang="fr">Totaux GitHub : <span data-source></span>. Collecte quotidienne à 03 h 23 UTC. Les variations 24h et 7j comparent les relevés quotidiens, pas les limites de minuit ; sans référence elles restent indisponibles. PPA : téléchargements de paquets, mises à jour comprises. COPR : téléchargements RPM cumulés. Dernière collecte réussie : <span data-repo-dates></span>. Ce ne sont pas des installations ou utilisateurs uniques. AUR mesure les votes.</span>';
+    note.innerHTML = '<span lang="en">GitHub totals: <span data-source></span>. PPA/COPR collection daily at 03:23 UTC. GitHub totals and recent deltas refresh live when allowed. The approximate recent total combines seven-day channels only with complete baselines. AUR votes fall back to the daily snapshot if its live API is unavailable. PPA: package downloads, including updates. COPR: cumulative RPM downloads. Last successful collection: <span data-repo-dates></span>. These are not unique installations or users. AUR measures votes.</span><span lang="fr">Totaux GitHub : <span data-source></span>. Collecte PPA/COPR quotidienne à 03 h 23 UTC. Totaux et variations GitHub actualisés en direct si autorisés. Le total récent approximatif additionne les canaux sur sept jours seulement avec des références complètes. Les votes AUR utilisent le relevé quotidien si leur API en direct est inaccessible. PPA : téléchargements de paquets, mises à jour comprises. COPR : téléchargements RPM cumulés. Dernière collecte réussie : <span data-repo-dates></span>. Ce ne sont pas des installations ou utilisateurs uniques. AUR mesure les votes.</span>';
     note.querySelectorAll("[data-source]").forEach(function (span) {
       span.textContent = live ? "GitHub API" : stats.generated_at || "Daily snapshot";
     });
@@ -116,7 +135,7 @@
     published = stats;
     var history = Array.isArray(stats.history) ? stats.history : [];
     var latest = history[history.length - 1];
-    if (latest && latest.assets) setDirect(latest.assets, baselineAssets(stats), false);
+    if (latest && latest.assets) setDirect(latest.assets, false);
     var repositoryWeekly = stats.repository_weekly || stats.by_channel || {};
     ["ppa", "copr"].forEach(function (name) {
       setNumber('[data-download-stat="' + name + '"]', latest ? (latest.repositories || {})[name] : null);
@@ -141,18 +160,36 @@
     throw new Error("Too many releases for a complete count");
   }
 
+  async function fetchLiveAurVotes(signal) {
+    var response = await fetch("https://aur.archlinux.org/rpc/v5/info?arg%5B%5D=galleoncore",
+      { cache: "no-store", credentials: "omit", signal: signal });
+    if (!response.ok) throw new Error("AUR API unavailable");
+    var data = await response.json();
+    var entry = data && Array.isArray(data.results) ? data.results.find(function (item) {
+      return item.Name === "galleoncore";
+    }) : null;
+    if (!entry || !Number.isSafeInteger(entry.NumVotes) || entry.NumVotes < 0)
+      throw new Error("Invalid AUR vote count");
+    return entry.NumVotes;
+  }
+
   async function refreshLive() {
     if (!published || document.documentElement.dataset.externalAllowed !== "yes" || controller) return;
     controller = new AbortController();
     var active = controller;
     try {
-      var releases = await fetchLiveReleases(active.signal);
-      if (document.documentElement.dataset.externalAllowed === "yes") {
-        setDirect(assetsFromReleases(releases), baselineAssets(published), true);
-        setNote(published, true);
-      }
-    } catch (error) {
-      if (error.name !== "AbortError") setNote(published, false);
+      await Promise.allSettled([
+        fetchLiveReleases(active.signal).then(function (releases) {
+          if (document.documentElement.dataset.externalAllowed === "yes") {
+            setDirect(assetsFromReleases(releases), true);
+            setNote(published, true);
+          }
+        }),
+        fetchLiveAurVotes(active.signal).then(function (votes) {
+          if (document.documentElement.dataset.externalAllowed === "yes")
+            setNumber('[data-download-stat="aur"]', votes);
+        })
+      ]);
     } finally {
       if (controller === active) controller = null;
     }
@@ -160,7 +197,10 @@
 
   document.addEventListener("galleoncore:external-choice", function (event) {
     if (event.detail.enabled) refreshLive();
-    else if (controller) controller.abort();
+    else {
+      if (controller) controller.abort();
+      if (published) renderSnapshot(published);
+    }
   });
 
   fetch("./downloads-weekly.json", { cache: "no-store" }).then(function (response) {
