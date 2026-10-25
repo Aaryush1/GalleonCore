@@ -178,6 +178,17 @@ Toute donnée externe est non fiable jusqu'à sa validation complète : rapports
 - Angle mort : LSan ne voit que la mémoire devenue inaccessible à la sortie. Le vrai risque pour `galleond`, qui tourne des jours, est une **fuite logique** : un cache de frames ou des QObject qui s'accumulent en restant atteignables.
 - À prévoir quand le démon affichera réellement des images : un **test d'endurance** qui le fait tourner plusieurs heures (changements de fond, vidéos en boucle, débranchements/rebranchements) en surveillant sa mémoire avec heaptrack ou valgrind/massif. Critère : la mémoire se stabilise au lieu de croître.
 
+### Tests d'endurance CI — piste future
+
+**Statut : proposition à étudier, non planifiée.** Aucun développement ni changement de conditions de publication n'est demandé à ce stade.
+
+- **Test court avant une release (10 à 15 min, à évaluer)** : exécuter sur les runners GitHub Actions Ubuntu et Windows existants un scénario reproductible qui répète les ouvertures/fermetures de transport HID, pertes de lecture, échecs de keep-alive, reconnexions, rafales de touches/molettes, rechargements de pages, rendus et mise en veille simulée. Utiliser `tests/FakeTransport.h` et le faux backend de `test_hidtransport`, sans accès USB réel.
+- **Démon complet, si réalisable** : prévoir un mécanisme d'injection d'un transport simulé dans `galleond` en mode de test afin d'exercer sa boucle d'événements et ses contrôleurs, pas seulement `StreamDeck` ou `HidTransport`. Ne pas rendre ce mode accessible par erreur dans une installation normale.
+- **Observabilité et critères** : échec du job en cas de crash, retour inattendu, blocage/timeout ou comportement incorrect après reconnexion ; conserver les journaux de diagnostic utiles sans rapport HID brut ni données sensibles. Mesurer l'évolution de RSS / heap pour repérer une croissance persistante, avec seuils choisis après établissement d'une référence et sans confondre caches chauds et fuite.
+- **Endurance nocturne facultative (~1 h)** : réitérer les scénarios à plus forte durée et surveiller la mémoire ; ce job pourrait rester non bloquant pour éviter de ralentir chaque PR ou release.
+- **Condition de publication éventuelle** : n'ajouter le test court aux dépendances du workflow `.github/workflows/linux-release.yml` qu'après stabilisation du test, maîtrise du temps d'exécution et élimination des échecs intermittents ; conserver les validations actuelles (GCC/Clang, sanitizers, Windows et paquets Linux).
+- **Limites** : les runners GitHub ne reproduisent pas les coupures électriques USB, le firmware Corsair, les conflits OpenRGB/éclairage dynamique, les performances réelles ni les réveils matériels. Les vérifications sur clavier physique restent complémentaires et nécessaires.
+
 ## 12. Liste de la réception du clavier
 
 **Avant de brancher**
