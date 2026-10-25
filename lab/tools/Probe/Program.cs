@@ -44,11 +44,31 @@ var ping = await bragi.Ping();
 log.Note($"ping: status {ping.Status}");
 if (stage == "b") return 0;
 
+if (stage == "d")   // describe the candidate live-colour resources without reading or writing them
+{
+    foreach (ushort res in new ushort[] { 0x22, 0x01 })
+    {
+        try
+        {
+            var open = await bragi.Send(Bragi.OpOpen, [0, (byte)res, (byte)(res >> 8)]);
+            log.Note($"resource 0x{res:X2}: open status {open.Status}");
+            if (open.Status == 0)
+            {
+                var d = await bragi.Send(Bragi.OpDescribe, [0]);
+                log.Note($"resource 0x{res:X2}: describe status {d.Status}, data {Convert.ToHexString(d.Data[..8])}, size {BitConverter.ToUInt32(d.Data.Slice(2, 4))}");
+            }
+        }
+        finally { await bragi.Send(Bragi.OpUnbind, [1, 0]); }
+    }
+    return 0;
+}
+
 // Stage c: read-only backup, following Web Hub's own export walk.
 var outDir = Path.Combine(lab, "backups", stamp);
 Directory.CreateDirectory(outDir);
 var seen = new HashSet<ushort>();
-var queue = new Queue<ushort>(new ushort[] { 38, 31000, 15 });
+// Fixed ids plus the whole user-file range in use (28000+). A missing file just answers status 6.
+var queue = new Queue<ushort>(new ushort[] { 38, 31000, 15 }.Concat(Enumerable.Range(28000, 31).Select(i => (ushort)i)));
 var budget = 80;
 while (queue.Count > 0 && budget-- > 0)
 {
@@ -59,20 +79,7 @@ while (queue.Count > 0 && budget-- > 0)
     await File.WriteAllBytesAsync(Path.Combine(outDir, $"file-{id}.bin"), bytes);
     log.Note($"file {id}: {bytes.Length} bytes saved");
 
-    foreach (var next in Children(id, bytes)) queue.Enqueue(next);
 }
 await File.WriteAllTextAsync(Path.Combine(outDir, "properties.json"), JsonSerializer.Serialize(values, new JsonSerializerOptions { WriteIndented = true }));
 log.Note($"backup: {seen.Count} files tried, saved to {outDir}");
 return 0;
-
-// Which file ids a file points to (layouts per lab/research/webhub-protocol.md §4).
-static IEnumerable<ushort> Children(ushort id, byte[] b)
-{
-    ushort U16(int o) => o + 2 <= b.Length ? BitConverter.ToUInt16(b, o) : (ushort)0;
-    if (id == 15 && U16(0) == 19)                                      // profile list: [hdr 19][count][ids]
-        for (int i = 0; i < U16(2) && i < 8; i++) yield return U16(4 + 2 * i);
-    else if (U16(0) == 27753)                                          // lighting list: [hdr][count][flags,0,id]
-        for (int i = 0; i < U16(2) && i < 16; i++) yield return U16(4 + 4 * i + 2);
-    else if (id >= 28000 && b.Length >= 14 && id != 31000)             // profile file: properties @8, lightings @12
-    { yield return U16(8); yield return U16(12); }
-}
