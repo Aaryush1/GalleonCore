@@ -11,7 +11,7 @@ using Probe;
 const ushort Vid = 0x1B1C, Pid = 0x2B0C;
 var stage = args.Length > 0 ? args[0] : "a";
 if (stage == "selftest") return SelfTest.Run();
-var live = stage.StartsWith("2.") && stage != "2.0";
+var live = (stage.StartsWith("2.") && stage != "2.0") || stage == "release";
 var lab = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
 Directory.CreateDirectory(Path.Combine(lab, "logs"));
@@ -32,6 +32,12 @@ await bragi.StartSession();
 
 var (st, mode) = await bragi.Get(3);
 log.Note($"operating mode (prop 3): status {st}, value {mode}");
+if (stage == "release")   // recovery after a crash: unbind and return to mode 1, whatever state it was left in
+{
+    var ok = await bragi.Release();
+    log.Note(ok ? "RELEASED: keyboard back in self-operated mode." : "!!! Release not confirmed: unplug and replug the keyboard.");
+    return ok ? 0 : 5;
+}
 if (st != 0 || mode != 1) { log.Note("Keyboard is not in self-operated mode (1): stopping without touching anything else."); return 4; }
 
 if (live)

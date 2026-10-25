@@ -26,9 +26,22 @@ Aaryush at the desk, watching and typing at each step. Tool: `tools/Probe` with 
 5. **Release restores the onboard profile immediately** (static green + type-lighting red), with no replug.
 6. **10 fps streaming doesn't affect typing** over 10 s.
 
-## Still unknown (G3)
+## G3 crash test (D4), 17:17–17:20, watched on the second run
 
-- **D4: crash behavior.** If the process dies without releasing (mode stays 2, buffer bound), does the keyboard keep the last frame, revert on its own after a timeout, or need a replug? Test deliberately: kill the process mid-stream.
+The 10 fps blue stream was force-killed (`taskkill /F`) mid-stream, so no release was sent.
+- Runs: 17:17:59 (unwatched) and 17:20:09 (watched).
+- Results, same both times:
+  - **Property 3 still = 2 at least 20 s after the kill.** No device-side timeout.
+  - **Keys keep showing the last frame (blue)** until released. Typing works throughout.
+  - **A new session recovers it with no replug:** `Probe release` (new session id 2, set 3 = 1) restored the onboard green + red typing layer at once.
+- **Consequence: D4 can't rely on the keyboard.** The helper must guarantee release itself:
+  1. Release on every start, before anything else (covers a PC crash, a sleep, or a killed process found later).
+  2. A separate tiny watchdog that releases when the helper process exits for any reason.
+  3. Release on session end, sleep and shutdown notifications.
+
+  Pass condition for D4 stays: onboard profile back within 2 s of the helper dying, no replug.
+
+## Still unknown (G3)
 - Whether a frame persists while holding mode 2 with no further frames (does the device need a stream or keep-alive?). In 2.2 a single frame held for 10 s with only pings.
 - Index range: which of the 146 indices map to physical LEDs beyond the layer key lists (e.g. the 0x94–0x9F region, the top "strip" lamps). Map by sweeping indices with him watching.
 - 20 fps × 10 min and 5 min of fast typing during streaming (D2, D3).
