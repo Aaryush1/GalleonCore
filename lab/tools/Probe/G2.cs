@@ -1,39 +1,7 @@
 // G2 steps (lab/G2-PLAN.md). Every step ends in Release() (unbind, mode 1, confirm), including on Ctrl-C.
+using GalleonLink;
+
 namespace Probe;
-
-static class Frames
-{
-    public const int Leds = 146;
-    public static readonly (byte r, byte g, byte b) Blue = (0, 0, 255), Green = (0, 255, 0), Black = (0, 0, 0);
-
-    // OpenRGB / OpenLinkHub style: `12 00` header, then RGB per LED.
-    public static byte[] Interleaved((byte r, byte g, byte b) c, int n = Leds, int only = -1)
-    {
-        var f = new byte[2 + 3 * n]; f[0] = 0x12;
-        for (int i = 0; i < n; i++)
-        {
-            var k = only < 0 || i == only ? c : Black;
-            f[2 + 3 * i] = k.r; f[3 + 3 * i] = k.g; f[4 + 3 * i] = k.b;
-        }
-        return f;
-    }
-
-    // galleon-deck style: all R, then all G, then all B, no header.
-    public static byte[] Planar((byte r, byte g, byte b) c, int n = Leds)
-    {
-        var f = new byte[3 * n];
-        Array.Fill(f, c.r, 0, n); Array.Fill(f, c.g, n, n); Array.Fill(f, c.b, 2 * n, n);
-        return f;
-    }
-
-    public static byte[] ForVariant(string v, (byte, byte, byte) c) => v switch
-    {
-        "interleaved" => Interleaved(c),
-        "planar146" => Planar(c),
-        "planar138" => Planar(c, 138),
-        _ => throw new ArgumentException($"unknown variant {v} (interleaved | planar146 | planar138)"),
-    };
-}
 
 static class G2
 {

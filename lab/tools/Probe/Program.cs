@@ -6,6 +6,7 @@
 //        Probe selftest   offline checks of the allowlist and frame chunking (no device)
 //        Probe 2.1 .. 2.6 [variant]   G2 live-write steps (lab/G2-PLAN.md); needs Aaryush at the desk
 using System.Text.Json;
+using GalleonLink;
 using Probe;
 
 const ushort Vid = 0x1B1C, Pid = 0x2B0C;
@@ -15,7 +16,15 @@ var live = (stage.StartsWith("2.") && stage != "2.0") || stage == "release";
 var lab = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
 Directory.CreateDirectory(Path.Combine(lab, "logs"));
-using var log = new Log(Path.Combine(lab, "logs", $"{(stage.StartsWith('2') ? "g2" : "g1")}-{stage}-{stamp}.log"));
+using var log = new Log(Path.Combine(lab, "logs", $"{(stage.StartsWith('2') ? "g2" : stage.StartsWith("g3") ? "g3" : "g1")}-{stage}-{stamp}.log"));
+
+if (stage.StartsWith("g3-"))
+{
+    using var g3stop = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; g3stop.Cancel(); };   // Keyboard.Dispose releases
+    try { return await G3.Run(stage, lab, log, g3stop.Token); }
+    catch (OperationCanceledException) { log.Note("stopped (Ctrl-C); released on exit"); return 130; }
+}
 
 var cols = Hid.Enumerate(Vid, Pid);
 log.Note($"{cols.Count} HID collections for {Vid:x4}:{Pid:x4}");

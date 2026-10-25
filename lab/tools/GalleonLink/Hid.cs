@@ -3,14 +3,14 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Microsoft.Win32.SafeHandles;
 
-namespace Probe;
+namespace GalleonLink;
 
-record HidCollection(string Path, ushort Vid, ushort Pid, ushort UsagePage, ushort Usage, int InputLen, int OutputLen, int FeatureLen)
+public record HidCollection(string Path, ushort Vid, ushort Pid, ushort UsagePage, ushort Usage, int InputLen, int OutputLen, int FeatureLen)
 {
     public string Interface => Regex.Match(Path, @"mi_(\d+)", RegexOptions.IgnoreCase) is { Success: true } m ? "MI_" + m.Groups[1].Value : "?";
 }
 
-static class Hid
+public static class Hid
 {
     const uint DIGCF_PRESENT = 0x2, DIGCF_DEVICEINTERFACE = 0x10;
     const uint GENERIC_READ = 0x80000000, GENERIC_WRITE = 0x40000000, FILE_SHARE_READ = 1, FILE_SHARE_WRITE = 2, OPEN_EXISTING = 3, FILE_FLAG_OVERLAPPED = 0x40000000;

@@ -2,18 +2,18 @@
 // the keyboard's stored state or mode is refused before it reaches the device.
 // Framing per Web Hub v1.2.42 (lab/research/webhub-protocol.md): header [sub, 0x01, session, op],
 // reply [sub, flags, ?, op-echo, status, data...]; reply byte1 == 15 means the session expired.
-namespace Probe;
+namespace GalleonLink;
 
-sealed class RefusedException(string why) : Exception($"REFUSED by allowlist: {why}");
+public sealed class RefusedException(string why) : Exception($"REFUSED by allowlist: {why}");
 
-record Reply(byte[] Raw)
+public record Reply(byte[] Raw)
 {
     public byte Op => Raw[3];
     public byte Status => Raw[4];
     public ReadOnlySpan<byte> Data => Raw.AsSpan(5);
 }
 
-sealed class Bragi : IDisposable
+public sealed class Bragi : IDisposable
 {
     public const byte OpSet = 0x01, OpGet = 0x02, OpUnbind = 0x05, OpWriteBegin = 0x06, OpWriteNext = 0x07,
         OpRead = 0x08, OpDescribe = 0x09, OpOpen = 0x0D, OpPing = 0x12, OpSession = 0x1B;
@@ -191,7 +191,7 @@ sealed class Bragi : IDisposable
     }
 }
 
-sealed class Log(string path) : IDisposable
+public sealed class Log(string path) : IDisposable
 {
     readonly StreamWriter _w = new(path);
     public void Tx(ReadOnlySpan<byte> b) => Write("TX " + Hex(b));
