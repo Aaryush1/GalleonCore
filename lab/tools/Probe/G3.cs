@@ -53,12 +53,17 @@ static class G3
     // Offer frames as fast as the 20 fps cap allows; returns how many were shown.
     static async Task<int> Stream(Keyboard kb, Func<int, byte[]> frame, TimeSpan length, CancellationToken stop)
     {
+        // Pace by deadline, not by a fixed sleep after each frame: the first endurance run slept 50 ms
+        // on top of each write and only reached 12.8 fps.
         var sw = Stopwatch.StartNew(); int shown = 0, n = 0;
+        var next = TimeSpan.Zero;
         while (sw.Elapsed < length && !kb.Frozen)
         {
             stop.ThrowIfCancellationRequested();
             if (await kb.Show(frame(n++))) shown++;
-            await Task.Delay(50, stop);
+            next += TimeSpan.FromMilliseconds(50);
+            var wait = next - sw.Elapsed;
+            if (wait > TimeSpan.Zero) await Task.Delay(wait, stop); else next = sw.Elapsed;   // running late: don't try to catch up
         }
         return shown;
     }
