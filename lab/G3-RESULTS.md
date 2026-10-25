@@ -60,7 +60,7 @@ Cosmetic: during reconnect the state reads "live" ~3 s before the session starts
 
 ## Known limitations of the follow-up
 
-- **Web Hub left open but idle:** Web Hub stops polling when idle. After 60 s of that, the link resumes **while Web Hub is still open**. It yields again at Web Hub's next command, but Web Hub's preview may show our frame until the link releases after the next 60 s of quiet. Not tested at the desk. Options for the helper: a longer quiet period, or not resuming while a Web Hub tab exists (it can't see tabs directly).
+- **Web Hub left open but idle:** Web Hub stops polling when idle. After 60 s of that, the link resumes **while Web Hub is still open**. It yields again at Web Hub's next command, but Web Hub's preview may show our frame until the link releases after the next 60 s of quiet. Not tested at the desk. Options for the helper: a longer quiet period, or not resuming while a Web Hub tab exists (it can't see tabs directly). **Decided 2026-10-25 (#19): keep 60 s**; he closes Web Hub quickly.
 
 - If Web Hub connects while we're idle and *not* holding the keys, our next frame takes host mode and can override what Web Hub set. We yield at Web Hub's next poll (≈ 2.5 s), but its preview may show our last frame until it's been closed for 60 s. Fixing that would mean sending a command while Web Hub is active, which rule 2 forbids.
 - Another host that sits in mode 2 for 60 s with no traffic at all would be overridden. That doesn't happen on this machine (Web Hub polls every ~2.5 s), but it's untested against iCUE.
@@ -71,5 +71,5 @@ Cosmetic: during reconnect the state reads "live" ~3 s before the session starts
 - Exact top-strip segments for 0x84–0x91. **Web Hub source checked offline (2026-10-25):**
   - It defines **no strip zones**. For the Galleon (`kb2B0C`) it knows `ledCount: 146` and the Copilot key at **index 129 (0x81)**, which confirms the desk finding. Its default profile lights the strip with the same per-index layer format as the keys.
   - So the sectioning seen at the desk happens in the firmware, and the map has to come from a slower desk pass: one index alone, about 5 s each, for 0x84–0x91.
-- Web Hub left open and idle (see limitations).
+- ~~Web Hub left open and idle~~: accepted as is (#19).
 - D7 72 h soak: with the desk-lights helper, now that yield and reconnect are in.
