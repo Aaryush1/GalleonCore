@@ -47,8 +47,8 @@ static class G2
             {
                 case "2.1":
                     if (await bragi.SetMode(2) != 0) return 10;
-                    log.Note(">>> MODE 2 for 3 s: what do the keys show? Type a few letters now.");
-                    await Hold(3000, bragi, stop);
+                    log.Note(">>> MODE 2 for 10 s: what do the keys show? Type a few letters now.");
+                    await Hold(10000, bragi, stop);
                     return 0;
 
                 case "2.2" or "2.3" or "2.4":
@@ -81,8 +81,8 @@ static class G2
         log.Note($"writing one frame: {what}, {frame.Length} bytes");
         var s = await bragi.WriteFrame(frame);
         if (s != 0) return 13;
-        log.Note(">>> FRAME SENT. Holding 3 s: what do the keys show? Type a few letters now.");
-        await Hold(3000, bragi, stop);
+        log.Note(">>> FRAME SENT. Holding 10 s: what do the keys show? Type a few letters now.");
+        await Hold(10000, bragi, stop);
         return 0;
     }
 
