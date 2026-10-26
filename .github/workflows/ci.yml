@@ -9,8 +9,8 @@ on:
   push:
     branches: [main]
     paths-ignore: ["site/**"]
+  # Required checks must run even on site-only PRs; otherwise main is unmergeable.
   pull_request:
-    paths-ignore: ["site/**"]
 
 concurrency:
   group: galleon-ci-${{ github.event.pull_request.number || github.ref }}
