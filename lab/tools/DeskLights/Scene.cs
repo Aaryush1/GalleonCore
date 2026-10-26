@@ -13,7 +13,7 @@ public sealed record Scene(long Seq, Rgb Base, Zone?[] FKeys, Zone LeftDial, Rgb
 {
     // Before the first scene, and whenever the plugin has been quiet for 30 s: nothing that could be stale.
     public static Scene Neutral(Rgb glow, int fadeMs) =>
-        new(-1, Rgb.Hex("#0f766e"), new Zone?[12], new Zone(Rgb.Black, Effect.Off), glow, fadeMs);
+        new(-1, Rgb.Hex("#115e59"), new Zone?[12], new Zone(Rgb.Black, Effect.Off), glow, fadeMs);
 
     public static readonly Scene Initial = Neutral(Rgb.Hex("#ffffff"), 350);
 }

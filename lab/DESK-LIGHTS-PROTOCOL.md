@@ -46,7 +46,7 @@ The helper sends a status on connect, whenever a field changes, and every 30 s.
 
 ## When the plugin goes quiet
 
-No line for **30 s** means the plugin is stale. The helper switches to the **neutral scene**: base `#0f766e`, all F-keys base, left dial off, and the typing glow kept as it was. A fresh scene ends the fallback. The neutral scene is also what the helper shows before any scene has arrived.
+No line for **30 s** means the plugin is stale. The helper switches to the **neutral scene**: base `#115e59`, all F-keys base, left dial off, and the typing glow kept as it was. A fresh scene ends the fallback. The neutral scene is also what the helper shows before any scene has arrived.
 
 ## Ownership
 

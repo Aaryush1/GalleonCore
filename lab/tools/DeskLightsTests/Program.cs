@@ -73,7 +73,7 @@ Expect("dial: off is dark", Renderer.Dial(new Zone(Rgb.Black, Effect.Off), t0) =
 Expect("dial: steady is its color", Renderer.Dial(new Zone(Rgb.Hex("#f59e0b"), Effect.Steady), t0) == Rgb.Hex("#f59e0b"));
 
 var neutral = Scene.Neutral(Rgb.Hex("#ffffff"), 500);
-Expect("neutral: teal base, no F-keys, dial off, glow kept", neutral.Base == Rgb.Hex("#0f766e") && neutral.FKeys.All(z => z is null)
+Expect("neutral: teal base, no F-keys, dial off, glow kept", neutral.Base == Rgb.Hex("#115e59") && neutral.FKeys.All(z => z is null)
     && neutral.LeftDial.Effect == Effect.Off && neutral.FadeMs == 500);
 
 Console.WriteLine(fail == 0 ? "DESKLIGHTS SELFTEST PASSED" : $"DESKLIGHTS SELFTEST FAILED: {fail}");
