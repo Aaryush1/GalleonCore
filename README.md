@@ -394,7 +394,7 @@ direct package downloads by platform. With optional external content enabled, it
 reads current counts from GitHub when the page opens; otherwise it uses the last
 daily snapshot. Daily baselines also provide approximate seven-day changes.
 PPA and COPR downloads are collected daily at 03:23 UTC; the recent combined
-figure is approximate and appears only with complete seven-day baselines.
+figure includes GitHub, PPA and COPR over a complete seven-day window when available, or a complete daily window otherwise.
 The AUR publishes votes and popularity, not download counts. These figures count
 transfers (including updates), not unique users.
 
