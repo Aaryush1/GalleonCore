@@ -225,6 +225,49 @@ private Q_SLOTS:
         object[QStringLiteral("prerelease")] = true;
         QVERIFY(!bosun::parseUpdateRelease(QJsonDocument(object).toJson(), windowsPlatform()));
     }
+    void startupRefreshesCachedReleaseDespiteRecentPreviousSession()
+    {
+        const QTemporaryDir dir;
+        const auto path = dir.filePath(QStringLiteral("updates.ini"));
+        const qint64 now = QDateTime::currentSecsSinceEpoch();
+        QSettings settings(path, QSettings::IniFormat);
+        settings.setValue(QStringLiteral("release"),
+                          release(QStringLiteral("v0.2.1"), QStringLiteral("GalleonCore-0.2.1-Windows-x86_64-Setup.exe")));
+        settings.setValue(QStringLiteral("lastAttempt"), now - 120);
+        settings.setValue(QStringLiteral("retryAfter"), now - 60);
+        settings.setValue(QStringLiteral("lastChecked"), now - 120);
+        settings.sync();
+        Manager manager;
+        manager.body = release(QStringLiteral("v0.2.2"), QStringLiteral("GalleonCore-0.2.2-Windows-x86_64-Setup.exe"));
+        bosun::UpdateChecker checker({QStringLiteral("0.2.2"), path, windowsPlatform()}, nullptr, &manager);
+        QCOMPARE(checker.latestVersion(), QStringLiteral("0.2.1"));
+        checker.startAutomaticChecks();
+        QCOMPARE(manager.requests, 1);
+        QTRY_VERIFY(!checker.busy());
+        QCOMPARE(checker.latestVersion(), QStringLiteral("0.2.2"));
+        QVERIFY(!checker.available());
+        // Neither a duplicate start nor an hourly tick must trigger a second request.
+        checker.startAutomaticChecks();
+        checker.checkAutomatically();
+        QCOMPARE(manager.requests, 1);
+    }
+    void startupRespectsCooldownAndOptOut()
+    {
+        const QTemporaryDir dir;
+        const auto path = dir.filePath(QStringLiteral("updates.ini"));
+        const qint64 now = QDateTime::currentSecsSinceEpoch();
+        QSettings settings(path, QSettings::IniFormat);
+        settings.setValue(QStringLiteral("lastAttempt"), now - 10);
+        settings.setValue(QStringLiteral("retryAfter"), now + 50);
+        settings.sync();
+        Manager manager;
+        bosun::UpdateChecker checker({QStringLiteral("0.2.0"), path, windowsPlatform()}, nullptr, &manager);
+        checker.startAutomaticChecks();
+        QCOMPARE(manager.requests, 0);
+        checker.setAutomatic(false);
+        checker.startAutomaticChecks();
+        QCOMPARE(manager.requests, 0);
+    }
     void checksPersistAndOpenOnlyOnRequest()
     {
         const QTemporaryDir dir;

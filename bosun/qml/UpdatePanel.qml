@@ -52,7 +52,7 @@ Rectangle {
             }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap; color: "#c9ced6"; font.pixelSize: 14
-                text: qsTr("Automatic checks contact GitHub at most once a day while Bosun is running. Downloads open in your browser; installation remains your choice.")
+                text: qsTr("Automatic checks contact GitHub at startup (unless a recent request is cooling down), then at most once a day while Bosun is running. Downloads open in your browser; installation remains your choice.")
                 visible: panel.updates !== null && !panel.updates.packageManaged && !panel.updates.simulation
             }
             Pill {
