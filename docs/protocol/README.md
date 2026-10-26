@@ -208,7 +208,17 @@ Not found in the client: any name or function for a live per-key colour stream. 
 
 ## Live per-key lighting (Windows, 2026-10-25)
 
-Measured by an outside contributor on a Galleon 100 SD, firmware 2.3.88, Windows 11, through the vendor interface (usage page 0xFF42, usage 1, 128-byte reports). The tool is a small C# library that sends only allowlisted commands, modeled on `bragi-probe`: property 3 = 1 or 2 only, and no file create, write or delete. Source and run notes: [Aaryush1/GalleonCore `lab/`](https://github.com/Aaryush1/GalleonCore/tree/key-lighting/lab). Discussion: [#56](https://github.com/Paullux/GalleonCore/issues/56). The owner watched every visual result. The counts below come from the tool's command log.
+> **Safety, read before writing a frame.**
+> - **The keyboard stays in host-controlled mode after a crash.** If the writing process dies, the keys keep the last frame until something unbinds buffer 0 and sets property 3 back to 1. Plan for that: release on exit, on suspend and on session end, and run a separate watchdog that releases when the writer dies.
+> - **Give way to the Web Hub and any other controller.** Two writers make the keys flicker, and the keyboard reports no error to either of them. Stop sending as soon as another host shows up.
+> - **Write only property 3 = 1 or 2.** Values 3 and 5 put the device in a bootloader. Never create, write or delete files other than the live frame in buffer 0.
+> - Earlier attempts with other frame layouts froze the whole keyboard until it was unplugged (see [galleon-deck](webhub-lighting-analysis.md)). Use exactly the layout below.
+
+Measured by an outside contributor on one Galleon 100 SD, firmware 2.3.88, Windows 11, through the vendor interface (usage page 0xFF42, usage 1, 128-byte reports). The tool is a small C# library that sends only allowlisted commands, modeled on `bragi-probe`. Source and run notes: [Aaryush1/GalleonCore `lab/`](https://github.com/Aaryush1/GalleonCore/tree/key-lighting/lab). Discussion: [#56](https://github.com/Paullux/GalleonCore/issues/56).
+
+### Verified on the hardware
+
+The owner watched every visual result on the keyboard. The counts come from the tool's command log.
 
 **Sequence** (header as above, with the session ID):
 
@@ -218,21 +228,35 @@ Measured by an outside contributor on a Galleon 100 SD, firmware 2.3.88, Windows
 4. Write one frame into buffer 0: `06` with the total length (4 bytes LE) and the first data, then `07` continuations. The frame is `12 00` followed by 146 RGB triplets, one per LED index (440 bytes in all).
 5. To give the keys back: unbind buffer 0 (`05 01 00`), then set property 3 to 1. The keys return to the onboard profile.
 
-**LED index = USB HID usage.** Index 0x3A lit F1, confirmed by eye. Index 0x81 (129) is the Copilot key, which matches the Web Hub key table. Indices from 0x82 drive the light strip along the top edge. The first few light single LEDs from the left end, and later indices light sections of the strip. That map is not finished. Eighteen indices that are absent from the Web Hub lighting record (`00..03`, `66..68`, `70..72`, `78`, `79`, `7b`, `7d..80`, `88`) lit nothing.
+**LED indices.**
 
-**Release behaviour:**
+- Index 0x3A lit F1. During a typing test that lit each pressed key by its USB HID usage, the key that lit was the key pressed.
+- Index 0x81 (129) is the Copilot key, which matches the Web Hub key table.
+- Indices from 0x82 drive the light strip along the top edge. The first few light single LEDs from the left end. Later indices light larger sections.
+- Eighteen indices that are absent from the Web Hub lighting record (`00..03`, `66..68`, `70..72`, `78`, `79`, `7b`, `7d..80`, `88`) lit nothing.
 
-- The keyboard does not leave mode 2 by itself. After the host process was killed mid-stream, the keys kept the last frame (typing still worked) until a new session unbound buffer 0 and set mode 1. No replug was needed. A watchdog process doing this released the keys 0.38 s after a deliberate crash.
+**Release.**
+
+- After the host process was killed mid-stream, the keys kept the last frame and typing still worked. A new session that unbound buffer 0 and set mode 1 gave the keys back, with no replug. A watchdog process doing this released the keys 0.33 to 0.38 s after a deliberate crash.
 - A USB replug returns the keyboard to mode 1.
 - Releasing on Windows suspend works. The keyboard wakes into its onboard profile.
 
-**Another host connecting:** when the Web Hub connects, it sets mode 1. Frame writes keep being answered with status 0, so the writer gets no error. Answers to the Web Hub's own polling (about every 2.5 s) arrive on the same input. If both write, the keys flicker between the two. The contributor's tool treats any answer it did not ask for, or a mode other than 2, as another host, and stops sending until 60 s of quiet. With that rule, the Web Hub showed the onboard colours with no flicker.
+**Another host connecting.** When the Web Hub connects, it sets mode 1. Frame writes keep being answered with status 0. Answers to the Web Hub's own polling (about every 2.5 s) arrive on the same input. If both write, the keys flicker between the two. The contributor's tool treats any answer it did not ask for, or a mode other than 2, as another host, and stops sending until 60 s of quiet. With that rule the Web Hub showed the onboard colours with no flicker.
 
-**Rate and typing:**
+**Rate and typing.**
 
 - 20 frames per second for 10 minutes: 0 failed writes, 0 timeouts. The owner typed fast during the run and saw no lag and no missed keys.
 - One frame (four reports, each waiting for its answer) takes about 28 ms.
-- The stream was capped at 20 fps, following OpenRGB's limit for other Bragi keyboards. Faster rates were not tried.
+
+### Not verified (assumptions and open questions)
+
+- **LED index = HID usage for every key.** Seen for F1, the Copilot key and the keys pressed in the typing test, not checked key by key across the board.
+- **The strip map past the first few indices** is not finished: which index lights which section, and whether sections overlap.
+- **The 20 fps cap** follows OpenRGB's limit for other Bragi keyboards. Faster rates were not tried, so the real limit is unknown.
+- **Status 0 after the Web Hub takes over** is read here as "accepted and ignored". Nothing confirms what the keyboard does with those frames.
+- **What file 0x0022 is.** It reads as 8 zero bytes while idle and accepts a 440-byte frame in host-controlled mode. Its real size and meaning are unknown.
+- **Other firmware, other units, Linux.** Only firmware 2.3.88 on one keyboard under Windows was tested. The stream has not been tried over hidraw.
+- **Other controllers.** Only the Web Hub was tested as the other host. iCUE does not list this keyboard, and Windows Dynamic Lighting on the keyboard's own LampArray was not tested alongside the stream.
 
 ## Stream Deck module facts (interface 0 of `1b1c:2b18`), checked 2026-10-18
 
