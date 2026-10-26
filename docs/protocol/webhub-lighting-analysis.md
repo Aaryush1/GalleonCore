@@ -53,7 +53,7 @@ galleon-deck's `docs/PROTOCOL.md` (MIT) describes a software lighting attempt on
 - enable `08 01 03 00 02`, start a transaction `0d 00 22`, colour data in `06`/`07` block writes, stop `05 01 00`;
 - the only working write was white, as a planar buffer of 3 × 138 bytes; other layouts froze the whole keyboard (typing included) until unplugged, and a 193-LED buffer crashed it.
 
-The Galleon's frames in this capture start with `00 01 00`, while galleon-deck writes `08 …`: the two dialects differ in the framing, or the leading bytes are handled differently by Windows and by hidraw. The command numbers (`01`, `05`, `06`, `07`, `0d`) agree. The value `0x22` in `0d 00 22` is what OpenRGB calls `CORSAIR_V2_LIGHT_CTRL2` and sends in its START_TX packet for lighting on other Corsair keyboards. **No capture of a software lighting stream exists yet**: Web Hub does not produce one (it saves profiles), and iCUE does not list this keyboard.
+The Galleon's frames in this capture start with `00 01 00`, while galleon-deck writes `08 …`: the two dialects differ in the framing, or the leading bytes are handled differently by Windows and by hidraw. The command numbers (`01`, `05`, `06`, `07`, `0d`) agree. The value `0x22` in `0d 00 22` is what OpenRGB calls `CORSAIR_V2_LIGHT_CTRL2` and sends in its START_TX packet for lighting on other Corsair keyboards. No capture of a software lighting stream exists: Web Hub does not produce one (it saves profiles), and iCUE does not list this keyboard. The galleon-deck sequence was confirmed by hand on firmware 2.3.88 (Windows): see [Live per-key lighting](README.md#live-per-key-lighting-windows-2026-10-25).
 
 ## 4. HID LampArray (the safe route), measured
 
