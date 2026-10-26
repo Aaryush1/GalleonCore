@@ -244,14 +244,23 @@ flatpak info com.heroicgameslauncher.hgl
 flatpak info com.valvesoftware.Steam
 ```
 
-Afin de partager le fichier de configuration et les journaux avec Galleon,
-accorder les accès suivants au lanceur concerné. Exemple Heroic :
+Dans **Bosun → Gaming → Linux · Préparer les FPS → Flatpak · autoriser les CSV FPS**,
+cliquer sur **Actualiser**, puis sur **Autoriser les CSV** pour chaque lanceur
+Flatpak installé et utilisé (Heroic, Bottles, Lutris ou Steam). Le bouton ne
+modifie que les permissions de lecture du répertoire de configuration MangoHud,
+d'écriture dans le dossier des CSV FPS et la variable `MANGOHUD_CONFIGFILE`
+pour le lanceur choisi. Il ne donne pas accès au reste du dossier personnel et
+n'active pas MangoHud à la place de l'extension du runtime.
+
+Pour effectuer la même opération manuellement dans un terminal, voici l'exemple
+pour Heroic (adapter les chemins si XDG_CONFIG_HOME ou XDG_DATA_HOME est personnalisé) :
 
 ```sh
 flatpak override --user --filesystem="$HOME/.config/MangoHud:ro" --filesystem="$HOME/.local/share/galleoncore/fps" --env=MANGOHUD_CONFIGFILE="$HOME/.config/MangoHud/MangoHud.conf" com.heroicgameslauncher.hgl
 ```
 
 Pour Steam Flatpak, remplacer l'identifiant final par `com.valvesoftware.Steam`.
+Pour Bottles, utiliser `com.usebottles.bottles` et pour Lutris `net.lutris.Lutris`.
 Quitter et relancer le lanceur après un changement. Cette configuration commune
 évite d'ajouter la variable dans chacun de ses jeux.
 

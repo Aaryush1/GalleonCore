@@ -71,6 +71,75 @@ private Q_SLOTS:
         QCOMPARE(reader.fpsConfig().value("source").toString(), editor.recommendedFpsFolder());
     }
 #endif
+#ifdef Q_OS_LINUX
+    void flatpakPermissionsOnlyForInstalledGameLaunchers() {
+        const QTemporaryDir dir;
+        QVERIFY(QDir().mkpath(dir.filePath("bin")));
+        const auto oldPath = qgetenv("PATH");
+        const auto oldData = qgetenv("XDG_DATA_HOME");
+        const auto oldConfig = qgetenv("XDG_CONFIG_HOME");
+        const auto oldLog = qgetenv("FLATPAK_TEST_LOG");
+        const auto oldFail = qgetenv("FLATPAK_TEST_FAIL");
+        const auto restore = qScopeGuard([oldPath, oldData, oldConfig, oldLog, oldFail] {
+            const auto reset = [](const char *key, const QByteArray &value) {
+                if (value.isNull()) qunsetenv(key); else qputenv(key, value);
+            };
+            reset("PATH", oldPath);
+            reset("XDG_DATA_HOME", oldData);
+            reset("XDG_CONFIG_HOME", oldConfig);
+            reset("FLATPAK_TEST_LOG", oldLog);
+            reset("FLATPAK_TEST_FAIL", oldFail);
+        });
+        const QString fake = dir.filePath("bin/flatpak");
+        QFile script(fake);
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write(R"(#!/bin/sh
+if [ "$1" = list ]; then
+    printf '%s\n' com.heroicgameslauncher.hgl com.usebottles.bottles net.lutris.Lutris com.valvesoftware.Steam
+    exit 0
+fi
+if [ "$1" = override ]; then
+    if [ "$FLATPAK_TEST_FAIL" = 1 ]; then echo "permission refused" >&2; exit 1; fi
+    printf '%s\n' "$@" > "$FLATPAK_TEST_LOG"
+    exit 0
+fi
+exit 2
+)");
+        script.close();
+        QVERIFY(QFile::setPermissions(fake, QFile::permissions(fake) | QFileDevice::ExeUser));
+        const QString log = dir.filePath("flatpak.args");
+        qputenv("PATH", (dir.filePath("bin") + QLatin1Char(':') + QString::fromUtf8(oldPath)).toUtf8());
+        qputenv("XDG_DATA_HOME", dir.filePath("data").toUtf8());
+        qputenv("XDG_CONFIG_HOME", dir.filePath("config").toUtf8());
+        qputenv("FLATPAK_TEST_LOG", log.toUtf8());
+        qunsetenv("FLATPAK_TEST_FAIL");
+        HomeWidgets editor(nullptr, dir.filePath("widgets.json"), true);
+        const auto launchers = editor.flatpakGameLaunchers();
+        QCOMPARE(launchers.size(), 4);
+        QCOMPARE(launchers.first().toMap().value("name").toString(), QStringLiteral("Heroic"));
+        QVERIFY(!editor.allowFlatpakFpsAccess(QStringLiteral("org.unknown.App")));
+        QVERIFY(!editor.allowFlatpakFpsAccess(QStringLiteral("com.heroicgameslauncher.hgl")));
+        QVERIFY(!QFile::exists(log));
+        QVERIFY(editor.configureMangoHud());
+        for (const auto &launcher : launchers) {
+            const auto id = launcher.toMap().value("id").toString();
+            QVERIFY2(editor.allowFlatpakFpsAccess(id), qPrintable(editor.error()));
+            QFile argsFile(log);
+            QVERIFY(argsFile.open(QIODevice::ReadOnly));
+            const QByteArray args = argsFile.readAll();
+            QVERIFY(args.contains("override\n--user\n"));
+            QVERIFY(args.contains(("--filesystem=" + dir.filePath("config/MangoHud") + ":ro").toUtf8()));
+            QVERIFY(args.contains(("--filesystem=" + editor.recommendedFpsFolder()).toUtf8()));
+            QVERIFY(args.contains(("--env=MANGOHUD_CONFIGFILE=" + dir.filePath("config/MangoHud/MangoHud.conf")).toUtf8()));
+            QVERIFY(args.endsWith(id.toUtf8() + "\n"));
+            QCOMPARE(args.count("--filesystem="), 2);
+            argsFile.close();
+        }
+        qputenv("FLATPAK_TEST_FAIL", "1");
+        QVERIFY(!editor.allowFlatpakFpsAccess(QStringLiteral("com.valvesoftware.Steam")));
+        QVERIFY(editor.error().contains(QStringLiteral("permission refused")));
+    }
+#endif
     void defaultsAndCrossProcessReload() {
         const QTemporaryDir dir;
         HomeWidgets writer(nullptr, dir.filePath("widgets.json"));

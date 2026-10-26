@@ -7,6 +7,11 @@ Flickable {
     objectName: "gameModePage"
     required property var widgets
     property bool advanced: false
+    property var flatpakLaunchers: []
+    property bool flatpakError: false
+    Component.onCompleted: {
+        if (!widgets.windowsCapture) flatpakLaunchers = widgets.flatpakGameLaunchers()
+    }
     // The confirmed capture state also covers snapshots without the process flag.
     readonly property bool captureRunning: !!widgets.captureStatus.running || widgets.captureStatus.state === "capturing"
     readonly property bool captureReady: !!widgets.captureStatus.installed && widgets.captureStatus.state === "waiting" && !captureRunning && !widgets.captureStatus.starting
@@ -37,7 +42,6 @@ Flickable {
         height: 1
         color: "#44ffffff"
     }
-    function shellQuote(value) { return "'" + value.split("'").join("'\\''") + "'" }
     function applyEdits() {
         // Keep pending text before backend notifications refresh the bound fields.
         const source = fpsSource.input.text, process = fpsProcess.input.text
@@ -199,6 +203,57 @@ Flickable {
             }
             SetupDivider {}
             Column {
+                objectName: "flatpakFpsAccess"
+                width: parent.width
+                spacing: 8
+                Row {
+                    spacing: 12
+                    SetupTitle { text: qsTr("Flatpak · autoriser les CSV FPS") }
+                    Pill {
+                        objectName: "refreshFlatpakLaunchers"
+                        text: qsTr("Actualiser")
+                        onClicked: page.flatpakLaunchers = page.widgets.flatpakGameLaunchers()
+                    }
+                }
+                SetupText {
+                    text: qsTr("Seuls les lanceurs Flatpak installés apparaissent. Autorisez chaque lanceur utilisé à lire MangoHud.conf et à écrire dans le dossier FPS de Galleon. Aucune autre permission n'est ajoutée.")
+                }
+                SetupText {
+                    visible: page.flatpakLaunchers.length === 0
+                    text: qsTr("Aucun Heroic, Bottles, Lutris ou Steam Flatpak détecté.")
+                }
+                Repeater {
+                    model: page.flatpakLaunchers
+                    delegate: Row {
+                        id: flatpakLauncher
+                        required property var modelData
+                        spacing: 12
+                        Text {
+                            width: 140; height: 32; verticalAlignment: Text.AlignVCenter
+                            text: flatpakLauncher.modelData.name; color: "white"
+                        }
+                        Pill {
+                            text: qsTr("Autoriser les CSV")
+                            onClicked: {
+                                page.flatpakError = !page.widgets.allowFlatpakFpsAccess(flatpakLauncher.modelData.id)
+                                flatpakResult.text = page.flatpakError ? page.widgets.error
+                                    : qsTr("Accès autorisé pour %1. Quittez et relancez ce lanceur.").arg(flatpakLauncher.modelData.name)
+                            }
+                        }
+                    }
+                }
+                SetupText {
+                    id: flatpakResult
+                    visible: text.length > 0
+                    text: ""
+                    color: page.flatpakError ? "#ffb74d" : "#80e5d1"
+                }
+                SetupText {
+                    text: qsTr("Préparez d'abord MangoHud avec le bouton commun. L'extension MangoHud du runtime Flatpak reste nécessaire, ainsi que l'activation du compteur FPS dans le lanceur ou le jeu.")
+                }
+            }
+            SetupDivider {}
+            Column {
                 objectName: "steamFpsHelp"
                 width: parent.width; spacing: 8
                 SetupTitle { text: "Steam" }
@@ -251,11 +306,7 @@ Flickable {
                 SetupText { text: qsTr("2. Avec la préparation commune, aucune commande de lancement n’est nécessaire. Relancez le jeu depuis la bouteille. N’ajoutez pas %command% à ses arguments.") }
                 SetupText { text: qsTr("Le bouton commun crée ces options dans MangoHud.conf ; elles sont affichées ici pour vérification, sans saisie supplémentaire nécessaire :") }
                 SetupCode { objectName: "bottlesFpsConfig"; text: "autostart_log=1\nlog_interval=500\noutput_folder=" + page.widgets.recommendedFpsFolder }
-                SetupText { text: qsTr("Bottles Flatpak : installez l’extension MangoHud correspondant au runtime. Pour partager la configuration et le dossier des mesures, exécutez cette commande dans un terminal, puis quittez et relancez Bottles :") }
-                SetupCode {
-                    objectName: "bottlesFlatpakFpsCommand"
-                    text: "flatpak override --user --filesystem=\"$HOME/.config/MangoHud:ro\" --filesystem=" + page.shellQuote(page.widgets.recommendedFpsFolder) + " --env=MANGOHUD_CONFIGFILE=\"$HOME/.config/MangoHud/MangoHud.conf\" com.usebottles.bottles"
-                }
+                SetupText { text: qsTr("Bottles Flatpak : installez l'extension MangoHud correspondant au runtime, puis utilisez le bouton Autoriser les CSV dans la section Flatpak ci-dessus. Quittez et relancez Bottles après autorisation.") }
             }
             SetupDivider {}
             SetupText { text: qsTr("Besoin d’aide ? Le guide MODE_JEU_LINUX.fr.md détaille l’installation Flatpak, les autres activations Steam et les limites OpenGL / Vulkan / DXVK / VKD3D-Proton. Gamescope nécessite une configuration MangoApp distincte.") }

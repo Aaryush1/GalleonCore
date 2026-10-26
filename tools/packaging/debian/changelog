@@ -1,3 +1,9 @@
+galleoncore (0.2.2-1) unstable; urgency=medium
+
+  * Add scoped Flatpak launcher access to MangoHud FPS CSV logs in Bosun.
+
+ -- Paul Woisard <paulwoisard@gmail.com>  Mon, 26 Oct 2026 12:52:30 +0100
+
 galleoncore (0.2.1-1) unstable; urgency=medium
 
   * Add repository-aware update notifications and update simulation in Bosun.

@@ -961,8 +961,10 @@ private Q_SLOTS:
                 const auto *pol = window->findChild<QQuickItem *>("polFpsLaunchCommand");
                 QVERIFY(pol && pol->property("text").toString().contains("export BEFORE_WINE="));
                 QVERIFY(!pol->property("text").toString().contains("%command%"));
-                const auto *bottles = window->findChild<QQuickItem *>("bottlesFlatpakFpsCommand");
-                QVERIFY(bottles && bottles->property("text").toString().contains("com.usebottles.bottles"));
+                const auto *flatpak = window->findChild<QQuickItem *>("flatpakFpsAccess");
+                QVERIFY(flatpak && flatpak->isVisible());
+                const auto *refresh = window->findChild<QQuickItem *>("refreshFlatpakLaunchers");
+                QVERIFY(refresh);
             }
             QTest::qWait(100);
             const auto screenshot = qobject_cast<QQuickWindow *>(window)->grabWindow();
