@@ -39,7 +39,7 @@ public:
     [[nodiscard]] QString steamLaunchOptions() const;
     Q_INVOKABLE bool prepareFpsFolder();
     Q_INVOKABLE bool configureMangoHud();
-    Q_INVOKABLE QVariantList flatpakGameLaunchers() const;
+    Q_INVOKABLE [[nodiscard]] QVariantList flatpakGameLaunchers() const;
     Q_INVOKABLE bool allowFlatpakFpsAccess(const QString &appId);
     [[nodiscard]] QVariantMap fpsConfig() const { return m_fpsConfig; }
     [[nodiscard]] QVariantMap gameState() const { return m_gameState; }
