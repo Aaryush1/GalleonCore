@@ -10,10 +10,11 @@ namespace Probe;
 static class Typing
 {
     static readonly Rgb Base = Rgb.Hex("#0f766e"), Glow = Rgb.Hex("#ffffff");
-    static readonly TimeSpan Fade = TimeSpan.FromMilliseconds(350);
+    static TimeSpan Fade = TimeSpan.FromMilliseconds(350);   // first demo: "goes back to normal too fast"
 
-    public static async Task<int> Run(Keyboard kb, double minutes, Log log, CancellationToken stop)
+    public static async Task<int> Run(Keyboard kb, double minutes, Log log, CancellationToken stop, double? fadeMs = null)
     {
+        if (fadeMs is { } f) Fade = TimeSpan.FromMilliseconds(f);
         var sw = Stopwatch.StartNew();
         var presses = new System.Collections.Concurrent.ConcurrentQueue<(byte usage, TimeSpan at)>();
         using var wake = new SemaphoreSlim(0);

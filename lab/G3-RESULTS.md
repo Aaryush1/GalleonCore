@@ -74,3 +74,11 @@ Cosmetic: during reconnect the state reads "live" ~3 s before the session starts
   - The desk pass settles it: one index alone, 5 s each.
 - ~~Web Hub left open and idle~~: accepted as is (#19).
 - D7 72 h soak: with the desk-lights helper, now that yield and reconnect are in.
+
+## Typing-glow demo (#21), 2026-10-25 19:50
+
+`Probe g3-typing 2`: teal base, the pressed key glows white and fades over 350 ms, drawn by the helper from Raw Input (key codes never logged).
+
+- **455 presses, all on mapped keys, 0 errors. Press → on the keys: p50 31 ms, p95 67 ms, max 94 ms** at the 20 fps cap.
+- His verdict: "the delay feels fine… very high quality, possibly even more responsive than Galleon's hub." He likes teal → white (open to other colors). **The fade is too short.** Rerun with a longer fade: `Probe g3-typing 2 <fadeMs>`.
+- **Decision #21: the helper draws the typing glow** (the onboard type lighting stays off while the helper holds the keys).
