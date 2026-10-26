@@ -84,7 +84,7 @@ Keyboard part `2b0c`, the 108 lamps grouped by Y position:
 
 IDs 0–93 fit a full-size layout without a numpad (the Stream Deck module takes its place). The row counts are an inference from positions, not from key names: the interface gives no key labels. What lamps 94–107 are (ambient bar, indicators, ...) is **not known**, and their Y = 0 may be a placeholder rather than a measurement.
 
-Stream Deck part `2b18`: two lamps at X = 386.0 mm and 418.3 mm, Y = 19.0 mm, z = 0.994 mm, 20 ms latency. Confirmed by eye (OpenRGB, "Dynamic Light" device, whole zone set to one colour, 2026-10-18): they are the LEDs around the two dials. Which lamp is the left dial and which the right has not been tested yet; by position, ID 0 (X = 386 mm) should be the left one.
+Stream Deck part `2b18`: two lamps at X = 386.0 mm and 418.3 mm, Y = 19.0 mm, z = 0.994 mm, 20 ms latency. Confirmed by eye (OpenRGB, "Dynamic Light" device, whole zone set to one colour, 2026-10-18): they are the LEDs around the two dials. By position, ID 0 (X = 386 mm) should be the left one, but through Windows Dynamic Lighting it is the other way round: with `Windows.Devices.Lights.LampArray` on this part, index 1 lights the left dial and index 0 the right one (confirmed by eye, 2026-10-26, firmware 2.3.88). Whether Windows' indices are the HID lamp IDs here was not checked. Windows gives a packaged app control of the dials about 5 s after it starts, and only when it is the background lighting controller in Settings.
 
 Quirk: the keyboard part answers with an ID byte other than the one asked for. Attributes report (asked for 1): ID byte `04` on one run. Lamp responses (asked for 3): ID byte `02` for all 108. The Stream Deck part always answers with the right ID (224, 226). A guess, not verified: the keyboard echoes the last report ID used on the interface. Either way, the parser must check the ID byte.
 
@@ -247,6 +247,62 @@ The owner watched every visual result on the keyboard. The counts come from the 
 
 - 20 frames per second for 10 minutes: 0 failed writes, 0 timeouts. The owner typed fast during the run and saw no lag and no missed keys.
 - One frame (four reports, each waiting for its answer) takes about 28 ms.
+
+### Worked example: one frame, F1 green
+
+Report length 129 bytes on Windows (report ID 0, then 128 bytes). Bytes below are the 128 after the report ID, as in the log that follows. Session ID 1. The frame is `12 00` and 146 RGB triplets (440 bytes), all black except LED 0x3A (F1) green. It goes out as one `06` and three `07` reports:
+
+| Report | Header | Payload | Frame bytes carried | LEDs |
+|---|---|---|---|---|
+| 1 | `00 01 01 06` | `00` (buffer 0), `b8 01 00 00` (length 440, LE32), then frame bytes | 0–118 (119 bytes): `12 00` + 39 triplets | 0x00–0x26 |
+| 2 | `00 01 01 07` | `00` (buffer 0), then frame bytes | 119–241 (123 bytes) | 0x27–0x4F |
+| 3 | `00 01 01 07` | `00`, then frame bytes | 242–364 (123 bytes) | 0x50–0x78 |
+| 4 | `00 01 01 07` | `00`, then frame bytes | 365–439 (75 bytes) | 0x79–0x91 |
+
+F1's green byte is frame byte 2 + 3 × 0x3A + 1 = 177. That falls in report 2 at byte 63 (4 header bytes, 1 buffer byte, then frame byte 119 onward). Every report is zero-padded to the full length. Each answer echoes the command at byte 3 with status 0 at byte 4.
+
+### Command log
+
+From the run that confirmed F1 (2026-10-25). Command reports and answers only: no input reports, keystrokes or device paths were logged on this interface. The 4 random bytes of the session start are replaced with `rr`. Trailing zero padding is cut, as in the tool's log. Lines starting with `#` are the tool's own notes.
+
+```text
+17:15:32.537 TX 00 01 00 1b 01 rr rr rr rr
+17:15:32.543 RX 00 00 00 1b 00 rr rr rr rr 01
+17:15:32.544 # session start: status 0, session id 1
+17:15:32.545 TX 00 01 01 02 03 00 00 00
+17:15:32.551 RX 00 00 01 02 00 01 00 00
+17:15:32.552 # operating mode (prop 3): status 0, value 1
+17:15:32.554 TX 00 01 01 01 03 00 02 00
+17:15:32.559 RX 00 00 01 01 00 00 00 00
+17:15:32.559 # set mode 2: status 0
+17:15:32.560 TX 00 01 01 0d 00 22 00 00
+17:15:32.567 RX 00 00 01 0d 00 00 00 00
+17:15:32.567 # open 0x22: status 0
+17:15:32.567 # writing one frame: only LED 0x3A (F1) green, 440 bytes
+17:15:32.569 TX 00 01 01 06 00 b8 01 00 00 12
+17:15:32.575 RX 00 00 01 06 00 00 00 00
+17:15:32.576 TX 00 01 01 07 00 [58 zero bytes] ff
+17:15:32.583 RX 00 00 01 07 00 00 00 00
+17:15:32.583 TX 00 01 01 07 00 00 00 00
+17:15:32.591 RX 00 00 01 07 00 00 00 00
+17:15:32.591 TX 00 01 01 07 00 00 00 00
+17:15:32.599 RX 00 00 01 07 00 00 00 00
+17:15:32.599 # FRAME SENT. Holding 10 s: what do the keys show?
+17:15:33.612 TX 00 01 01 12 00 00 00 00
+17:15:33.619 RX 00 00 01 12 00 00 00 00
+             (9 more ping/answer pairs, one per second)
+17:15:42.740 TX 00 01 01 05 01 00 00 00
+17:15:42.747 RX 00 00 01 05 00 00 00 00
+17:15:42.747 TX 00 01 01 01 03 00 01 00
+17:15:42.963 RX 00 00 01 01 00 00 00 00
+17:15:42.963 # set mode 1: status 0
+17:15:42.963 TX 00 01 01 02 03 00 00 00
+17:15:42.971 RX 00 00 01 02 00 01 00 00
+17:15:42.971 # release: mode now 1 (status 0)
+17:15:42.971 # RELEASED: keyboard back in self-operated mode.
+```
+
+The keyboard pings are the tool's own keep-alive while it holds the frame. The release is the unbind of buffer 0 (`05 01 00`), then mode 1, then a read of property 3 to confirm.
 
 ### Not verified (assumptions and open questions)
 
