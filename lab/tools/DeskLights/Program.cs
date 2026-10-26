@@ -35,22 +35,32 @@ var presses = new Dictionary<byte, TimeSpan>();
 using var wake = new SemaphoreSlim(0);
 
 using var dials = new Dials(log);
+using var mouse = new Mouse(log);
+using var presence = new Presence();
 Keyboard? kb = null;
 PipeServer? pipe = null;
 string lastStatus = "";
 
-string Status()
+// idleSeconds is sampled whenever a status is built: up to 30 s old by the time the plugin reads it, unless
+// the status was sent for another reason. A status goes out at once on lock/unlock and when idle crosses 600 s.
+(string line, string key) Status()
 {
     var keys = kb is null ? "absent" : kb.Frozen ? "frozen" : !kb.Connected ? "unplugged" : kb.Yielded ? "yielded" : "live";
-    lock (gate) return Protocol.Status(keys, dials.State, stale ? null : applied.Seq, lastError);
+    var idle = Presence.IdleSeconds();
+    lock (gate)
+    {
+        long? seq = stale ? null : applied.Seq;
+        return (Protocol.Status(keys, dials.State, mouse.State, seq, lastError, idle, presence.Locked),
+                Protocol.StatusKey(keys, dials.State, mouse.State, seq, lastError, idle, presence.Locked));
+    }
 }
 
 void PushStatus(bool force = false)
 {
-    var s = Status();
-    if (!force && s == lastStatus) return;
-    lastStatus = s;
-    pipe?.Send(s);
+    var (line, key) = Status();
+    if (!force && key == lastStatus) return;
+    lastStatus = key;
+    pipe?.Send(line);
 }
 
 void OnLine(string line)
@@ -64,7 +74,8 @@ void OnLine(string line)
             if (kind == Protocol.Kind.Scene && parsed is not null)
             {
                 if (stale) log.Note("plugin scene received: showing it");
-                applied = scene = parsed; stale = false; lastError = null;
+                applied = scene = Scene.Adopt(ReferenceEquals(applied, Scene.Initial) ? null : applied, parsed, clock.Elapsed);
+                stale = false; lastError = null;
             }
         }
         if (kind == Protocol.Kind.Unknown) log.Note("pipe: ignored a line of unknown type");
@@ -78,10 +89,12 @@ void OnLine(string line)
     PushStatus();
 }
 
-pipe = new PipeServer(PipeName, log, OnLine, Status);
+pipe = new PipeServer(PipeName, log, OnLine, () => Status().line);
 var pipeTask = pipe.Run(stop.Token);
 
 dials.Changed += () => PushStatus();
+mouse.Changed += () => PushStatus();
+presence.Changed += () => { log.Note($"session {(presence.Locked ? "locked" : "unlocked")}"); PushStatus(); wake.Release(); };
 dials.Start();
 
 using var keys = new RawKeys((usage, _) => { lock (gate) presses[usage] = clock.Elapsed; wake.Release(); });
@@ -118,7 +131,8 @@ try
             s = scene; p = new Dictionary<byte, TimeSpan>(presses);
         }
 
-        dials.Set(Renderer.Dial(s.LeftDial, now), Rgb.Black);
+        dials.Set(Renderer.Dial(s.LeftDial, s, now), Renderer.Dial(s.RightDial, s, now));
+        mouse.Set(s.Mouse is { } mz ? Renderer.Dial(mz, s, now) : null);
 
         if (kb is { } k)
         {
@@ -132,7 +146,7 @@ try
 
         if (now - lastStatusTick > TimeSpan.FromSeconds(30)) { lastStatusTick = now; PushStatus(force: true); } else PushStatus();
 
-        var animating = Renderer.KeysAnimating(s, p, now) || s.LeftDial.Effect == Effect.Pulse;
+        var animating = Renderer.KeysAnimating(s, p, now) || Renderer.DevicesAnimating(s, now);
         await wake.WaitAsync(animating ? TimeSpan.FromMilliseconds(50) : TimeSpan.FromMilliseconds(500), stop.Token).ContinueWith(_ => { });
     }
 }
@@ -141,6 +155,7 @@ finally
     log.Note("stopping: releasing the keys and dials");
     kb?.Dispose();
     dials.Dispose();
+    mouse.Dispose();
 }
 await pipeTask.ContinueWith(_ => { });
 return 0;

@@ -5,12 +5,29 @@ using GalleonLink;
 
 namespace DeskLights;
 
-public enum Effect { Steady, Pulse, Off }
+public enum Effect { Steady, Pulse, Off, Breathe, Blink }
 
-public sealed record Zone(Rgb Color, Effect Effect);
+public sealed record Zone(Rgb Color, Effect Effect)
+{
+    public static readonly Zone Dark = new(Rgb.Black, Effect.Off);
+}
 
 public sealed record Scene(long Seq, Rgb Base, Zone?[] FKeys, Zone LeftDial, Rgb Glow, int FadeMs)
 {
+    // Protocol v2 fields; each default is what an absent field means.
+    public Zone RightDial { get; init; } = Zone.Dark;
+    public Zone? Copilot { get; init; }          // null = base
+    public Rgb?[]? Strip { get; init; }          // null = base; else 16 entries for LEDs 0x82..0x91 (null entry = base)
+    public double KeysLevel { get; init; } = 1.0; // multiplies the base color only
+    public Zone? Mouse { get; init; }            // null = don't drive the mouse
+
+    // When the helper first received a scene with this seq (helper clock). `blink` counts from here.
+    public TimeSpan ReceivedAt { get; init; }
+
+    // A re-sent scene with the same seq keeps the original arrival time, so its blink doesn't fire again.
+    public static Scene Adopt(Scene? previous, Scene incoming, TimeSpan now) =>
+        incoming with { ReceivedAt = previous is not null && previous.Seq == incoming.Seq ? previous.ReceivedAt : now };
+
     // Before the first scene, and whenever the plugin has been quiet for 30 s: nothing that could be stale.
     public static Scene Neutral(Rgb glow, int fadeMs) =>
         new(-1, Rgb.Hex("#115e59"), new Zone?[12], new Zone(Rgb.Black, Effect.Off), glow, fadeMs);
@@ -23,7 +40,7 @@ public sealed class SceneException(string why) : Exception(why);
 public static class Protocol
 {
     public const int MaxLine = 64 * 1024;
-    static readonly HashSet<string> SceneFields = ["type", "seq", "base", "fkeys", "leftDial", "typing"];
+    static readonly HashSet<string> SceneFields = ["type", "seq", "base", "fkeys", "leftDial", "typing", "rightDial", "copilot", "strip", "keysLevel", "mouse"];
 
     public enum Kind { Hello, Heartbeat, Scene, Unknown }
 
@@ -42,8 +59,8 @@ public static class Protocol
             switch (t.GetString())
             {
                 case "hello":
-                    if (!root.TryGetProperty("protocol", out var p) || p.ValueKind != JsonValueKind.Number || p.GetInt32() != 1)
-                        throw new SceneException("unsupported protocol (want 1)");
+                    if (!root.TryGetProperty("protocol", out var p) || p.ValueKind != JsonValueKind.Number || !p.TryGetInt32(out var ver) || ver is not (1 or 2))
+                        throw new SceneException("unsupported protocol (want 1 or 2)");
                     return (Kind.Hello, null);
                 case "heartbeat": return (Kind.Heartbeat, null);
                 case "scene": return (Kind.Scene, ParseScene(root));
@@ -77,7 +94,41 @@ public static class Protocol
         var fade = Need(typing, "fadeMs", JsonValueKind.Number);
         if (!fade.TryGetInt32(out var fadeMs) || fadeMs is < 0 or > 3000) throw new SceneException("typing.fadeMs must be 0..3000");
 
-        return new Scene(seq, b, fkeys, dial, glow, fadeMs);
+        var scene = new Scene(seq, b, fkeys, dial, glow, fadeMs);
+
+        if (root.TryGetProperty("rightDial", out var rd))
+            scene = scene with { RightDial = ParseZone(rd, "rightDial", allowOff: true) };
+        if (root.TryGetProperty("copilot", out var cp) && cp.ValueKind != JsonValueKind.Null)
+            scene = scene with { Copilot = ParseZone(cp, "copilot", allowOff: true) };
+        if (root.TryGetProperty("mouse", out var mo) && mo.ValueKind != JsonValueKind.Null)
+            scene = scene with { Mouse = ParseZone(mo, "mouse", allowOff: true) };
+
+        if (root.TryGetProperty("strip", out var st) && st.ValueKind != JsonValueKind.Null)
+        {
+            if (st.ValueKind != JsonValueKind.Array) throw new SceneException("strip must be an array or null");
+            if (st.GetArrayLength() != 16) throw new SceneException($"strip must have 16 entries, not {st.GetArrayLength()}");
+            var strip = new Rgb?[16];
+            int j = 0;
+            foreach (var e in st.EnumerateArray())
+            {
+                strip[j] = e.ValueKind switch
+                {
+                    JsonValueKind.Null => null,
+                    JsonValueKind.String => Color(e, $"strip[{j}]"),
+                    _ => throw new SceneException($"strip[{j}] must be #rrggbb or null"),
+                };
+                j++;
+            }
+            scene = scene with { Strip = strip };
+        }
+
+        if (root.TryGetProperty("keysLevel", out var kl))
+        {
+            if (kl.ValueKind != JsonValueKind.Number || !kl.TryGetDouble(out var level) || level is < 0.1 or > 1.0)
+                throw new SceneException("keysLevel must be a number 0.1..1.0");
+            scene = scene with { KeysLevel = level };
+        }
+        return scene;
     }
 
     static Zone ParseZone(JsonElement e, string where, bool allowOff)
@@ -87,6 +138,8 @@ public static class Protocol
         {
             "steady" => Effect.Steady,
             "pulse" => Effect.Pulse,
+            "breathe" => Effect.Breathe,
+            "blink" => Effect.Blink,
             "off" when allowOff => Effect.Off,
             var x => throw new SceneException($"{where}.effect '{x}' not allowed"),
         };
@@ -108,6 +161,15 @@ public static class Protocol
         return Rgb.Hex(s);
     }
 
-    public static string Status(string keys, string dials, long? seq, string? error) =>
-        JsonSerializer.Serialize(new { type = "status", keys, dials, seq, error });
+    public const int Version = 2;
+    public const int IdleThresholdSeconds = 600;
+
+    // idleSeconds is sampled when the line is built and may be up to 30 s stale (the periodic status cadence).
+    public static string Status(string keys, string dials, string mouse, long? seq, string? error, int idleSeconds, bool locked) =>
+        JsonSerializer.Serialize(new { type = "status", protocol = Version, keys, dials, mouse, seq, error, idleSeconds, locked });
+
+    // Two statuses with the same key are "no change": idleSeconds itself is left out (it moves every second), but
+    // crossing the 600 s threshold either way changes the key, so that crossing sends a status at once.
+    public static string StatusKey(string keys, string dials, string mouse, long? seq, string? error, int idleSeconds, bool locked) =>
+        $"{keys}|{dials}|{mouse}|{seq}|{error}|{locked}|{idleSeconds >= IdleThresholdSeconds}";
 }
