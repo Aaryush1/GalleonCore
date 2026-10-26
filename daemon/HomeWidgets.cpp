@@ -204,7 +204,7 @@ bool HomeWidgets::configureMangoHud() {
     }
     return setFpsSource(folder, {}) && apply();
 }
-QVariantList HomeWidgets::flatpakGameLaunchers() const {
+QVariantList HomeWidgets::flatpakGameLaunchers() const { // NOLINT(readability-convert-member-functions-to-static) -- Invoked from QML on this QObject instance.
     QVariantList result;
 #ifdef Q_OS_LINUX
     const QString program = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
