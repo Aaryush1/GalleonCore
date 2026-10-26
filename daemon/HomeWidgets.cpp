@@ -204,6 +204,72 @@ bool HomeWidgets::configureMangoHud() {
     }
     return setFpsSource(folder, {}) && apply();
 }
+QVariantList HomeWidgets::flatpakGameLaunchers() const {
+    QVariantList result;
+#ifdef Q_OS_LINUX
+    const QString program = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
+    if (program.isEmpty()) return result;
+    QProcess process;
+    process.start(program, {QStringLiteral("list"), QStringLiteral("--app"), QStringLiteral("--columns=application")});
+    if (!process.waitForFinished(5000)) {
+        if (process.state() != QProcess::NotRunning) { process.kill(); process.waitForFinished(1000); }
+        return result;
+    }
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) return result;
+    auto installed = QString::fromUtf8(process.readAllStandardOutput()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    for (auto &id : installed) id = id.trimmed();
+    const auto addIfInstalled = [&result, &installed](const QString &name, const QString &id) {
+        if (installed.contains(id)) result.append(QVariantMap{{"name", name}, {"id", id}});
+    };
+    addIfInstalled(QStringLiteral("Heroic"), QStringLiteral("com.heroicgameslauncher.hgl"));
+    addIfInstalled(QStringLiteral("Bottles"), QStringLiteral("com.usebottles.bottles"));
+    addIfInstalled(QStringLiteral("Lutris"), QStringLiteral("net.lutris.Lutris"));
+    addIfInstalled(QStringLiteral("Steam"), QStringLiteral("com.valvesoftware.Steam"));
+#endif
+    return result;
+}
+bool HomeWidgets::allowFlatpakFpsAccess(const QString &appId) {
+    const auto fail = [this](const QString &message) {
+        m_error = message; Q_EMIT changed(); return false;
+    };
+#ifdef Q_OS_LINUX
+    // Never pass an arbitrary application ID to flatpak override.
+    bool supportedAndInstalled = false;
+    for (const auto &launcher : flatpakGameLaunchers()) {
+        if (launcher.toMap().value(QStringLiteral("id")).toString() == appId) {
+            supportedAndInstalled = true;
+            break;
+        }
+    }
+    if (!supportedAndInstalled) return fail(tr("This Flatpak game launcher is not installed or could not be verified."));
+    const QString configDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/MangoHud");
+    const QString configFile = configDir + QStringLiteral("/MangoHud.conf");
+    const QString folder = recommendedFpsFolder();
+    if (!QFileInfo(configFile).isFile() || !QFileInfo(folder).isDir())
+        return fail(tr("Configure MangoHud for Galleon before granting Flatpak access."));
+    const QString program = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
+    if (program.isEmpty()) return fail(tr("Flatpak is not available."));
+    QProcess process;
+    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.start(program, {QStringLiteral("override"), QStringLiteral("--user"),
+        QStringLiteral("--filesystem=") + configDir + QStringLiteral(":ro"),
+        QStringLiteral("--filesystem=") + folder,
+        QStringLiteral("--env=MANGOHUD_CONFIGFILE=") + configFile, appId});
+    if (!process.waitForFinished(8000)) {
+        if (process.state() != QProcess::NotRunning) { process.kill(); process.waitForFinished(1000); }
+        return fail(tr("Flatpak permission update timed out or could not start."));
+    }
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0)
+        return fail(tr("Flatpak permission update failed: %1")
+            .arg(QString::fromUtf8(process.readAllStandardOutput()).trimmed().left(300)));
+    m_error.clear();
+    Q_EMIT changed();
+    return true;
+#else
+    Q_UNUSED(appId)
+    return fail(tr("Flatpak permissions are available only on Linux."));
+#endif
+}
 bool HomeWidgets::setFpsSource(const QString &source, const QString &process) {
     load();
     const auto url = QUrl(source.trimmed());
