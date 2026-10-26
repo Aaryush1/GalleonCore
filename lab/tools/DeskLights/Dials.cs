@@ -1,4 +1,4 @@
-// The Galleon's two dial rings through Windows Dynamic Lighting (LampArray, PID 11032; left = lamp 0, right = lamp 1).
+// The Galleon's two dial rings through Windows Dynamic Lighting (LampArray, PID 11032; left = lamp 1, right = lamp 0: desk-verified 2026-10-26, Phase 0 had them the other way).
 // Phase 0: they obey Windows, one lamp each, and Windows hands control over ~5 s after start, so repaint on
 // AvailabilityChanged. Needs the packaged app to be the background light controller. Never touches the keyboard's
 // own LampArray (PID 11020): the keys are driven through GalleonLink.
@@ -72,7 +72,7 @@ public sealed class Dials(Log log) : IDisposable
         lock (_gate)
         {
             if (_lamps is not { IsAvailable: true } la) return;
-            try { la.SetColorsForIndices([C(_left), C(_right)], [0, 1]); }
+            try { la.SetColorsForIndices([C(_left), C(_right)], [1, 0]); }   // desk-verified 2026-10-26: lamp 1 is the LEFT dial
             catch (Exception e) { log.Note($"dials: paint failed: {e.Message}"); }
         }
     }

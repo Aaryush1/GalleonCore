@@ -51,7 +51,7 @@ No line for **30 s** means the plugin is stale. The helper switches to the **neu
 ## Ownership
 
 - Keys, Copilot key and top strip: GalleonLink (`Keyboard`), with all its safety rules (release on exit and suspend, yield to Web Hub, reconnect, 20 fps cap). The helper starts `Guard` with its own PID.
-- Dials (and later the mouse): Windows Dynamic Lighting, `LampArray` with PID 11032. Left dial = lamp 0, right dial = lamp 1. The helper never touches the keyboard's own LampArray (PID 11020); those keys ignore it anyway.
+- Dials (and later the mouse): Windows Dynamic Lighting, `LampArray` with PID 11032. Left dial = lamp 1, right dial = lamp 0 (desk-verified 2026-10-26; Phase 0 assumed the reverse). The helper never touches the keyboard's own LampArray (PID 11020); those keys ignore it anyway.
 
 ## Version 2 (2026-10-25, built overnight; not installed until a desk check)
 
