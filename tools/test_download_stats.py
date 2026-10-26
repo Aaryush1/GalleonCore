@@ -48,6 +48,7 @@ class DownloadStatsTests(unittest.TestCase):
         result = build_stats(releases, {"ppa": 2, "copr": 3}, 1,
                              {}, datetime(2026, 10, 22, tzinfo=timezone.utc))
         self.assertIsNone(result["total"])
+        self.assertIsNone(result["total_window"])
         self.assertIsNone(result["since"])
 
     def test_deltas_use_asset_ids_and_ignore_count_resets(self):
@@ -66,6 +67,7 @@ class DownloadStatsTests(unittest.TestCase):
                              previous, datetime(2026, 10, 22, tzinfo=timezone.utc),
                              repository_weekly={"ppa": 2, "copr": 5})
         self.assertEqual(result["total"], 18)
+        self.assertEqual(result["total_window"], "7d")
         self.assertEqual(result["by_channel"]["ubuntu"], 7)
         self.assertEqual(result["by_channel"]["windows"], 0)
         self.assertEqual(result["by_channel"]["appimage"], 4)
@@ -82,6 +84,43 @@ class DownloadStatsTests(unittest.TestCase):
                              repository_weekly={"ppa": 2, "copr": None})
         self.assertIsNone(result["by_channel"]["copr"])
         self.assertIsNone(result["total"])
+
+    def test_daily_total_includes_ppa_and_copr_before_seven_days(self):
+        previous = {"history": [{"date": "2026-10-25",
+            "assets": {"10": {"count": 3, "platform": "windows"}},
+            "repositories": {"ppa": 7, "copr": 12},
+            "repository_checked_at": {"ppa": "2026-10-25", "copr": "2026-10-25"}}]}
+        releases = [{"assets": [
+            {"id": 10, "name": "demo-Windows-x86_64.zip", "download_count": 5}]}]
+        result = build_stats(
+            releases, {"ppa": 11, "copr": 15}, None, previous,
+            datetime(2026, 10, 26, tzinfo=timezone.utc),
+            {"ppa": "2026-10-26", "copr": "2026-10-26"})
+        self.assertIsNone(result["since"])
+        self.assertEqual(result["total_window"], "24h")
+        self.assertEqual(result["total"], 9)
+
+    def test_missing_copr_is_not_assumed_zero(self):
+        previous = {"history": [{"date": "2026-10-25",
+            "assets": {}, "repositories": {"ppa": 7, "copr": 12},
+            "repository_checked_at": {"ppa": "2026-10-25", "copr": "2026-10-25"}}]}
+        result = build_stats(
+            [], {"ppa": 11, "copr": 15}, None, previous,
+            datetime(2026, 10, 26, tzinfo=timezone.utc),
+            {"ppa": "2026-10-26", "copr": "2026-10-25"})
+        self.assertIsNone(result["total"])
+        self.assertIsNone(result["total_window"])
+
+    def test_zero_is_valid_when_all_channels_are_measured(self):
+        previous = {"history": [{"date": "2026-10-25",
+            "assets": {}, "repositories": {"ppa": 7, "copr": 12},
+            "repository_checked_at": {"ppa": "2026-10-25", "copr": "2026-10-25"}}]}
+        result = build_stats(
+            [], {"ppa": 7, "copr": 12}, None, previous,
+            datetime(2026, 10, 26, tzinfo=timezone.utc),
+            {"ppa": "2026-10-26", "copr": "2026-10-26"})
+        self.assertEqual(result["total"], 0)
+        self.assertEqual(result["total_window"], "24h")
 
     def test_copr_counts_rpms_not_repo_enables(self):
         page = '<tr><td>Fedora 44</td><td>x86_64 (12)*</td>' \
