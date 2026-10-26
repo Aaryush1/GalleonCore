@@ -401,7 +401,7 @@ directs cumulés par système. Si le contenu externe facultatif est autorisé, i
 les chiffres actuels sur GitHub à l’ouverture de la page ; sinon il utilise le
 dernier relevé quotidien. Ces relevés donnent aussi des variations approximatives
 sur sept jours. Les téléchargements PPA et COPR sont relevés quotidiennement à 03 h 23 UTC ;
-le total récent est approximatif et nécessite des références complètes sur sept jours. L’AUR publie des votes et une popularité, pas
+le total récent est approximatif : il utilise sept jours si toutes les références sont disponibles, sinon un intervalle quotidien complet, PPA et COPR inclus. L’AUR publie des votes et une popularité, pas
 le nombre de téléchargements. Ces chiffres comptent des transferts (mises à jour
 comprises), pas des utilisateurs uniques.
 
