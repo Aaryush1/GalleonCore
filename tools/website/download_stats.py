@@ -92,16 +92,26 @@ def build_stats(releases, repository_totals, aur_votes, previous, now,
         for name in REPOSITORIES:
             by_channel[name] = (repository_weekly or {}).get(name)
     history.append(current)
+    daily = interval_deltas(current, daily_baseline)
+    # Include GitHub, PPA and COPR; a missing channel cannot count as zero.
+    # Fall back to a complete daily interval until the week is available.
     total = None
-    if by_channel and all(type(value) is int for value in by_channel.values()):
-        total = sum(by_channel.values())
+    total_window = None
+    channels = PLATFORMS + REPOSITORIES
+    if by_channel is not None and all(type(by_channel.get(name)) is int for name in channels):
+        total = sum(by_channel[name] for name in channels)
+        total_window = "7d"
+    elif daily is not None and all(type(daily.get(name)) is int for name in channels):
+        total = sum(daily[name] for name in channels)
+        total_window = "24h"
     return {
         "generated_at": now.isoformat().replace("+00:00", "Z"),
         "since": baseline["date"] if baseline else None,
-        "daily": interval_deltas(current, daily_baseline),
+        "daily": daily,
         "measurement_timezone": "UTC",
         "by_channel": by_channel,
         "total": total,
+        "total_window": total_window,
         "aur_votes": aur_votes,
         "repository_checked_at": repository_checked_at or {},
         "repository_weekly": repository_weekly or {},
