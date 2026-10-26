@@ -25,7 +25,7 @@ public sealed class Keyboard : IDisposable
     readonly SemaphoreSlim _io = new(1, 1);
     readonly CancellationTokenSource _stop = new();
     Task _supervisor = Task.CompletedTask;
-    bool _host, _disposed;
+    bool _host, _disposed, _ending;
     int _foreignSeen;
     DateTime _modeCheckedAt;
 
@@ -79,7 +79,7 @@ public sealed class Keyboard : IDisposable
     // Show one frame. Returns false if the frame was dropped (rate cap, frozen, yielded, unplugged, disposed) or failed.
     public async Task<bool> Show(byte[] frame)
     {
-        if (_disposed || Frozen || Yielded || !Connected) return false;
+        if (_disposed || _ending || Frozen || Yielded || !Connected) return false;
         if (_rate.WaitBefore(DateTime.UtcNow) > TimeSpan.Zero) return false;   // drop, never queue
         if (!await _io.WaitAsync(0)) return false;                             // a frame or a check is already in flight
         try
@@ -238,7 +238,8 @@ public sealed class Keyboard : IDisposable
 
     void OnSessionEnding(object? s, SessionEndingEventArgs e)
     {
-        _log.Note($"session ending ({e.Reason}): releasing");
+        _log.Note($"session ending ({e.Reason}): releasing, no more frames");
+        _ending = true;   // a caller's next frame must not take the keys back while Windows signs out or shuts down
         Release().GetAwaiter().GetResult();
     }
 

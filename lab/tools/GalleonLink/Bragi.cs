@@ -228,10 +228,11 @@ public sealed class Bragi : IDisposable
 public sealed class Log(string path) : IDisposable
 {
     readonly StreamWriter _w = new(path);
-    public void Tx(ReadOnlySpan<byte> b) => Write("TX " + Hex(b));
-    public void Rx(ReadOnlySpan<byte> b) => Write("RX " + Hex(b));
+    public bool Wire { get; init; } = true;   // false: notes only (long-running helper; the lab tools log every report)
+    public void Tx(ReadOnlySpan<byte> b) { if (Wire) Write("TX " + Hex(b)); }
+    public void Rx(ReadOnlySpan<byte> b) { if (Wire) Write("RX " + Hex(b)); }
     public void Note(string s) { Write(s); Console.WriteLine(s); }
-    void Write(string s) { _w.WriteLine($"{DateTime.Now:HH:mm:ss.fff} {s}"); _w.Flush(); }
+    void Write(string s) { lock (_w) { _w.WriteLine($"{DateTime.Now:HH:mm:ss.fff} {s}"); _w.Flush(); } }
     static string Hex(ReadOnlySpan<byte> b) { var t = b.ToArray(); var last = Array.FindLastIndex(t, x => x != 0); return Convert.ToHexString(t, 0, Math.Min(t.Length, Math.Max(last + 1, 8))); }
     public void Dispose() => _w.Dispose();
 }

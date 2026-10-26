@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Offline checks of the helper's pure parts (scene parsing, rendering). No device. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\DeskLights\Scene.cs" Link="Scene.cs" />
+    <Compile Include="..\DeskLights\Renderer.cs" Link="Renderer.cs" />
+    <ProjectReference Include="..\GalleonLink\GalleonLink.csproj" />
+  </ItemGroup>
+</Project>
