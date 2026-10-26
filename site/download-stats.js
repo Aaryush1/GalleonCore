@@ -63,7 +63,8 @@
 
   if (typeof module !== "undefined") {
     module.exports = { platformFor: platformFor, assetsFromReleases: assetsFromReleases,
-      totals: totals, sevenDayDeltas: sevenDayDeltas, approximateRecent: approximateRecent };
+      totals: totals, sevenDayDeltas: sevenDayDeltas, approximateRecent: approximateRecent,
+      recentEstimate: recentEstimate };
   }
   if (typeof document === "undefined") return;
 
@@ -92,6 +93,15 @@
     return values.reduce(function (sum, value) { return sum + value; }, 0);
   }
 
+  // Keep the approximation all-channel: prefer seven days, then a complete day.
+  function recentEstimate(weekly, repositoryWeekly, daily, repositoryDaily) {
+    var week = approximateRecent(weekly, repositoryWeekly);
+    if (week !== null) return { value: week, window: "7d" };
+    var day = approximateRecent(daily, repositoryDaily);
+    if (day !== null) return { value: day, window: "24h" };
+    return { value: null, window: null };
+  }
+
   function previousDayAssets(stats) {
     var history = stats && Array.isArray(stats.history) ? stats.history : [];
     if (history.length < 2) return null;
@@ -113,7 +123,14 @@
       if (daily) setNumber('[data-download-day="' + name + '"]', daily[name]);
     });
     var repositories = published && (published.repository_weekly || published.by_channel);
-    setNumber('[data-download-stat="total"]', approximateRecent(weekly, repositories));
+    var estimate = recentEstimate(weekly, repositories, daily, published && published.daily);
+    var totalElement = document.querySelector('[data-download-stat="total"]');
+    if (totalElement) {
+      if (estimate.value !== null) totalElement.textContent = estimate.value.toLocaleString();
+      else totalElement.innerHTML = '<span lang="en">Pending</span><span lang="fr">En attente</span>';
+    }
+    var windowElement = document.querySelector("[data-download-total-window]");
+    if (windowElement) windowElement.textContent = estimate.window ? " · " + estimate.window : "";
     document.getElementById("direct-count-source").textContent = live ? "GitHub API" : "Daily snapshot";
   }
 
@@ -124,7 +141,7 @@
       var stale = !last || last !== new Date().toISOString().slice(0, 10);
       return name.toUpperCase() + " " + (last || "—") + (stale ? " (ancienne / stale)" : "");
     }).join("; ");
-    note.innerHTML = '<span lang="en">GitHub totals: <span data-source></span>. PPA/COPR collection daily at 03:23 UTC. GitHub totals and recent deltas refresh live when allowed. The approximate recent total combines seven-day channels only with complete baselines. AUR votes fall back to the daily snapshot if its live API is unavailable. PPA: package downloads, including updates. COPR: cumulative RPM downloads. Last successful collection: <span data-repo-dates></span>. These are not unique installations or users. AUR measures votes.</span><span lang="fr">Totaux GitHub : <span data-source></span>. Collecte PPA/COPR quotidienne à 03 h 23 UTC. Totaux et variations GitHub actualisés en direct si autorisés. Le total récent approximatif additionne les canaux sur sept jours seulement avec des références complètes. Les votes AUR utilisent le relevé quotidien si leur API en direct est inaccessible. PPA : téléchargements de paquets, mises à jour comprises. COPR : téléchargements RPM cumulés. Dernière collecte réussie : <span data-repo-dates></span>. Ce ne sont pas des installations ou utilisateurs uniques. AUR mesure les votes.</span>';
+    note.innerHTML = '<span lang="en">GitHub totals: <span data-source></span>. PPA/COPR collection daily at 03:23 UTC. GitHub totals and recent deltas refresh live when allowed. The approximate recent total includes GitHub, PPA and COPR over seven days when complete, otherwise over a complete daily interval. Missing measurements never count as zero. AUR votes fall back to the daily snapshot if its live API is unavailable. PPA: package downloads, including updates. COPR: cumulative RPM downloads. Last successful collection: <span data-repo-dates></span>. These are not unique installations or users. AUR measures votes.</span><span lang="fr">Totaux GitHub : <span data-source></span>. Collecte PPA/COPR quotidienne à 03 h 23 UTC. Totaux et variations GitHub actualisés en direct si autorisés. Le total récent approximatif additionne GitHub, PPA et COPR sur sept jours si les références sont complètes, sinon sur un intervalle quotidien complet. Une mesure absente n'est jamais comptée comme zéro. Les votes AUR utilisent le relevé quotidien si leur API en direct est inaccessible. PPA : téléchargements de paquets, mises à jour comprises. COPR : téléchargements RPM cumulés. Dernière collecte réussie : <span data-repo-dates></span>. Ce ne sont pas des installations ou utilisateurs uniques. AUR mesure les votes.</span>';
     note.querySelectorAll("[data-source]").forEach(function (span) {
       span.textContent = live ? "GitHub API" : stats.generated_at || "Daily snapshot";
     });

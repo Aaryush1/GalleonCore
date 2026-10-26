@@ -35,4 +35,25 @@ assert.equal(stats.approximateRecent(
   { windows: 2, ubuntu: 0, fedora: 5, arch: 3, appimage: 2 },
   { ppa: 7, copr: null }), null);
 assert.equal(stats.approximateRecent(null, { ppa: 7, copr: 8 }), null);
+assert.deepEqual(stats.recentEstimate(
+  { windows: 2, ubuntu: 0, fedora: 5, arch: 3, appimage: 2 },
+  { ppa: 7, copr: 8 },
+  { windows: 1, ubuntu: 0, fedora: 1, arch: 0, appimage: 0 },
+  { ppa: 4, copr: 3 }
+), { value: 27, window: "7d" });
+assert.deepEqual(stats.recentEstimate(
+  null, { ppa: null, copr: null },
+  { windows: 1, ubuntu: 0, fedora: 1, arch: 0, appimage: 0 },
+  { ppa: 4, copr: 3 }
+), { value: 9, window: "24h" });
+assert.deepEqual(stats.recentEstimate(
+  null, null,
+  { windows: 1, ubuntu: 0, fedora: 1, arch: 0, appimage: 0 },
+  { ppa: 4, copr: null }
+), { value: null, window: null });
+assert.deepEqual(stats.recentEstimate(
+  null, null,
+  { windows: 0, ubuntu: 0, fedora: 0, arch: 0, appimage: 0 },
+  { ppa: 0, copr: 0 }
+), { value: 0, window: "24h" });
 console.log("Live download classification, deltas, and approximate totals passed");
