@@ -9,7 +9,9 @@ using GalleonLink;
 
 if (args.Length != 1 || !int.TryParse(args[0], out var pid)) { Console.Error.WriteLine("usage: Guard <pid>"); return 2; }
 
-var logs = Path.Combine(AppContext.BaseDirectory, "logs");
+// Inside an installed package the program folder is read-only, so log where the desk lights helper does
+// (a crash here on startup left the helper without its safety net in 1.0.0 and 1.0.1).
+var logs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeskLights", "logs");
 Directory.CreateDirectory(logs);
 using var log = new Log(Path.Combine(logs, $"guard-{pid}-{DateTime.Now:yyyyMMdd-HHmmss}.log"));
 
