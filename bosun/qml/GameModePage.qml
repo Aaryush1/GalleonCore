@@ -42,7 +42,6 @@ Flickable {
         height: 1
         color: "#44ffffff"
     }
-    function shellQuote(value) { return "'" + value.split("'").join("'\\''") + "'" }
     function applyEdits() {
         // Keep pending text before backend notifications refresh the bound fields.
         const source = fpsSource.input.text, process = fpsProcess.input.text
