@@ -77,9 +77,11 @@ void UpdateChecker::setRepositoryManaged(bool managed, bool known)
 }
 void UpdateChecker::startAutomaticChecks()
 {
-    if (simulation() || packageManaged()) return;
+    if (simulation() || packageManaged() || m_periodic.isActive()) return;
     m_periodic.start();
-    checkAutomatically();
+    // A fresh Bosun session checks the current release, even when another
+    // session checked within the past day. check() still honours retryAfter.
+    if (m_automatic) check(true);
 }
 void UpdateChecker::checkNow() { check(false); }
 void UpdateChecker::checkAutomatically()
@@ -106,7 +108,7 @@ void UpdateChecker::setAutomatic(bool enabled)
         m_status = tr("Automatic update check cancelled.");
     }
     Q_EMIT changed();
-    if (enabled) checkAutomatically();
+    if (enabled) check(true);
 }
 void UpdateChecker::check(bool automaticRequest)
 {
